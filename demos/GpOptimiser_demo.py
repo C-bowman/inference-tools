@@ -88,7 +88,7 @@ GP = GpOptimiser(x,y,bounds=bounds)
 
 
 # here we evaluate the search function for plotting purposes
-M = 400
+M = 500
 x_gp = linspace(*bounds[0],M)
 y_func = search_function(x_gp)
 max_values = [max(GP.y)]
@@ -136,7 +136,7 @@ def search_function(v):
 bounds = [(-8,8), (-8,8)]
 
 # evaluate function for plotting
-N = 50
+N = 80
 x = linspace(*bounds[0], N)
 y = linspace(*bounds[1], N)
 mesh = meshgrid(x, y)

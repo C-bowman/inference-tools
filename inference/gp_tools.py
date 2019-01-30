@@ -3,10 +3,12 @@
 .. moduleauthor:: Chris Bowman <chris.bowman@york.ac.uk>
 """
 
-from numpy import exp, log, dot, sqrt, std, argmin, diag, nonzero, ndarray
+from numpy import exp, log, dot, sqrt, std, argmin, diagonal, nonzero, ndarray, subtract
 from numpy import zeros, ones, array, where, pi
+from numpy import sum as npsum
 from scipy.special import erf
-from numpy.linalg import inv, slogdet, solve
+from numpy.linalg import inv, slogdet, solve, cholesky
+from scipy.linalg import solve_triangular
 from scipy.optimize import minimize, differential_evolution
 from itertools import product
 
@@ -61,7 +63,7 @@ class GpRegressor(object):
             else:
                 raise ValueError('y_err must be the same length as y')
         else:
-            err = ((self.y.max()-self.y.min()) * 1e-5)**2
+            err = ((self.y.max()-self.y.min()) * 1e-6)**2
             for i in range(len(self.y)):
                 self.sig[i,i] = err
 
@@ -85,8 +87,8 @@ class GpRegressor(object):
         # data covariance matrix as an optimisation
         self.distances = []
         for i in range(self.N):
-            D = [[ (a[i]-b[i])**2 for b in self.x] for a in self.x]
-            self.distances.append( -0.5*array(D) )
+            z = array([a[i] for a in self.x])
+            self.distances.append( -0.5*subtract.outer(z,z)**2 )
 
         # selects optimal values for covariance function parameters
         if hyperpars is not None:
@@ -98,9 +100,10 @@ class GpRegressor(object):
 
         # build the covariance matrix
         self.K_xx = self.build_covariance(self.a, self.s*self.scale_lengths)
-        self.H = solve(self.K_xx, self.y)
+        self.L = cholesky(self.K_xx)
+        self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
 
-    def __call__(self, q):
+    def __call__(self, q, theta = None):
         """
         Calculate the mean and standard deviation of the regression estimate at a series
         of specified spatial points.
@@ -113,6 +116,14 @@ class GpRegressor(object):
         :return: Two 1D arrays, the first containing the means and the second containing \
                  the sigma values.
         """
+        if theta is not None:
+            t = [exp(h) for h in theta]
+            self.a = t[0]
+            self.s = array(t[1:])
+            self.K_xx = self.build_covariance(self.a, self.s*self.scale_lengths)
+            self.L = cholesky(self.K_xx)
+            self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
+
         lengths = self.s * self.scale_lengths
 
         mu_q = []
@@ -124,7 +135,8 @@ class GpRegressor(object):
                 K_qx = array([self.covariance((v,), j, lengths) for j in self.x]).reshape([1, len(self.x)])
 
             mu_q.append( dot( K_qx, self.H )[0] )
-            errs.append( (self.a**2 - diag(dot(K_qx, solve( self.K_xx, K_qx.T ))))[0] )
+            v = solve_triangular(self.L, K_qx.T, lower = True)
+            errs.append( self.a**2 - npsum(v**2) )
 
         return array(mu_q), sqrt( abs(array(errs)) )
 
@@ -210,12 +222,12 @@ class GpRegressor(object):
         K_xx = self.build_covariance(a, s*self.scale_lengths)
 
         try: # protection against singular matrix error crash
-            sgn, ldet = slogdet(K_xx)
-            if sgn is -1: print(' # WARNING # - negative determinant')
-            L = dot( self.y.T, solve( K_xx, self.y ) ) + ldet
+            L = cholesky(K_xx)
+            alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
+            lml = 0.5*dot( self.y.T, alpha ) + log(diagonal(L)).sum()
         except:
-            L = 1e50
-        return L
+            lml = 1e50
+        return lml
 
     def optimize_hyperparameters_fixed_lengths(self):
         a_std = log(std(self.y)) # rough guess for amplitude value
@@ -482,12 +494,17 @@ class GpOptimiser(object):
         self.y = list(y)
         self.y_err = y_err
 
-        if y_err is not None: self.y = list(self.y)
-        self.bounds = bounds
+        if y_err is not None: self.y_err = list(self.y_err)
+        if bounds is None:
+            ValueError('The bounds keyword argument must be specified')
+        else:
+            self.bounds = bounds
+
         self.gp = GpRegressor(x, y, y_err=y_err)
 
         self.ir2pi = 1 / sqrt(2*pi)
         self.mu_max = max(self.y)
+        self.expected_fractional_improvement_history = []
 
     def __call__(self, x):
         return self.gp(x)
@@ -520,10 +537,10 @@ class GpOptimiser(object):
 
     def maximise_aquisition(self, aq_func):
         opt_result = differential_evolution(aq_func, self.bounds)
-        return opt_result.x
+        return opt_result.x, opt_result.fun
 
     def learn_function(self):
-        return self.maximise_aquisition(self.variance_aq)
+        return self.maximise_aquisition(self.variance_aq)[0]
 
     def search_for_maximum(self):
         """
@@ -533,7 +550,9 @@ class GpOptimiser(object):
 
         :return: location of the next proposed evaluation.
         """
-        return self.maximise_aquisition(self.expected_improvement)
+        proposed_ev, max_EI = self.maximise_aquisition(self.expected_improvement)
+        self.expected_fractional_improvement_history.append( abs(max_EI / self.mu_max) )
+        return proposed_ev
 
     def expected_improvement(self,x):
         mu, sig = self.gp([x])

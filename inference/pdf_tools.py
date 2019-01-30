@@ -6,10 +6,12 @@
 
 
 from numpy import exp, log, mean, std, sqrt, tanh, cos, cov
-from numpy import array, linspace, sort, searchsorted, pi
+from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, logaddexp
+from numpy.random import random
 from scipy.integrate import quad, simps
 from scipy.optimize import minimize, minimize_scalar
 from itertools import product
+from functools import reduce
 from copy import copy
 import matplotlib.pyplot as plt
 
@@ -74,7 +76,7 @@ class DensityEstimator(object):
 
         axis = linspace(lwr, upr, 500)
 
-        plt.figure(figsize = (10,6))
+        fig = plt.figure(figsize = (10,6))
         ax = plt.subplot2grid((1, 3), (0, 0), colspan = 2)
         ax.plot(axis, self.__call__(axis), lw = 2)
         ax.plot([self.mode, self.mode], [0., self.__call__(self.mode)], c = 'red', ls = 'dashed')
@@ -151,6 +153,9 @@ class DensityEstimator(object):
             plt.savefig(filename)
         if show:
             plt.show()
+        else:
+            fig.clear()
+            plt.close(fig)
 
     @staticmethod
     def binary_search(func, value, bounds, uphill = True):
@@ -345,15 +350,29 @@ class GaussianKDE(DensityEstimator):
     :param float bandwidth: width of the Gaussian kernels used for the estimate. If not specified, \
                             an appropriate width is estimated based on sample data.
 
+    :param bool cross_validation: Indicate whether or not cross-validation should be used to estimate \
+                                  the bandwidth in place of the simple 'rule of thumb' estimate \
+                                  which is normally used.
+
+    :param int max_cv_samples: The maximum number of samples to be used when estimating the bandwidth \
+                               via cross-validation. The computational cost scales roughly quadratically \
+                               with the number of samples used, and can become prohibitive for samples of \
+                               size in the tens of thousands and up. Instead, if the sample size is greater \
+                               than *max_cv_samples*, the cross-validation is performed on a sub-sample of \
+                               this size.
+
     The GaussianKDE class uses Gaussian kernel-density estimation to approximate a
     probability distribution given a sample drawn from that distribution.
     """
-    def __init__(self, sample, bandwidth = None):
+    def __init__(self, sample, bandwidth = None, cross_validation = False, max_cv_samples = 5000):
 
-        self.s = sort(array(sample).flatten())
+        self.s = sort(array(sample).flatten()) # sorted array of the samples
+        self.max_cvs = max_cv_samples # maximum number of samples to be used for cross-validation
 
         if bandwidth is None:
-            self.h = self.estimate_bandwidth(self.s)  # very simple bandwidth estimate
+            self.h = self.simple_bandwidth_estimator()  # very simple bandwidth estimate
+            if cross_validation:
+                self.h = self.cross_validation_bandwidth_estimator(self.h)
         else:
             self.h = bandwidth
 
@@ -441,9 +460,91 @@ class GaussianKDE(DensityEstimator):
                 x = z
         return z
 
-    def estimate_bandwidth(self, x): # could be static now, but not in future
-        # TODO - we need to replace this with a more sophisticated bandwidth estimator
-        return 1.06 * std(x) / (len(x)**0.2)
+    def simple_bandwidth_estimator(self):
+        # A simple estimate which assumes the distribution close to a Gaussian
+        return 1.06 * std(self.s) / (len(self.s)**0.2)
+
+    def cross_validation_bandwidth_estimator(self, initial_h):
+        """
+        Selects the bandwidth by maximising a log-probability derived
+        using a 'leave-one out cross-validation' approach.
+        """
+        # first check if we need to sub-sample for computational cost reduction
+        if len(self.s) > self.max_cvs:
+            scrambler = argsort(random(size=len(self.s)))
+            samples = (self.s[scrambler])[:self.max_cvs]
+        else:
+            samples = self.s
+
+        # create a grid in log-bandwidth space and evaluate the log-prob across it
+        dh = 0.5
+        log_h = [initial_h + m*dh for m in (-2, -1, 0, 1, 2)]
+        log_p = [self.cross_validation_logprob(samples, exp(h)) for h in log_h]
+
+
+        # if the maximum log-probability is at the edge of the grid, extend it
+        for i in range(5):
+            # stop when the maximum is not at the edge
+            max_ind = argmax(log_p)
+            if (0 < max_ind < len(log_h) - 1):
+                break
+
+            if max_ind == 0: # extend grid to lower bandwidths
+                new_h = log_h[0] - dh
+                new_lp = self.cross_validation_logprob(samples, exp(new_h))
+                log_h.insert(0, new_h)
+                log_p.insert(0, new_lp)
+
+            else: # extend grid to higher bandwidths
+                new_h = log_h[-1] + dh
+                new_lp = self.cross_validation_logprob(samples, exp(new_h))
+                log_h.append(new_h)
+                log_p.append(new_lp)
+
+        # cost of evaluating the cross-validation is expensive, so we want to
+        # minimise total evaluations. Here we assume the CV score has only one
+        # maxima, and use recursive grid refinement to rapidly find it.
+        for refine in range(6):
+            max_ind = int(argmax(log_p))
+            lwr_h = 0.5 * (log_h[max_ind - 1] + log_h[max_ind])
+            upr_h = 0.5 * (log_h[max_ind] + log_h[max_ind + 1])
+
+            lwr_lp = self.cross_validation_logprob(samples, exp(lwr_h))
+            upr_lp = self.cross_validation_logprob(samples, exp(upr_h))
+
+            log_h.insert(max_ind, lwr_h)
+            log_p.insert(max_ind, lwr_lp)
+
+            log_h.insert(max_ind + 2, upr_h)
+            log_p.insert(max_ind + 2, upr_lp)
+
+        h_estimate = exp(log_h[argmax(log_p)])
+        return h_estimate
+
+    def cross_validation_logprob(self, samples, width, c = 0.99):
+        """
+        This function uses a 'leave-one-out cross-validation' (LOO-CV)
+        approach to calculate a log-probability associated with the
+        density estimate - the bandwidth can be selected by maximising
+        this log-probability.
+        """
+        # evaluate the log-pdf estimate at each sample point
+        log_pdf = self.log_evaluation(samples, samples, width)
+        # remove the contribution at each sample due to itself
+        d = log(c) - log(width * len(samples) * sqrt(2*pi)) - log_pdf
+        loo_adjustment = log(1 - exp(d))
+        log_probs = log_pdf + loo_adjustment
+        return sum(log_probs) # sum to find the overall log-probability
+
+    @staticmethod
+    def log_kernel(x, c, h):
+        z = (x - c) / h
+        return -0.5 * z ** 2 - log(h)
+
+    def log_evaluation(self, points, samples, width):
+        # evaluate the log-pdf in a way which prevents underflow
+        generator = (self.log_kernel(points, s, width) for s in samples)
+        return reduce(logaddexp, generator) - log(len(samples) * sqrt(2*pi))
 
     def locate_mode(self):
         result = minimize_scalar(lambda x : -self.__call__(x), bounds = [self.s[0], self.s[-1]], method = 'bounded')
