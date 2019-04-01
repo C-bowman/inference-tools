@@ -7,14 +7,11 @@ from inference.mcmc import GibbsChain
 def rosenbrock(t):
     # This is a modified form of the rosenbrock function, which
     # is commonly used to test optimisation algorithms
-    X, Y = t
-    X -= 2
-    X /= 4
-    Y /= 4
-
+    X, Y = t; X -= 2
+    X *= 0.25; Y *= 0.25
     X2 = X**2
 
-    b = 15  # increase this to boost the 'correlatedness' of the function
+    b = 10  # increase this to boost the 'correlatedness' of the function
     c = 2   # standard deviation of the gaussian part
     return -(X - 1)**2 - b*(Y - X2)**2 - 0.5*((X2 + Y**2)/c**2)
 
@@ -70,24 +67,14 @@ chain.plot_diagnostics()
 # n'th sample is used) in order to reduce the size of the data set for
 # storage, or to produce uncorrelated samples.
 
-# based on the diagnostics we can choose to set a global burn and thin
-# value, which is used (unless otherwise specified) by all methods which
+# based on the diagnostics we can choose to manually set a global burn and
+# thin value, which is used (unless otherwise specified) by all methods which
 # access the samples
-chain.burn = 5000
-chain.thin = 2
+chain.burn = 2000
+chain.thin = 5
 
-# An alternative way to work with the chain data is to use the dump() method,
-# which stores all sample data and probability information in a single numpy
-# array.
-
-# The dump() method also allows you to specify a burn-in and thinning factor
-# if desired:
-data = chain.dump()
-
-# this array is arranged such that the first dimension corresponds to all
-# steps in the chain, and the second dimension corresponds to each model
-# parameter, with an extra element at the end for the associated log-
-# probability values.
+# the burn-in and thinning can also be set automatically as follows:
+chain.autoselect_burn_and_thin()
 
 # After discarding burn-in, what we have left should be a representative
 # sample drawn from the posterior. Repeating the previous plot as a
@@ -102,8 +89,8 @@ plt.show()
 
 # We can easily estimate 1D marginal distributions for any parameter
 # using the 'marginalise' method:
-pdf_1 = chain.marginalise(0, unimodal = True)
-pdf_2 = chain.marginalise(1, unimodal = True)
+pdf_1 = chain.get_marginal(0, unimodal = True)
+pdf_2 = chain.get_marginal(1, unimodal = True)
 
 # marginalise returns a density estimator object, which can be called
 # as a function to return the value of the pdf at any point.
@@ -119,3 +106,17 @@ plt.ylabel('probability density')
 plt.legend()
 plt.grid()
 plt.show()
+
+# chain objects can be saved in their entirety as a single .npz file using
+# the save() method, and then re-built using the load() class method, so
+# that to save the chain you may write:
+
+#       chain.save('chain_data.npz')
+
+# and to re-build a chain object at it was before you would write
+
+#       chain = GibbsChain.load('chain_data.npz')
+
+# This allows you to advance a chain, store it, then re-load it at a later
+# time to analyse the chain data, or re-start the chain should you decide
+# more samples are required.

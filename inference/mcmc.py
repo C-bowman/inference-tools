@@ -11,11 +11,13 @@ from time import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
-from numpy import array, zeros, linspace, save
+from numpy import array, zeros, linspace
 
-from numpy import exp, log, mean, sqrt, argmax, diff, dot
-from numpy import meshgrid, isfinite, sort, argsort
+from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, percentile
+from numpy import meshgrid, isfinite, sort, argsort, savez, savez_compressed, load
+from numpy.fft import rfft, irfft
 from numpy.random import normal, random
+from scipy.linalg import eigh
 
 from inference.pdf_tools import UnimodalPdf, GaussianKDE, KDE2D
 
@@ -57,10 +59,11 @@ class Parameter(object):
 
         # properties
         self._non_negative = False
+        self.bounded = False
         self.proposal = self.standard_proposal
-        self.upper = None
-        self.lower = None
-        self.width = None
+        self.upper = 0.
+        self.lower = 0.
+        self.width = 0.
 
     def set_boundaries(self, lower, upper):
         if lower < upper:
@@ -68,14 +71,16 @@ class Parameter(object):
             self.lower = lower
             self.width = (upper - lower)
             self.proposal = self.boundary_proposal
+            self.bounded = True
         else:
             warn('Upper limit must be greater than lower limit')
 
     def remove_boundaries(self):
         self.proposal = self.standard_proposal
-        self.upper = None
-        self.lower = None
-        self.width = None
+        self.bounded = False
+        self.upper = 0.
+        self.lower = 0.
+        self.width = 0.
 
     @property
     def non_negative(self):
@@ -154,7 +159,6 @@ class Parameter(object):
     def adjust_sigma(self, ratio):
         self.sigma *= ratio
         self.sigma_values.append(copy(self.sigma))
-        # self.sigma_checks.append(self.sigma_checks[-1] + self.num)
         self.sigma_checks.append(len(self.samples))
         self.avg = 0
         self.var = 0
@@ -163,6 +167,59 @@ class Parameter(object):
     def add_sample(self, s):
         self.samples.append(s)
         self.try_count = 0
+
+    def get_items(self, param_id):
+        i = 'param_' + str(param_id)
+        items = [
+            (i+'samples', self.samples),
+            (i+'sigma', self.sigma),
+            (i+'avg', self.avg),
+            (i+'var', self.var),
+            (i+'num', self.num),
+            (i+'sigma_values', self.sigma_values),
+            (i+'sigma_checks', self.sigma_checks),
+            (i+'try_count', self.try_count),
+            (i+'last_update', self.last_update),
+            (i+'target_rate', self.target_rate),
+            (i+'max_tries', self.max_tries),
+            (i+'chk_int', self.chk_int),
+            (i+'growth_factor', self.growth_factor),
+            (i+'adjust_rate', self.adjust_rate),
+            (i+'_non_negative', self._non_negative),
+            (i+'bounded', self.bounded),
+            (i+'upper', self.upper),
+            (i+'lower', self.lower),
+            (i+'width', self.width) ]
+        return items
+
+    def load_items(self, dictionary, param_id):
+        i = 'param_' + str(param_id)
+        self.samples = list(dictionary[i + 'samples'])
+        self.sigma = float(dictionary[i + 'sigma'])
+        self.avg = float(dictionary[i + 'avg'])
+        self.var = float(dictionary[i + 'var'])
+        self.num = float(dictionary[i + 'num'])
+        self.sigma_values = list(dictionary[i + 'sigma_values'])
+        self.sigma_checks = list(dictionary[i + 'sigma_checks'])
+        self.try_count = int(dictionary[i + 'try_count'])
+        self.last_update = int(dictionary[i + 'last_update'])
+        self.target_rate = float(dictionary[i + 'target_rate'])
+        self.max_tries = int(dictionary[i + 'max_tries'])
+        self.chk_int = int(dictionary[i + 'chk_int'])
+        self.growth_factor = float(dictionary[i + 'growth_factor'])
+        self.adjust_rate = float(dictionary[i + 'adjust_rate'])
+        self._non_negative = bool(dictionary[i + '_non_negative'])
+        self.bounded = bool(dictionary[i + 'bounded'])
+        self.upper = float(dictionary[i + 'upper'])
+        self.lower = float(dictionary[i + 'lower'])
+        self.width = float(dictionary[i + 'width'])
+
+        if self.bounded:
+            self.proposal = self.boundary_proposal
+        elif self._non_negative:
+            self.proposal = self.abs_proposal
+        else:
+            self.proposal = self.standard_proposal
 
 
 
@@ -202,14 +259,15 @@ class MarkovChain(object):
             # create storage
             self.n = 1  # tracks total length of the chain
             self.L = len(start)  # number of posterior parameters
-            self.probs = list()  # list of probabilities for all steps
+            self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
-            self.probs.append(self.posterior([p.samples[-1] for p in self.params]))
+            if len(self.params) is not 0:
+                self.probs.append(self.posterior([p.samples[-1] for p in self.params]))
 
-            # check posterior value of chain starting point is finite
-            if not isfinite(self.probs[0]):
-                ValueError('posterior returns a non-finite value for provided initial guess')
+                # check posterior value of chain starting point is finite
+                if not isfinite(self.probs[0]):
+                    ValueError('posterior returns a non-finite value for provided initial guess')
 
             # add default burn and thin values
             self.burn = 1 # remove the starting position by default
@@ -286,9 +344,10 @@ class MarkovChain(object):
 
         # get a rough estimate of the time per step
         step_time = time()
-        __ = self.posterior([p.samples[-1] for p in self.params])
+        __ = self.posterior(self.get_last())
         step_time = time() - step_time
         step_time *= 2*self.L
+        if step_time <= 0.: step_time = 0.005
 
         # choose an update interval that should take ~2 seconds
         update_interval = max( int(2. // step_time), 1)
@@ -316,26 +375,8 @@ class MarkovChain(object):
         sys.stdout.flush()
         sys.stdout.write('\n')
 
-    def dump(self, thin = None, burn = None):
-        """
-        returns the theta values and associated log-probabilities
-        for every step in the chain in a single numpy array
-        for easier storage / analysis.
-        """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
-        data = zeros([len(self.probs[burn::thin]), self.L+1])
-
-        for i in range(self.L):
-            data[:,i] = self.get_parameter(i, burn=burn, thin=thin)
-        data[:,-1] = array(self.probs[burn::thin])
-        return data
-
-    def save(self, filepath, burn = None, thin = None):
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
-        dat = self.dump(burn=burn, thin=thin)
-        save(filepath, dat)
+    def get_last(self):
+        return [ p.samples[-1] for p in self.params ]
 
     def get_parameter(self, n, burn = None, thin = None):
         """
@@ -477,7 +518,7 @@ class MarkovChain(object):
         else:
             self.params[parameter].set_boundaries(*boundaries)
 
-    def marginalise(self, n, thin = None, burn = None, unimodal = False):
+    def get_marginal(self, n, thin = None, burn = None, unimodal = False):
         """
         Estimate the 1D marginal distribution of a chosen parameter.
 
@@ -529,20 +570,26 @@ class MarkovChain(object):
         :param str filename: File path to which the diagnostics plot will be saved. If left \
                              unspecified the plot won't be saved.
         """
-        fig = plt.figure(figsize = (12,5))
+        burn = self.estimate_burn_in()
+        param_ESS = [ ESS(array(self.get_parameter(i,burn=burn))) for i in range(self.L) ]
+
+
+        fig = plt.figure(figsize = (12,9))
 
         # probability history plot
-        ax1 = fig.add_subplot(121)
+        ax1 = fig.add_subplot(221)
         step_ax = [i * 1e-3 for i in range(len(self.probs))]  # TODO - avoid making this axis but preserve figure form
         ax1.plot(step_ax, self.probs, marker = '.', ls = 'none', markersize = 3)
         ax1.set_xlabel('chain step number ($10^3$)', fontsize = 12)
         ax1.set_ylabel('log posterior probability', fontsize = 12)
         ax1.set_title('Chain log-probability history')
-        ax1.set_ylim([min(self.probs[self.n//2:]), max(self.probs)*1.1 - 0.1*min(self.probs[self.n//2:])])
+        ylims = [min(self.probs[self.n//2:]), max(self.probs)*1.1 - 0.1*min(self.probs[self.n//2:])]
+        plt.plot([burn*1e-3,burn*1e-3], ylims, c = 'red', ls = 'dashed', lw = 2)
+        ax1.set_ylim(ylims)
         ax1.grid()
 
         # proposal widths plot
-        ax2 = fig.add_subplot(122)
+        ax2 = fig.add_subplot(222)
         for p in self.params:
             y = array(p.sigma_values)
             x = array(p.sigma_checks[1:]) * 1e-3
@@ -555,6 +602,32 @@ class MarkovChain(object):
         ax2.set_ylim([-50,50])
         ax2.grid()
 
+        ax3 = fig.add_subplot(223)
+        ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
+        ax3.set_xlabel('parameter', fontsize = 12)
+        ax3.set_ylabel('effective sample size', fontsize = 12)
+        ax3.set_title('Parameter effective sample size estimate')
+        ax3.set_xticks(range(self.L))
+
+        ax4 = fig.add_subplot(224)
+        gap = 0.1
+        h = 0.85
+        x1 = 0.5
+        x2 = 0.55
+        fntsiz = 14
+
+        # ax4.text(0., h, 'Basics', horizontalalignment = 'left', fontweight = 'bold')
+        # h -= gap
+        ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize = fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format( burn ), horizontalalignment='left', fontsize = fntsiz)
+        h -= gap
+        ax4.text(x1, h, 'Average ESS:', horizontalalignment='right', fontsize = fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format( int(mean(param_ESS)) ), horizontalalignment='left', fontsize = fntsiz)
+        h -= gap
+        ax4.text(x1, h, 'Lowest ESS:', horizontalalignment='right', fontsize = fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format( int(min(param_ESS)) ), horizontalalignment='left', fontsize = fntsiz)
+        ax4.axis('off')
+
         plt.tight_layout()
         if filename is not None:
             plt.savefig(filename)
@@ -564,7 +637,8 @@ class MarkovChain(object):
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(self, params = None, thin = None, burn = None, labels = None, show = True, reference = None, filename = None):
+    def matrix_plot(self, params = None, thin = None, burn = None, labels = None, show = True,
+                    reference = None, filename = None, show_axes = True):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions.
@@ -590,6 +664,8 @@ class MarkovChain(object):
 
         :param str filename: File path to which the matrix plot will be saved. If unspecified \
                              the plot will be displayed but not saved.
+
+        :param bool show_axes: Specifies whether axis tick labels are displayed.
         """
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
@@ -679,15 +755,19 @@ class MarkovChain(object):
                     ax.plot(reference[j], reference[i], marker = 'o', markersize = 7,
                             markerfacecolor = 'none', markeredgecolor = 'red', markeredgewidth = 2)
 
-            if i == n-1:
+
+            # assign axis labels
+            if i == n-1: ax.set_xlabel(labels[j])
+            if j == 0 and i != 0: ax.set_ylabel(labels[i])
+
+            # assign or suppress axis ticks
+            if i == n-1 and show_axes:
                 ax.set_xlim(axlims[j])
-                ax.set_xlabel(labels[j])
             else: # not on the bottom row
                 plt.setp(ax.get_xticklabels(), visible = False)
 
-            if j == 0 and i != 0:
+            if j == 0 and i != 0 and show_axes:
                 ax.set_ylim(axlims[i])
-                ax.set_ylabel(labels[i])
             else: # not on left column
                 plt.setp(ax.get_yticklabels(), visible = False)
 
@@ -700,6 +780,99 @@ class MarkovChain(object):
             fig.clear()
             plt.close(fig)
 
+    def save(self, filename):
+        """
+        Save the entire state of the chain object as an .npz file.
+
+        :param str filename: file path to which the chain will be saved.
+        """
+        # get the chain attributes
+        items = [
+            ('n', self.n),
+            ('L', self.L),
+            ('probs', self.probs),
+            ('burn', self.burn),
+            ('thin', self.thin),
+            ('print_status', self.print_status) ]
+
+        # get the parameter attributes
+        for i, p in enumerate(self.params):
+            items.extend( p.get_items(param_id=i) )
+
+        # build the dict
+        D = {}
+        for key, value in items:
+            D[key] = value
+
+        # save as npz
+        savez(filename, **D)
+
+    @classmethod
+    def load(cls, filename, posterior = None):
+        """
+        Load a chain object which has been previously saved using the save() method.
+
+        :param str filename: file path of the .npz file containing the chain object data.
+        :param posterior: The posterior which was sampled by the chain. This argument need \
+                          only be specified if new samples are to be added to the chain.
+        """
+        # load the data and create a chain instance
+        D = load(filename)
+        chain = cls(posterior=posterior)
+
+        # re-build the chain's attributes
+        chain.n = int(D['n'])
+        chain.L = int(D['L'])
+        chain.probs = list(D['probs'])
+        chain.burn = int(D['burn'])
+        chain.thin = int(D['thin'])
+        chain.print_status = bool(D['print_status'])
+
+        # re-build all the parameter objects
+        chain.params = []
+        for i in range(chain.L):
+            p = Parameter()
+            p.load_items(dictionary=D, param_id=i)
+            chain.params.append(p)
+
+        return chain
+
+    def estimate_burn_in(self):
+        # first get an estimate based on when the chain first reaches
+        # the top 1% of log-probabilities
+        prob_estimate = argmax(self.probs > percentile(self.probs,99))
+
+        # now we find the point at which the proposal width for each parameter
+        # starts to deviate significantly from the current value
+        width_estimates = []
+        for p in self.params:
+            vals = abs((array(p.sigma_values)[::-1] / p.sigma) - 1.)
+            chks = array(p.sigma_checks)[::-1]
+            first_true = chks[ argmax(vals > 0.15) ]
+            width_estimates.append(first_true)
+
+        width_estimate = mean(width_estimates)
+        return int(max(prob_estimate, width_estimate))
+
+    def autoselect_burn_and_thin(self):
+        self.burn = self.estimate_burn_in()
+        param_ESS = [ ESS(array(self.get_parameter(i))) for i in range(self.L) ]
+        self.thin = int( (self.n-self.burn) / min(param_ESS) )
+        if self.thin < 1:
+            self.thin = 1
+        elif (self.n-self.burn)/self.thin < 1:
+            self.thin = 1
+            warn('Thinning not performed as lowest ESS is below 1')
+        elif (self.n-self.burn)/self.thin < 100:
+            warn('Sample size after thinning is less than 100')
+
+        msg = '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
+        msg+= '         burn-in set to ' + str(self.burn) + '\n'
+        msg+= '        thinning set to ' + str(self.thin) + '\n'
+        msg+= ' thinned sample size is ' + str(len(self.probs[self.burn::self.thin])) + '\n'
+        msg+= '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
+        print(msg)
+            
 
 
 
@@ -718,7 +891,7 @@ class GibbsChain(MarkovChain):
 
     :param widths: vector of standard deviations which serve as initial guesses for the widths of \
                    the proposal distribution for each model parameter. If not specified, the starting \
-                   widths will be approximated as 1% of the values in 'start'.
+                   widths will be approximated as 5% of the values in 'start'.
 
     In Gibbs sampling, each "step" in the chain consists of a series of 1D Metropolis-Hastings
     steps, one for each parameter, such that each step all parameters have been adjusted.
@@ -730,8 +903,9 @@ class GibbsChain(MarkovChain):
         super(GibbsChain, self).__init__(*args, **kwargs)
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
-        for p in self.params:
-            p.target_rate = 0.5
+        if hasattr(self, 'params'):
+            for p in self.params:
+                p.target_rate = 0.5
 
     def take_step(self):
         """
@@ -763,6 +937,204 @@ class GibbsChain(MarkovChain):
 
         self.probs.append(p_new)
         self.n += 1
+
+
+
+
+
+
+class PcaChain(MarkovChain):
+    """
+    A class which performs Gibbs sampling over the eigenvectors of the covariance matrix.
+
+    :param func posterior: a function which returns the log-posterior probability density for a \
+                           given set of model parameters theta, which should be the only argument \
+                           so that: ln(P) = posterior(theta)
+
+    :param start: vector of model parameters which correspond to the parameter-space coordinates \
+                  at which the chain will start.
+
+    :param widths: vector of standard deviations which serve as initial guesses for the widths of \
+                   the proposal distribution for each model parameter. If not specified, the starting \
+                   widths will be approximated as 5% of the values in 'start'.
+
+    The PcaChain sampler uses 'principal component analysis' (PCA) to improve
+    the performance of Gibbs sampling in cases where strong linear correlation
+    exists between two or more variables in a problem.
+
+    For an N-parameter problem, PcaChain produces a new sample by making N
+    sequential 1D Metropolis-Hastings steps in the direction of each of the
+    N eigenvectors of the NxN covariance matrix.
+
+    As an initial guess the covariance matrix is taken to be diagonal, which
+    results in standard gibbs sampling for the first samples in the chain.
+    Subsequently, the covariance matrix periodically updated with an estimate
+    derived from the sample itself, and the eigenvectors are re-calculated.
+    """
+    def __init__(self, *args, **kwargs):
+        super(PcaChain, self).__init__(*args, **kwargs)
+        # we need to adjust the target acceptance rate to 50%
+        # which is optimal for gibbs sampling:
+        for p in self.params:
+            p.target_rate = 0.5
+
+        self.directions = []
+        for i in range(self.L):
+            v = zeros(self.L)
+            v[i] = 1.
+            self.directions.append(v)
+
+        # PCA update settings
+        self.dir_update_interval = 100
+        self.dir_growth_factor = 1.5
+        self.last_update = 0
+        self.next_update = copy(self.dir_update_interval)
+
+        # PCA convergence tracking
+        self.angles_history = []
+        self.update_history = []
+
+    def update_directions(self):
+        # re-estimate the covariance and find its eigenvectors
+        data = array( [ self.get_parameter(i)[self.last_update:] for i in range(self.L)] )
+        S = cov(data)
+        w, V = eigh(S)
+
+        # find the sine of the angle between the old and new eigenvectors to track convergence
+        angles = [ sqrt(1. - dot(V[:,i], self.directions[i])**2) for i in range(self.L)]
+        self.angles_history.append(angles)
+        self.update_history.append(copy(self.n))
+
+        # store the new directions and plan the next update
+        self.directions = [V[:,i] for i in range(self.L)]
+        self.last_update = copy(self.n)
+        self.dir_update_interval = int(self.dir_update_interval*self.dir_growth_factor)
+        self.next_update = self.last_update + self.dir_update_interval
+
+    def directions_diagnostics(self):
+        for i in range(self.L):
+            prods = [ v[i] for v in self.angles_history ]
+            plt.plot(self.update_history, prods, '.-')
+        plt.plot([self.update_history[0], self.update_history[-1]], [1e-2, 1e-2], ls = 'dashed', c = 'black', lw = 2)
+        plt.yscale('log')
+        plt.ylim([1e-4, 1.])
+        plt.xlim([0, self.update_history[-1]])
+
+        plt.ylabel(r'$|\sin{(\Delta \theta)}|$', fontsize = 13)
+        plt.xlabel(r'update step number', fontsize = 13)
+
+        plt.grid()
+        plt.tight_layout()
+        plt.show()
+
+    def take_step(self):
+        """
+        Take a Metropolis-Hastings step along each principal component
+        """
+        p_old = self.probs[-1]
+        theta0 = array([p.samples[-1] for p in self.params])
+
+        for v, p in zip(self.directions,self.params):
+
+            while True:
+                prop = theta0 + v*p.sigma*normal()
+                p_new = self.posterior(prop)
+
+                if p_new > p_old:
+                    p.submit_accept_prob(1.)
+                    break
+                else:
+                    test = random()
+                    acceptance_prob = exp(p_new-p_old)
+                    p.submit_accept_prob(acceptance_prob)
+                    if test < acceptance_prob:
+                        break
+
+            theta0 = copy(prop)
+            p_old = copy(p_new)
+
+        for v, p in zip(theta0, self.params):
+            p.add_sample(v)
+
+        self.probs.append(p_new)
+        self.n += 1
+
+        if self.n == self.next_update:
+            self.update_directions()
+
+    def save(self, filename):
+        """
+        Save the entire state of the chain object as an .npz file.
+
+        :param str filename: file path to which the chain will be saved.
+        """
+        # get the chain attributes
+        items = [
+            ('n', self.n),
+            ('L', self.L),
+            ('probs', self.probs),
+            ('burn', self.burn),
+            ('thin', self.thin),
+            ('print_status', self.print_status),
+            ('dir_update_interval', self.dir_update_interval),
+            ('dir_growth_factor', self.dir_growth_factor),
+            ('last_update', self.last_update),
+            ('next_update', self.next_update),
+            ('angles_history', array(self.angles_history)),
+            ('update_history', array(self.update_history)),
+            ('directions', array(self.directions)) ]
+
+        # get the parameter attributes
+        for i, p in enumerate(self.params):
+            items.extend( p.get_items(param_id=i) )
+
+        D = {} # build the dict
+        for key, value in items:
+            D[key] = value
+        # save as npz
+        savez(filename, **D)
+
+    @classmethod
+    def load(cls, filename, posterior = None):
+        """
+        Load a chain object which has been previously saved using the save() method.
+
+        :param str filename: file path of the .npz file containing the chain object data.
+        :param posterior: The posterior which was sampled by the chain. This argument need \
+                          only be specified if new samples are to be added to the chain.
+        """
+        # load the data and create a chain instance
+        D = load(filename)
+        chain = cls(posterior=posterior)
+
+        # re-build the chain's attributes
+        chain.n = int(D['n'])
+        chain.L = int(D['L'])
+        chain.probs = list(D['probs'])
+        chain.burn = int(D['burn'])
+        chain.thin = int(D['thin'])
+        chain.print_status = bool(D['print_status'])
+        chain.dir_update_interval = int(D['dir_update_interval'])
+        chain.dir_growth_factor = float(D['dir_growth_factor'])
+        chain.last_update = int(D['last_update'])
+        chain.next_update = int(D['next_update'])
+        chain.angles_history = [ D['angles_history'][i,:] for i in range(D['angles_history'].shape[0]) ]
+        chain.update_history = list(D['update_history'])
+        chain.directions = [ D['directions'][i,:] for i in range(D['directions'].shape[0]) ]
+
+        # re-build all the parameter objects
+        chain.params = []
+        for i in range(chain.L):
+            p = Parameter()
+            p.load_items(dictionary=D, param_id=i)
+            chain.params.append(p)
+        return chain
+
+    def set_non_negative(self, parameter, flag = True):
+        raise ValueError('This method is not available for PcaChain')
+
+    def set_boundaries(self, parameter, boundaries, remove = False):
+        raise ValueError('This method is not available for PcaChain')
 
 
 
@@ -815,10 +1187,15 @@ class HamiltonianChain(MarkovChain):
 
         if bounds is None:
             self.leapfrog = self.standard_leapfrog
+            self.bounded = False
+            self.lwr_bounds = None
+            self.upr_bounds = None
+            self.widths = None
         else:
             self.leapfrog = self.bounded_leapfrog
-            self.lwr_bounds = bounds[0]
-            self.upr_bounds = bounds[1]
+            self.bounded = True
+            self.lwr_bounds = array(bounds[0])
+            self.upr_bounds = array(bounds[1])
             if any((self.lwr_bounds > array(start)) | (self.upr_bounds < array(start))):
                 raise ValueError('starting location for the chain is outside specified bounds')
             self.widths = self.upr_bounds - self.lwr_bounds
@@ -831,9 +1208,10 @@ class HamiltonianChain(MarkovChain):
             self.inv_mass = inv_mass
 
         self.T = temperature
-        self.theta = [start]
-        self.probs = [self.posterior(start)/self.T]
-        self.L = len(start)
+        if start is not None:
+            self.theta = [start]
+            self.probs = [self.posterior(start)/self.T]
+            self.L = len(start)
         self.n = 1
 
         self.ES = EpsilonSelector(epsilon)
@@ -920,6 +1298,9 @@ class HamiltonianChain(MarkovChain):
         r3 = r2 + (0.5*self.ES.epsilon)*self.g
         return t2, r3
 
+    def get_last(self):
+        return self.theta[-1]
+
     def get_parameter(self, n, burn = None, thin = None):
         """
         Return sample values for a chosen parameter.
@@ -960,25 +1341,56 @@ class HamiltonianChain(MarkovChain):
         :param str filename: File path to which the diagnostics plot will be saved. If left \
                              unspecified the plot won't be saved.
         """
-        fig = plt.figure(figsize = (12,5))
+        burn = self.estimate_burn_in()
+        param_ESS = [ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)]
+
+        fig = plt.figure(figsize=(12, 9))
 
         # probability history plot
-        ax1 = fig.add_subplot(121)
+        ax1 = fig.add_subplot(221)
         step_ax = [i * 1e-3 for i in range(len(self.probs))]  # TODO - avoid making this axis but preserve figure form
-        ax1.plot(step_ax, self.probs, marker = '.', ls = 'none', markersize = 3)
-        ax1.set_xlabel('chain step number ($10^3$)', fontsize = 12)
-        ax1.set_ylabel('log posterior probability', fontsize = 12)
+        ax1.plot(step_ax, self.probs, marker='.', ls='none', markersize=3)
+        ax1.set_xlabel('chain step number ($10^3$)', fontsize=12)
+        ax1.set_ylabel('log posterior probability', fontsize=12)
         ax1.set_title('Chain log-probability history')
-        ax1.set_ylim([min(self.probs[self.n//2:]), max(self.probs)*1.1 - 0.1*min(self.probs[self.n//2:])])
+        ylims = [min(self.probs[self.n // 2:]), max(self.probs) * 1.1 - 0.1 * min(self.probs[self.n // 2:])]
+        plt.plot([burn * 1e-3, burn * 1e-3], ylims, c='red', ls='dashed', lw=2)
+        ax1.set_ylim(ylims)
         ax1.grid()
 
         # epsilon plot
-        ax2 = fig.add_subplot(122)
+        ax2 = fig.add_subplot(222)
         ax2.plot(array(self.ES.epsilon_checks)*1e-3, self.ES.epsilon_values, '.-')
         ax2.set_xlabel('chain step number ($10^3$)', fontsize = 12)
         ax2.set_ylabel('Leapfrog step-size', fontsize = 12)
         ax2.set_title('Simulation time-step adjustment summary')
         ax2.grid()
+
+        ax3 = fig.add_subplot(223)
+        ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
+        ax3.set_xlabel('parameter', fontsize=12)
+        ax3.set_ylabel('effective sample size', fontsize=12)
+        ax3.set_title('Parameter effective sample size estimate')
+        ax3.set_xticks(range(self.L))
+
+        ax4 = fig.add_subplot(224)
+        gap = 0.1
+        h = 0.85
+        x1 = 0.5
+        x2 = 0.55
+        fntsiz = 14
+
+        # ax4.text(0., h, 'Basics', horizontalalignment = 'left', fontweight = 'bold')
+        # h -= gap
+        ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(burn), horizontalalignment='left', fontsize=fntsiz)
+        h -= gap
+        ax4.text(x1, h, 'Average ESS:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(int(mean(param_ESS))), horizontalalignment='left', fontsize=fntsiz)
+        h -= gap
+        ax4.text(x1, h, 'Lowest ESS:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(int(min(param_ESS))), horizontalalignment='left', fontsize=fntsiz)
+        ax4.axis('off')
 
         plt.tight_layout()
         if filename is not None:
@@ -990,10 +1402,84 @@ class HamiltonianChain(MarkovChain):
             plt.close(fig)
 
     def get_sample(self, burn = None, thin = None):
-        raise ValueError('This method is not yet implemented for HamiltonianChain')
+        raise ValueError('This method is not available for HamiltonianChain')
 
     def get_interval(self, interval = None, burn = None, thin = None, samples = None):
-        raise ValueError('This method is not yet implemented for HamiltonianChain')
+        raise ValueError('This method is not available for HamiltonianChain')
+
+    def estimate_burn_in(self):
+        # first get an estimate based on when the chain first reaches
+        # the top 1% of log-probabilities
+        prob_estimate = argmax(self.probs > percentile(self.probs,99))
+
+        # now we find the point at which the proposal width for each parameter
+        # starts to deviate significantly from the current value
+        epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.)
+        chks = array(self.ES.epsilon_checks)[::-1]
+        epsl_estimate = chks[ argmax(epsl > 0.15) ]
+        return int(max(prob_estimate, epsl_estimate))
+
+    def save(self, filename, compressed = False):
+        items = [
+            ('bounded', self.bounded),
+            ('lwr_bounds', self.lwr_bounds),
+            ('upr_bounds', self.upr_bounds),
+            ('widths', self.widths),
+            ('inv_mass', self.inv_mass),
+            ('T', self.T),
+            ('theta', self.theta),
+            ('probs', self.probs),
+            ('L', self.L),
+            ('n', self.n),
+            ('steps', self.steps),
+            ('burn', self.burn),
+            ('thin', self.thin),
+            ('print_status', self.print_status),
+            ('n', self.n)
+        ]
+
+        items.extend( self.ES.get_items() )
+
+        # build the dict
+        D = {}
+        for key, value in items:
+            D[key] = value
+
+        # save as npz
+        if compressed:
+            savez_compressed(filename, **D)
+        else:
+            savez(filename, **D)
+
+    @classmethod
+    def load(cls, filename, posterior = None, grad = None):
+        D = load(filename)
+        chain = cls(posterior=posterior, grad=grad)
+
+        chain.bounded = bool(D['bounded'])
+        chain.inv_mass = array(D['inv_mass'])
+        chain.T = float(D['T'])
+        chain.probs = list(D['probs'])
+        chain.L = int(D['L'])
+        chain.n = int(D['n'])
+        chain.steps = int(D['steps'])
+        chain.burn = int(D['burn'])
+        chain.thin = int(D['thin'])
+        chain.print_status = bool(D['print_status'])
+        chain.n = int(D['n'])
+
+        t = D['theta']
+        chain.theta = [ t[i,:] for i in range(t.shape[0]) ]
+
+        if chain.bounded:
+            chain.lwr_bounds = array(D['lwr_bounds'])
+            chain.upr_bounds = array(D['upr_bounds'])
+            chain.widths = array(D['widths'])
+
+        # build the epsilon selector
+        chain.ES.load_items(D)
+
+        return chain
 
 
 
@@ -1052,6 +1538,20 @@ class EpsilonSelector(object):
         self.avg = 0
         self.var = 0
         self.num = 0
+
+    def get_items(self):
+        return [(k,v) for k,v in self.__dict__.items()]
+
+    def load_items(self, dictionary):
+        self.epsilon = float(dictionary['epsilon'])
+        self.epsilon_values = list(dictionary['epsilon_values'])
+        self.epsilon_checks = list(dictionary['epsilon_checks'])
+        self.avg = float(dictionary['avg'])
+        self.var = float(dictionary['var'])
+        self.num = float(dictionary['num'])
+        self.accept_rate = float(dictionary['accept_rate'])
+        self.chk_int = int(dictionary['chk_int'])
+        self.growth_factor = float(dictionary['growth_factor'])
 
 
 
@@ -1121,3 +1621,19 @@ class TemperedChain(MarkovChain):
 
         self.probs.append(p_new)
         self.n += 1
+
+
+
+
+def ESS(x):
+    # get the autocorrelation
+    f = irfft(abs(rfft(x - mean(x)))**2)
+    # remove reflected 2nd half
+    f = f[:len(f)//2]
+    # check that the first value is not negative
+    if f[0] < 0.: raise ValueError('First element of the autocorrelation is negative')
+    # cut to first negative value
+    f = f[:argmax(f<0.)]
+    # sum and normalise
+    thin_factor = f.sum() / f[0]
+    return int(len(x) / thin_factor)

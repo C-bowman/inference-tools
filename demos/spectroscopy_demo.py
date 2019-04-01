@@ -137,11 +137,8 @@ chain.advance(25000)
 # we can check the status of the chain using the plot_diagnostics method
 chain.plot_diagnostics()
 
-# based on the diagnostics we can choose to set a global burn and thin
-# value, which is used (unless otherwise specified) by all methods which
-# access the samples
-chain.burn = 5000
-chain.thin = 2
+# We can automatically set sensible burn and thin values for the sample
+chain.autoselect_burn_and_thin()
 
 # we can get a quick overview of the posterior using the matrix_plot
 # functionality of chain objects, which plots all possible 1D & 2D
@@ -150,8 +147,8 @@ chain.matrix_plot()
 
 # We can easily estimate 1D marginal distributions for any parameter
 # using the 'marginalise' method:
-pdf_1 = chain.marginalise(1, unimodal = True)
-pdf_2 = chain.marginalise(3, unimodal = True)
+pdf_1 = chain.get_marginal(1, unimodal = True)
+pdf_2 = chain.get_marginal(3, unimodal = True)
 
 # marginalise returns a density estimator object, which can be called
 # as a function to return the value of the pdf at any point.

@@ -9,7 +9,7 @@ from numpy import exp, log, mean, std, sqrt, tanh, cos, cov
 from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, logaddexp
 from numpy.random import random
 from scipy.integrate import quad, simps
-from scipy.optimize import minimize, minimize_scalar
+from scipy.optimize import minimize, minimize_scalar, differential_evolution
 from itertools import product
 from functools import reduce
 from copy import copy
@@ -662,3 +662,77 @@ class BinaryTree:
         for i in range(self.n):
             D = D[val > D[2]]
         return D
+
+
+
+
+def sample_hdi(sample, interval, force_single = False):
+    s = sort(sample)
+    n = len(s)
+    L = int(interval*n)
+
+    # find the optimal single hdi
+    widths = s[L:] - s[:n-L]
+    i = widths.argmin()
+    r1, w1 = (s[i], s[i+L]), s[i+L]-s[i]
+
+    if not force_single:
+        # now get the best 2-interval solution
+        minfunc = dbl_interval_length(sample, interval)
+        bounds = minfunc.get_bounds()
+        de_result = differential_evolution(minfunc, bounds)
+        I1, I2 = minfunc.return_intervals(de_result.x)
+        w2 = (I2[1]-I2[0]) + (I1[1] - I1[0])
+
+    # return the split interval if the width reduction
+    # is non-trivial:
+    if not force_single and w2 < w1*0.99:
+        return I1, I2
+    else:
+        return r1
+
+
+
+
+class dbl_interval_length(object):
+    def __init__(self, sample, interval):
+        self.sample = sort(sample)
+        self.f = interval
+        self.N = len(sample)
+        self.L = int(self.f*self.N)
+        self.space = self.N - self.L
+        self.max_length = self.sample[-1] - self.sample[0]
+
+    def get_bounds(self):
+        return [(0.,1.), (0,self.space), (0,self.space)]
+
+    def __call__(self, paras):
+        f1 = paras[0]
+        start = int(paras[1]); gap = int(paras[2])
+
+        if any([ (start+gap)>self.space, f1>1., f1<0., gap<0, start<0]):
+            return self.max_length
+
+        w1 = int(f1*self.L)
+        w2 = self.L - w1
+        start_2 = start + w1 + gap
+
+        I1 = self.sample[start+w1] - self.sample[start]
+        I2 = self.sample[start_2+w2] - self.sample[start_2]
+        return I1+I2
+
+    def return_intervals(self,paras):
+        f1 = paras[0]
+        start = int(paras[1]);
+        gap = int(paras[2])
+
+        if any([(start + gap) > self.space, f1 > 1., f1 < 0., gap < 0, start < 0]):
+            return self.max_length
+
+        w1 = int(f1 * self.L)
+        w2 = self.L - w1
+        start_2 = start + w1 + gap
+
+        I1 = (self.sample[start], self.sample[start + w1])
+        I2 = (self.sample[start_2], self.sample[start_2 + w2])
+        return I1, I2
