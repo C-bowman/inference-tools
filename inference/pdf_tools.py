@@ -47,23 +47,23 @@ class DensityEstimator(object):
     def moments(self):
         pass
 
-    def plot_summary(self, filename = None, show = True):
+    def plot_summary(self, filename = None, show = True, label = None):
         """
         Plot the estimated PDF along with summary statistics.
 
         :param str filename: Filename to which the plot will be saved. If unspecified, the plot will not be saved.
         :param bool show: Boolean value indicating whether the plot should be displayed in a window. (Default is True)
+        :keyword str label: The label to be used for the x-axis on the plot as a string.
         """
         sigma_1 = self.interval(frac = 0.68268)
         sigma_2 = self.interval(frac = 0.95449)
-
+        sigma_3 = self.interval(frac = 0.9973)
         mu, var, skw, kur = self.moments()
 
         if type(self).__name__ is 'GaussianKDE':
-            lwr = self.s[2] - 2*self.h
-            upr = self.s[-3] + 2*self.h
+            lwr = sigma_3[0] - 5*self.h
+            upr = sigma_3[1] + 5*self.h
         else:
-            sigma_3 = self.interval(frac = 0.9973)
             if hasattr(sigma_3[0], '__len__'):
                 s_min = sigma_3[0][0]
                 s_max = sigma_3[-1][1]
@@ -81,7 +81,11 @@ class DensityEstimator(object):
         ax.plot(axis, self.__call__(axis), lw = 2)
         ax.plot([self.mode, self.mode], [0., self.__call__(self.mode)], c = 'red', ls = 'dashed')
 
-        ax.set_xlabel('argument', fontsize = 13)
+        if label is not None:
+            ax.set_xlabel(label, fontsize = 13)
+        else:
+            ax.set_xlabel('argument', fontsize = 13)
+
         ax.set_ylabel('probability density', fontsize = 13)
         ax.grid()
 
@@ -124,15 +128,14 @@ class DensityEstimator(object):
             ax.text(x2, h, r'{:.5G} $\rightarrow$ {:.5G}'.format(sigma_2[0], sigma_2[1]), horizontalalignment='left')
             h -= gap
 
-        if type(self).__name__ is not 'GaussianKDE':
-            ax.text(x1, h, '3-sigma:', horizontalalignment='right')
-            if hasattr(sigma_3[0], '__len__'):
-                for itvl in sigma_3:
-                    ax.text(x2, h, r'{:.5G} $\rightarrow$ {:.5G}'.format(itvl[0], itvl[1]), horizontalalignment = 'left')
-                    h -= gap
-            else:
-                ax.text(x2, h, r'{:.5G} $\rightarrow$ {:.5G}'.format(sigma_3[0], sigma_3[1]), horizontalalignment='left')
+        ax.text(x1, h, '3-sigma:', horizontalalignment='right')
+        if hasattr(sigma_3[0], '__len__'):
+            for itvl in sigma_3:
+                ax.text(x2, h, r'{:.5G} $\rightarrow$ {:.5G}'.format(itvl[0], itvl[1]), horizontalalignment = 'left')
                 h -= gap
+        else:
+            ax.text(x2, h, r'{:.5G} $\rightarrow$ {:.5G}'.format(sigma_3[0], sigma_3[1]), horizontalalignment='left')
+            h -= gap
 
         h -= gap
         ax.text(0., h, 'Higher moments', horizontalalignment = 'left', fontweight = 'bold')
@@ -402,7 +405,7 @@ class GaussianKDE(DensityEstimator):
         # region contains a given value
         self.tree = BinaryTree(n, (self.s[0], self.s[-1]))
 
-        #: The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
+        # The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
         self.mode = self.locate_mode()
 
     def __call__(self, x_vals):
@@ -424,41 +427,6 @@ class GaussianKDE(DensityEstimator):
         cuts = self.cut_map[region[2]]
         # evaluate the density estimate from the slice
         return self.norm * exp(-((x - self.s[cuts[0]:cuts[1]])*self.q)**2).sum()
-
-    def halley_update(self, x, y0):
-        # look-up the region
-        region = self.tree.lookup(x)
-        # look-up the cutting points
-        cuts = self.cut_map[region[2]]
-        # pre-calculate some terms for speed
-        z = (x - self.s[cuts[0]:cuts[1]])*self.q
-        z2 = z**2
-        exp_z = exp(-z2)
-        # evaluate zeroth, first and second derivatives
-        f0 = exp_z.sum() - y0/self.norm
-        f1 = -2*self.q*(z*exp_z).sum()
-        f2 = 4*(self.q**2)*((-0.5 + z2)*exp_z).sum()
-        # find the required ratios
-        f0f1 = f0/f1
-        f2f1 = f2/f1
-        # return the Halley's method update
-        return -f0f1/(1 - 0.5*f0f1*f2f1)
-
-    def find_root(self, x0, y0):
-        x = x0
-        for i in range(10): # max iterations
-            z = x + self.halley_update(x,y0)
-
-            # move any values outside the sample range
-            if z < self.s[0]: z = self.s[0]
-            if z > self.s[-1]: z = self.s[-1]
-
-            # if value has converged, break the loop
-            if x == z:
-                break
-            else:
-                x = z
-        return z
 
     def simple_bandwidth_estimator(self):
         # A simple estimate which assumes the distribution close to a Gaussian
@@ -539,7 +507,7 @@ class GaussianKDE(DensityEstimator):
     @staticmethod
     def log_kernel(x, c, h):
         z = (x - c) / h
-        return -0.5 * z ** 2 - log(h)
+        return -0.5*z**2 - log(h)
 
     def log_evaluation(self, points, samples, width):
         # evaluate the log-pdf in a way which prevents underflow
@@ -576,25 +544,7 @@ class GaussianKDE(DensityEstimator):
         :param float frac: Fraction of total probability contained by the desired interval(s).
         :return: A list of tuples which specify the intervals.
         """
-        # set target number of samples used to estimate the bounding density
-        n = 2000
-        # how much thinning is needed to get this number?
-        skip = int(len(self.s)/n)
-        if skip < 1: skip = 1
-        # evaluate the PDF estimate for sub-sample and sort the result
-        probs = sorted(self.__call__(self.s[::skip]))
-        # estimate the bounding density of the region
-        density = probs[int((1 - frac)*len(probs))]
-        # now use newton's method to find roots
-        roots = [ self.find_root(x, density) for x in linspace(self.s[0], self.s[-1], 12) ]
-        # filter out anomalies
-        roots = [ round(r,6) for r in roots if abs((self.density(r)/density)-1) < 1e-5 ]
-        # remove duplicates
-        roots = sorted(list(set(roots)))
-        # are there an even number of roots?
-        if len(roots)%2 == 1:
-            print('## WARNING ## Odd number of roots detected in confidence interval calculation')
-        return list(zip(roots[::2], roots[1::2]))
+        return sample_hdi(self.s, frac)
 
 
 
@@ -667,6 +617,18 @@ class BinaryTree:
 
 
 def sample_hdi(sample, interval, force_single = False):
+    """
+    Estimate the highest-density interval(s) for a given sample.
+
+    :param sample: A sample for which the interval will be determined
+
+    :param float interval: The fraction of the total probability to be contained by the interval.
+
+    :param bool force_single: When set to True, only the shortest single interval is computed \
+                              and returned, ignoring the possibility of a shorter double interval.
+
+    :return: tuple(s) specifying the range of the highest-density interval
+    """
     s = sort(sample)
     n = len(s)
     L = int(interval*n)
@@ -682,7 +644,7 @@ def sample_hdi(sample, interval, force_single = False):
         bounds = minfunc.get_bounds()
         de_result = differential_evolution(minfunc, bounds)
         I1, I2 = minfunc.return_intervals(de_result.x)
-        w2 = (I2[1]-I2[0]) + (I1[1] - I1[0])
+        w2 = (I2[1]-I2[0]) + (I1[1]-I1[0])
 
     # return the split interval if the width reduction
     # is non-trivial:
@@ -704,13 +666,13 @@ class dbl_interval_length(object):
         self.max_length = self.sample[-1] - self.sample[0]
 
     def get_bounds(self):
-        return [(0.,1.), (0,self.space), (0,self.space)]
+        return [(0.,1.), (0,self.space-1), (0,self.space-1)]
 
     def __call__(self, paras):
         f1 = paras[0]
         start = int(paras[1]); gap = int(paras[2])
 
-        if any([ (start+gap)>self.space, f1>1., f1<0., gap<0, start<0]):
+        if (start+gap)>self.space-1:
             return self.max_length
 
         w1 = int(f1*self.L)
@@ -723,11 +685,8 @@ class dbl_interval_length(object):
 
     def return_intervals(self,paras):
         f1 = paras[0]
-        start = int(paras[1]);
+        start = int(paras[1])
         gap = int(paras[2])
-
-        if any([(start + gap) > self.space, f1 > 1., f1 < 0., gap < 0, start < 0]):
-            return self.max_length
 
         w1 = int(f1 * self.L)
         w2 = self.L - w1
