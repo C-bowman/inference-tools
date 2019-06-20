@@ -7,13 +7,11 @@ from inference.mcmc import GibbsChain
 def rosenbrock(t):
     # This is a modified form of the rosenbrock function, which
     # is commonly used to test optimisation algorithms
-    X, Y = t; X -= 2
-    X *= 0.25; Y *= 0.25
+    X, Y = t
     X2 = X**2
-
-    b = 10  # increase this to boost the 'correlatedness' of the function
-    c = 2   # standard deviation of the gaussian part
-    return -(X - 1)**2 - b*(Y - X2)**2 - 0.5*((X2 + Y**2)/c**2)
+    b = 15  # correlation strength parameter
+    v = 3   # variance of the gaussian term
+    return -X2 - b*(Y - X2)**2 - 0.5*(X2 + Y**2)/v
 
 """
 # Gibbs sampling example
@@ -27,14 +25,14 @@ In this example a modified version of the Rosenbrock function (shown
 above) is used as the log-posterior.
 """
 
-# The maximum of the rosenbrock function is [1,3] - here we intentionally
-# start chain far from the maxima.
-start_location = array([12.,-12.])
+# The maximum of the rosenbrock function is [0,0] - here we intentionally
+# start the chain far from the mode.
+start_location = array([2.,-4.])
 
 # Here we make our initial guess for the proposal widths intentionally
 # poor, to demonstrate that gibbs sampling allows each proposal width
 # to be adjusted individually toward an optimal value.
-width_guesses = array([5.,0.05])  # optimal is around [1.5, 2.5] in this case
+width_guesses = array([5.,0.05])
 
 # create the chain object
 chain = GibbsChain(posterior = rosenbrock, start = start_location, widths = width_guesses)
@@ -88,14 +86,14 @@ plt.show()
 
 
 # We can easily estimate 1D marginal distributions for any parameter
-# using the 'marginalise' method:
+# using the 'get_marginal' method:
 pdf_1 = chain.get_marginal(0, unimodal = True)
 pdf_2 = chain.get_marginal(1, unimodal = True)
 
-# marginalise returns a density estimator object, which can be called
+# get_marginal returns a density estimator object, which can be called
 # as a function to return the value of the pdf at any point.
 # Make an axis on which to evaluate the PDFs:
-ax = linspace(-5, 20, 500)
+ax = linspace(-3, 4, 500)
 
 # plot the results
 plt.plot( ax, pdf_1(ax), label = 'param #1 marginal', lw = 2)

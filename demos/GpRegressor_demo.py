@@ -14,11 +14,7 @@ Code demonstrating the use of the GpRegressor class found in inference.gp_tools
 # create some testing data
 Nx = 24*2
 x = list( linspace(-3,1,Nx//2) )
-x2 = list( linspace(4,9,Nx//2) )
-
-# create an x axis with a gap in it
-for i in x2:
-    x.append(i)
+x.extend( list( linspace(4,9,Nx//2) ) )
 x = array(x)
 
 # generate points q at which to evaluate the

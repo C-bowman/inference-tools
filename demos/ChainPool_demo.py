@@ -7,14 +7,10 @@ def rosenbrock(t):
     # This is a modified form of the rosenbrock function, which
     # is commonly used to test optimisation algorithms
     X, Y = t
-    X = (X - 2)*0.25
-    Y *= 0.25
-
     X2 = X**2
-
-    b = 4  # increase this to boost the 'correlatedness' of the function
-    c = 2   # standard deviation of the gaussian part
-    return -(X - 1)**2 - b*(Y - X2)**2 - 0.5*((X2 + Y**2)/c**2)
+    b = 15  # correlation strength parameter
+    v = 3   # variance of the gaussian term
+    return -X2 - b*(Y - X2)**2 - 0.5*(X2 + Y**2)/v
 
 
 
@@ -28,7 +24,7 @@ if __name__ == "__main__":
     """
 
     # for example, here we create a singular chain object
-    chain = GibbsChain(posterior = rosenbrock, start = [7.,7.])
+    chain = GibbsChain(posterior = rosenbrock, start = [0.,0.])
     # then advance it for some number of samples, and note the run-time
     t1 = time()
     chain.advance(150000)
@@ -40,8 +36,8 @@ if __name__ == "__main__":
     # over different posteriors, or on a single posterior with different starting locations.
 
     # Here we create two chains with different starting points:
-    chain_1 = GibbsChain(posterior = rosenbrock, start = [7.,7.])
-    chain_2 = GibbsChain(posterior = rosenbrock, start = [-5.,-11.])
+    chain_1 = GibbsChain(posterior = rosenbrock, start = [0.,0.])
+    chain_2 = GibbsChain(posterior = rosenbrock, start = [0.,0.])
 
     # now we pass those chains to ChainPool in a list
     cpool = ChainPool( [chain_1, chain_2] )

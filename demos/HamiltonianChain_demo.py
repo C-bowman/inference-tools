@@ -1,6 +1,6 @@
 from mpl_toolkits.mplot3d import Axes3D
 import matplotlib.pyplot as plt
-from numpy import sqrt, exp, zeros
+from numpy import sqrt, exp, array
 from inference.mcmc import HamiltonianChain
 
 """
@@ -23,9 +23,9 @@ self-tuning version, such as the NUTS algorithm.
 # define a non-linearly correlated posterior distribution
 class ToroidalGaussian(object):
     def __init__(self):
-        self.R0 = 1.
-        self.eps = 0.05
-        self.w2 = (self.R0*self.eps)**2
+        self.R0 = 1. # torus major radius
+        self.ar = 10. # torus aspect ratio
+        self.w2 = (self.R0/self.ar)**2
 
     def __call__(self, theta):
         x, y, z = theta
@@ -36,12 +36,7 @@ class ToroidalGaussian(object):
         x, y, z = theta
         R = sqrt(x**2 + y**2)
         K = 1 - self.R0/R
-
-        g = zeros(3)
-        g[0] = K*x
-        g[1] = K*y
-        g[2] = z
-
+        g = array([K*x, K*y, z])
         return -g/self.w2
 
 
