@@ -9,18 +9,17 @@ from copy import copy, deepcopy
 from multiprocessing import Pool
 from time import time
 
-import matplotlib as mpl
 import matplotlib.pyplot as plt
-from numpy import array, zeros, linspace
+from numpy import array, zeros
 
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, percentile
-from numpy import meshgrid, isfinite, sort, argsort, savez, savez_compressed, load
+from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random
 from scipy.linalg import eigh
 
-from inference.pdf_tools import UnimodalPdf, GaussianKDE, KDE2D
-
+from inference.pdf_tools import UnimodalPdf, GaussianKDE
+from inference.plotting import matrix_plot
 
 
 
@@ -359,7 +358,6 @@ class MarkovChain(object):
             for i in range(update_interval):
                 self.take_step()
 
-
             # display the progress status message
             seconds_remaining = end_time - time()
             m, s = divmod(seconds_remaining, 60)
@@ -602,6 +600,7 @@ class MarkovChain(object):
         ax2.set_ylim([-50,50])
         ax2.grid()
 
+        # parameter ESS plot
         ax3 = fig.add_subplot(223)
         ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
         ax3.set_xlabel('parameter', fontsize = 12)
@@ -616,8 +615,6 @@ class MarkovChain(object):
         x2 = 0.55
         fntsiz = 14
 
-        # ax4.text(0., h, 'Basics', horizontalalignment = 'left', fontweight = 'bold')
-        # h -= gap
         ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize = fntsiz)
         ax4.text(x2, h, '{:.5G}'.format( burn ), horizontalalignment='left', fontsize = fntsiz)
         h -= gap
@@ -637,11 +634,12 @@ class MarkovChain(object):
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(self, params = None, thin = None, burn = None, labels = None, show = True,
-                    reference = None, filename = None, show_axes = True):
+    def matrix_plot(self, params = None, thin = None, burn = None, **kwargs):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
-        all 1D and 2D marginal distributions.
+        all 1D and 2D marginal distributions. See the documentation of
+        inference.plotting.matrix_plot() for a description of other allowed
+        keyword arguments.
 
         :param params: A list of integers specifying the indices of parameters which \
                        are to be plotted.
@@ -653,132 +651,12 @@ class MarkovChain(object):
                          of the burn-in, every *m*'th sample is used for a specified \
                          integer *m*. If not specified, the value of self.thin is used \
                          instead, which has a default value of 1.
-
-        :param labels: A list or tuple of strings to be used axis labels for each parameter \
-                       being plotted.
-
-        :param bool show: If set to True, the plot is displayed.
-
-        :param reference: A list of reference values for each parameter which \
-                          will be over-plotted.
-
-        :param str filename: File path to which the matrix plot will be saved. If unspecified \
-                             the plot will be displayed but not saved.
-
-        :param bool show_axes: Specifies whether axis tick labels are displayed.
         """
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
-
-        # TODO - find a way to do this without changing environment variables
-        mpl.rcParams['axes.xmargin'] = 0
-        mpl.rcParams['axes.ymargin'] = 0
-
-        if params is None:
-            p = [ i for i in range(self.L) ]
-        else:
-            p = params
-
-        if labels is None:
-            labels = [ 'parameter ' + str(i) for i in p ]
-        else:
-            if len(labels) != len(p):
-                raise ValueError('number of labels must match number of plotted parameters')
-
-        if reference is not None:
-            if len(reference) != len(p):
-                raise ValueError('number of reference values must match number of plotted parameters')
-
-        n = len(p)
-        L = 200
-
-        # Determine axis ranges for plotting
-        axlims = []
-        lins = []
-        sample_data = []
-        for i in p:
-            A = array(self.get_parameter(i, burn=burn, thin=thin))
-
-            mu = mean(A)
-            sg = sqrt( mean(A*A) - mu**2 )
-            axlims.append((mu-3.5*sg,mu+3.5*sg))
-            lins.append(linspace(mu-4*sg, mu+4*sg, L))
-            sample_data.append(A)
-
-        fig = plt.figure( figsize = (8,8) )
-
-        # lower-triangular indices list in diagonal-striped order
-        inds_list = [(n-1, 0)] # start with bottom-left corner
-        for k in range(1,n):
-            inds_list.extend([ (n-1-i, k-i) for i in range(k+1) ])
-
-        # now create a dictionary of axis objects with correct sharing
-        axes = {}
-        for tup in inds_list:
-            i, j = tup
-            x_share = None
-            y_share = None
-
-            if (i < n-1):
-                x_share = axes[(n-1,j)]
-
-            if (j > 0) and (i != j): # diagonal doesnt share y-axis
-                y_share = axes[(i,0)]
-
-            axes[tup] = plt.subplot2grid((n, n), (i, j), sharex = x_share, sharey = y_share)
-
-        # now loop over grid and plot
-        for tup in inds_list:
-            i, j = tup
-            ax = axes[tup]
-            # are we on the diagonal?
-            if i==j:
-                sample = sample_data[i]
-                pdf = GaussianKDE(sample)
-                ax.plot(lins[i], 0.95*(pdf(lins[i])/pdf(pdf.mode)), lw = 2, color = 'C0')
-                if reference is not None:
-                    ax.plot([reference[i], reference[i]], [0,1], lw = 1.5, ls = 'dashed', color = 'red')
-                ax.set_ylim([0,1])
-            else:
-                x = sample_data[j]
-                y = sample_data[i]
-
-                pdf = KDE2D(x=x, y=y)
-                x_ax = lins[j][::4]
-                y_ax = lins[i][::4]
-                X, Y = meshgrid(x_ax, y_ax)
-                prob = array(pdf(X.flatten(), Y.flatten())).reshape([L//4, L//4])
-                ax.contour(X, Y, prob, 15)
-                if reference is not None:
-                    ax.plot(reference[j], reference[i], marker = 'o', markersize = 7,
-                            markerfacecolor = 'none', markeredgecolor = 'white', markeredgewidth = 3.5)
-                    ax.plot(reference[j], reference[i], marker = 'o', markersize = 7,
-                            markerfacecolor = 'none', markeredgecolor = 'red', markeredgewidth = 2)
-
-
-            # assign axis labels
-            if i == n-1: ax.set_xlabel(labels[j])
-            if j == 0 and i != 0: ax.set_ylabel(labels[i])
-
-            # assign or suppress axis ticks
-            if i == n-1 and show_axes:
-                ax.set_xlim(axlims[j])
-            else: # not on the bottom row
-                plt.setp(ax.get_xticklabels(), visible = False)
-
-            if j == 0 and i != 0 and show_axes:
-                ax.set_ylim(axlims[i])
-            else: # not on left column
-                plt.setp(ax.get_yticklabels(), visible = False)
-
-        plt.tight_layout()
-        if filename is not None:
-            plt.savefig(filename)
-        if show:
-            plt.show()
-        else:
-            fig.clear()
-            plt.close(fig)
+        if params is None: params = range(self.L)
+        samples = [ self.get_parameter(i)[burn::thin] for i in params ]
+        matrix_plot(samples, **kwargs)
 
     def save(self, filename):
         """
@@ -947,16 +825,19 @@ class PcaChain(MarkovChain):
     """
     A class which performs Gibbs sampling over the eigenvectors of the covariance matrix.
 
-    :param func posterior: a function which returns the log-posterior probability density for a \
-                           given set of model parameters theta, which should be the only argument \
-                           so that: ln(P) = posterior(theta)
+    :param func posterior: \
+        a function which returns the log-posterior probability density for a \
+        given set of model parameters theta, which should be the only argument \
+        so that: ln(P) = posterior(theta)
 
-    :param start: vector of model parameters which correspond to the parameter-space coordinates \
-                  at which the chain will start.
+    :param start: \
+        vector of model parameters which correspond to the parameter-space coordinates \
+        at which the chain will start.
 
-    :param widths: vector of standard deviations which serve as initial guesses for the widths of \
-                   the proposal distribution for each model parameter. If not specified, the starting \
-                   widths will be approximated as 5% of the values in 'start'.
+    :param widths: \
+        vector of standard deviations which serve as initial guesses for the widths of \
+        the proposal distribution for each model parameter. If not specified, the starting \
+        widths will be approximated as 5% of the values in 'start'.
 
     The PcaChain sampler uses 'principal component analysis' (PCA) to improve
     the performance of Gibbs sampling in cases where strong linear correlation
@@ -971,7 +852,7 @@ class PcaChain(MarkovChain):
     Subsequently, the covariance matrix periodically updated with an estimate
     derived from the sample itself, and the eigenvectors are re-calculated.
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, parameter_boundaries = None, **kwargs):
         super(PcaChain, self).__init__(*args, **kwargs)
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
@@ -993,6 +874,15 @@ class PcaChain(MarkovChain):
         # PCA convergence tracking
         self.angles_history = []
         self.update_history = []
+
+        # Set-up for imposing boundaries if specified
+        if parameter_boundaries is not None:
+            self.lower = array([ k[0] for k in parameter_boundaries ])
+            self.upper = array([ k[1] for k in parameter_boundaries ])
+            self.width = self.upper - self.lower
+            self.process_proposal = self.impose_boundaries
+        else:
+            self.process_proposal = self.pass_through
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
@@ -1033,11 +923,11 @@ class PcaChain(MarkovChain):
         """
         p_old = self.probs[-1]
         theta0 = array([p.samples[-1] for p in self.params])
-
+        # loop over each eigenvector and take a step along each
         for v, p in zip(self.directions,self.params):
-
             while True:
                 prop = theta0 + v*p.sigma*normal()
+                prop = self.process_proposal(prop)
                 p_new = self.posterior(prop)
 
                 if p_new > p_old:
@@ -1053,6 +943,7 @@ class PcaChain(MarkovChain):
             theta0 = copy(prop)
             p_old = copy(p_new)
 
+        # add the new value for each parameter
         for v, p in zip(theta0, self.params):
             p.add_sample(v)
 
@@ -1130,11 +1021,27 @@ class PcaChain(MarkovChain):
             chain.params.append(p)
         return chain
 
-    def set_non_negative(self, parameter, flag = True):
-        raise ValueError('This method is not available for PcaChain')
+    def set_non_negative(self, *args, **kwargs):
+        warn("""
+             The set_non_negative method is not available for PcaChain:
+             Limits on parameters should instead be set using
+             the parameter_boundaries keyword argument.
+             """)
 
-    def set_boundaries(self, parameter, boundaries, remove = False):
-        raise ValueError('This method is not available for PcaChain')
+    def set_boundaries(self, *args, **kwargs):
+        warn("""
+             The set_boundaries method is not available for PcaChain:
+             Limits on parameters should instead be set using
+             the parameter_boundaries keyword argument.
+             """)
+
+    def impose_boundaries(self, prop):
+        d = prop - self.lower
+        n = (d // self.width) % 2
+        return self.lower + (1-2*n)*(d % self.width) + n*self.width
+
+    def pass_through(self, prop):
+        return prop
 
 
 
@@ -1172,7 +1079,7 @@ class HamiltonianChain(MarkovChain):
 
     :param inv_mass: \
         A vector specifying the inverse-mass value to be used for each parameter. The \
-        inverse-mass effectively re-scales the parameters to make the problem more isotropic, \
+        inverse-mass can re-scale the parameters to make the problem more isotropic, \
         which helps ensure good performance. The inverse-mass value for a given parameter \
         should be set to roughly the range over which that parameter is expected to vary.
     """
@@ -1211,12 +1118,12 @@ class HamiltonianChain(MarkovChain):
         if start is not None:
             self.theta = [start]
             self.probs = [self.posterior(start)/self.T]
+            self.leapfrog_steps = [0]
             self.L = len(start)
         self.n = 1
 
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
-
         self.burn = 1
         self.thin = 1
 
@@ -1227,20 +1134,21 @@ class HamiltonianChain(MarkovChain):
         Takes the next step in the HMC-chain
         """
         accept = False
+        steps_taken = 0
         while not accept:
             r0 = normal(size = self.L)
             t0 = self.theta[-1]
-            H0 = 0.5*dot(r0,r0) - self.probs[-1]
+            H0 = 0.5*dot(r0,r0)*self.inv_mass - self.probs[-1]
 
             r = copy(r0)
             t = copy(t0)
-            self.g = self.grad(t) / self.T
-            n_steps = int(self.steps * (1+(random()+0.5)*0.2))
-            for i in range(n_steps):
-                t, r = self.leapfrog(t, r)
+            g = self.grad(t) / self.T
+            n_steps = int(self.steps * (1+(random()-0.5)*0.2))
+            t, r, g = self.run_leapfrog(t, r, g, n_steps)
 
+            steps_taken += n_steps
             p = self.posterior(t) / self.T
-            H = 0.5*dot(r,r) - p
+            H = 0.5*dot(r,r)*self.inv_mass - p
             test = exp( H0 - H )
 
             if isfinite(test):
@@ -1257,7 +1165,53 @@ class HamiltonianChain(MarkovChain):
 
         self.theta.append( t )
         self.probs.append( p )
+        self.leapfrog_steps.append( steps_taken )
         self.n += 1
+
+    def run_leapfrog(self, t, r, g, L):
+        for i in range(L):
+            t, r, g = self.leapfrog(t,r,g)
+        return t, r, g
+
+    def hamiltonian(self, t, r):
+        return 0.5*dot(r,r)*self.inv_mass - self.posterior(t)/self.T
+
+    def compute_batch_distribution(self, theta_0, N):
+        thetas = [theta_0]
+        batches = []
+        for k in range(N):
+            r_k = normal(size=self.L)
+            t_star, r_star, J_k = self.longest_batch(thetas[k], r_k, self.steps)
+            batches.append(J_k)
+
+            if J_k < self.steps:
+                t_star, r_star, __ = self.run_leapfrog(t_star, r_star, self.grad(t_star), self.steps - J_k)
+
+            rho = min(1, exp(self.hamiltonian(thetas[k], r_k) - self.hamiltonian(t_star, r_star)))
+
+            if random() < rho:
+                thetas.append(t_star)
+            else:
+                thetas.append(copy(thetas[-1]))
+
+        return batches
+
+    def longest_batch(self, t, r, L):
+        ell = 0
+        t_plus = copy(t)
+        t_star = copy(t)
+        r_plus = copy(r)
+        r_star = copy(r)
+
+        while dot((t_plus-t),r_plus*self.inv_mass) >= 0.:
+            ell += 1
+            t_plus, r_plus, __ = self.leapfrog(t_plus, r_plus, self.grad(t_plus))
+
+            if ell == L:
+                t_star = t_plus
+                r_star = r_plus
+
+        return t_star, r_star, ell
 
     def finite_diff(self, t):
         p = self.posterior(t) / self.T
@@ -1268,16 +1222,16 @@ class HamiltonianChain(MarkovChain):
             G[i] = (self.posterior(t * delta) / self.T - p) / ( t[i] * 1e-5 )
         return G
 
-    def standard_leapfrog(self, t, r):
-        r2 = r + (0.5*self.ES.epsilon)*self.g
+    def standard_leapfrog(self, t, r, g):
+        r2 = r + (0.5*self.ES.epsilon)*g
         t2 = t + self.ES.epsilon * r2 * self.inv_mass
 
-        self.g = self.grad(t2) / self.T
-        r3 = r2 + (0.5*self.ES.epsilon)*self.g
-        return t2, r3
+        g = self.grad(t2) / self.T
+        r3 = r2 + (0.5*self.ES.epsilon)*g
+        return t2, r3, g
 
-    def bounded_leapfrog(self, t, r):
-        r2 = r + (0.5*self.ES.epsilon)*self.g
+    def bounded_leapfrog(self, t, r, g):
+        r2 = r + (0.5*self.ES.epsilon)*g
         t2 = t + self.ES.epsilon * r2 * self.inv_mass
 
         # check for values outside bounds
@@ -1294,9 +1248,9 @@ class HamiltonianChain(MarkovChain):
         reflect = 1 - 2 * (lwr_bools | upr_bools)
         r2 *= reflect
 
-        self.g = self.grad(t2) / self.T
-        r3 = r2 + (0.5*self.ES.epsilon)*self.g
-        return t2, r3
+        g = self.grad(t2) / self.T
+        r3 = r2 + (0.5*self.ES.epsilon)*g
+        return t2, r3, g
 
     def get_last(self):
         return self.theta[-1]
@@ -1320,7 +1274,7 @@ class HamiltonianChain(MarkovChain):
         if thin is None: thin = self.thin
         return [v[n] for v in self.theta[burn::thin]]
 
-    def plot_diagnostics(self, show = True, filename = None):
+    def plot_diagnostics(self, show = True, filename = None, burn = None):
         """
         Plot diagnostic traces that give information on how the chain is progressing.
 
@@ -1341,10 +1295,10 @@ class HamiltonianChain(MarkovChain):
         :param str filename: File path to which the diagnostics plot will be saved. If left \
                              unspecified the plot won't be saved.
         """
-        burn = self.estimate_burn_in()
+        if burn is None: burn = self.estimate_burn_in()
         param_ESS = [ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)]
 
-        fig = plt.figure(figsize=(12, 9))
+        fig = plt.figure(figsize=(12,9))
 
         # probability history plot
         ax1 = fig.add_subplot(221)
@@ -1367,11 +1321,17 @@ class HamiltonianChain(MarkovChain):
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
-        ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
-        ax3.set_xlabel('parameter', fontsize=12)
-        ax3.set_ylabel('effective sample size', fontsize=12)
-        ax3.set_title('Parameter effective sample size estimate')
-        ax3.set_xticks(range(self.L))
+        if self.L < 50:
+            ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
+            ax3.set_xlabel('parameter', fontsize=12)
+            ax3.set_ylabel('effective sample size', fontsize=12)
+            ax3.set_title('Parameter effective sample size estimate')
+            ax3.set_xticks(range(self.L))
+        else:
+            ax3.hist( param_ESS, bins = 20 )
+            ax3.set_xlabel('effective sample size', fontsize=12)
+            ax3.set_ylabel('frequency', fontsize=12)
+            ax3.set_title('Parameter effective sample size estimates')
 
         ax4 = fig.add_subplot(224)
         gap = 0.1
@@ -1407,6 +1367,9 @@ class HamiltonianChain(MarkovChain):
     def get_interval(self, interval = None, burn = None, thin = None, samples = None):
         raise ValueError('This method is not available for HamiltonianChain')
 
+    def mode(self):
+        return self.theta[argmax(self.probs)]
+
     def estimate_burn_in(self):
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
@@ -1416,7 +1379,7 @@ class HamiltonianChain(MarkovChain):
         # starts to deviate significantly from the current value
         epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.)
         chks = array(self.ES.epsilon_checks)[::-1]
-        epsl_estimate = chks[ argmax(epsl > 0.15) ]
+        epsl_estimate = chks[ argmax(epsl > 0.15) ] * self.ES.accept_rate
         return int(max(prob_estimate, epsl_estimate))
 
     def save(self, filename, compressed = False):
@@ -1429,6 +1392,7 @@ class HamiltonianChain(MarkovChain):
             ('T', self.T),
             ('theta', self.theta),
             ('probs', self.probs),
+            ('leapfrog_steps', self.leapfrog_steps),
             ('L', self.L),
             ('n', self.n),
             ('steps', self.steps),
@@ -1460,6 +1424,7 @@ class HamiltonianChain(MarkovChain):
         chain.inv_mass = array(D['inv_mass'])
         chain.T = float(D['T'])
         chain.probs = list(D['probs'])
+        chain.leapfrog_steps = list(D['leapfrog_steps'])
         chain.L = int(D['L'])
         chain.n = int(D['n'])
         chain.steps = int(D['steps'])
@@ -1501,7 +1466,7 @@ class EpsilonSelector(object):
 
         # settings for epsilon adjustment algorithm
         self.accept_rate = 0.65
-        self.chk_int = 50  # interval of steps at which proposal widths are adjusted
+        self.chk_int = 15  # interval of steps at which proposal widths are adjusted
         self.growth_factor = 1.5  # factor by which self.chk_int grows when sigma is modified
 
     def add_probability(self, p):
@@ -1524,9 +1489,8 @@ class EpsilonSelector(object):
         # now check if the desired success rate is within 2-sigma
         if ~(mu-2*std < self.accept_rate < mu+2*std):
             adj = (log(self.accept_rate) / log(mu))**(0.15)
-            adj = min(adj,2.)
+            adj = min(adj,3.)
             adj = max(adj,0.2)
-            # print(adj)
             self.adjust_epsilon(adj)
         else: # increase the check interval
             self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
