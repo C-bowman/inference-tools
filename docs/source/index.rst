@@ -1,6 +1,10 @@
 The Inference tools package
 ===========================
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
+
 Introduction
 ------------
 This package aims to provide a set of python-based tools for Bayesian data analysis
@@ -46,7 +50,7 @@ Demonstrations of how to use the GibbsChain class can be found in ``/demos/Gibbs
 ``/demos/spectroscopy_demo.py``
 
 .. autoclass:: inference.mcmc.GibbsChain
-   :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_interval, plot_diagnostics, matrix_plot, set_non_negative, set_boundaries
+   :members: advance, run_for, mode, marginalise, get_sample, get_parameter, get_interval, plot_diagnostics, matrix_plot, set_non_negative, set_boundaries
 
 .. _HamiltonianChain:
 
@@ -64,7 +68,7 @@ functionality in the future, for example by implementing the NUTS algorithm.
 Demonstrations of how to use the HamiltonianChain class can be found in ``/demos/HamiltonianChain_demo.py``
 
 .. autoclass:: inference.mcmc.HamiltonianChain
-   :members: advance, run_for, mode, get_marginal, get_parameter, plot_diagnostics, matrix_plot
+   :members: advance, run_for, mode, marginalise, get_parameter, plot_diagnostics, matrix_plot
 
 
 The pdf_tools module
@@ -83,7 +87,7 @@ UnimodalPdf, the credible interval for a given percentile is available through a
 A demonstration of how to use the UnimodalPdf class can be found in ``/demos/GaussianKDE_demo.py``
 
 .. autoclass:: inference.pdf_tools.GaussianKDE
-   :members: __call__, interval, plot_summary, locate_mode
+   :members: __call__, interval, plot_summary, mode
 
 .. _UnimodalPdf:
 
