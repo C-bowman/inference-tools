@@ -3,7 +3,7 @@ This package aims to provide a set of python-based tools for Bayesian data analy
 which are simple to use, allowing them to applied quickly and easily.
 
 The package documentation can be found [here](https://inference-tools.readthedocs.io/en/latest/). 
-For example code, the [/demos/](https://github.com/C-bowman/inference_tools/tree/master/demos) folder 
+For example code, see the [/demos/](https://github.com/C-bowman/inference_tools/tree/master/demos) folder 
 which contains a demonstration code for every available class, including detailed comments.
 
 Requests for features/improvements can be made via the issue tracker. If you have questions
