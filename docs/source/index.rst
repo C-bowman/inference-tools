@@ -18,5 +18,5 @@ which are simple to use, allowing them to applied quickly and easily.
 
 Requests for features/improvements can be made via the issue tracker. If you have questions
 or are interested in getting involved with the development of this package, please contact
-me at ``chris.bowman@york.ac.uk``.
+me at ``chris.bowman.physics@gmail.com``.
 
