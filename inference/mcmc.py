@@ -760,16 +760,18 @@ class GibbsChain(MarkovChain):
     """
     A Gibbs sampling class implemented as a child of the MarkovChain class.
 
-    :param func posterior: a function which returns the log-posterior probability density for a \
-                           given set of model parameters theta, which should be the only argument \
-                           so that: ln(P) = posterior(theta)
+    :param func posterior: \
+        a function which returns the log-posterior probability density for a given set of model
+        parameters theta, which should be the only argument so that: ln(P) = posterior(theta).
 
-    :param start: vector of model parameters which correspond to the parameter-space coordinates \
-                  at which the chain will start.
+    :param start: \
+        vector of model parameters which correspond to the parameter-space coordinates at which
+        the chain will start.
 
-    :param widths: vector of standard deviations which serve as initial guesses for the widths of \
-                   the proposal distribution for each model parameter. If not specified, the starting \
-                   widths will be approximated as 5% of the values in 'start'.
+    :param widths: \
+        vector of standard deviations which serve as initial guesses for the widths of the proposal
+        distribution for each model parameter. If not specified, the starting widths will be
+        approximated as 5% of the values in 'start'.
 
     In Gibbs sampling, each "step" in the chain consists of a series of 1D Metropolis-Hastings
     steps, one for each parameter, such that each step all parameters have been adjusted.

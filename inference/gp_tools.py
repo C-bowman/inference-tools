@@ -19,33 +19,33 @@ class GpRegressor(object):
     A class for performing Gaussian-process regression in one or more dimensions.
 
     :param x: \
-        The spatial coordinates of the y-data values. For the 1-dimensional case, \
-        this should be a list or array of floats. For greater than 1 dimension, \
+        The spatial coordinates of the y-data values. For the 1-dimensional case,
+        this should be a list or array of floats. For greater than 1 dimension,
         a list of coordinate arrays or tuples should be given.
 
     :param y: The y-data values as a list or array of floats.
 
     :param y_err: \
-        The error on the y-data values supplied as a list or array of floats. \
-        This technique explicitly assumes that errors are Gaussian, so the supplied \
-        error values represent normal distribution standard deviations. If this \
+        The error on the y-data values supplied as a list or array of floats.
+        This technique explicitly assumes that errors are Gaussian, so the supplied
+        error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
 
     :param scale_lengths: \
-        The default behaviour of GpRegressor is to determine an appropriate \
-        scale-length for each dimension separately, such that for a problem \
-        with N dimensions, there are N+1 total hyperparameters. Alternatively, \
-        this can be reduced to only 2 hyperparameters regardless of the number \
-        of dimensions by specifying the scale_lengths argument. In this case, \
-        the hyperparameters become and amplitude and a scalar multiplier for \
-        the provided scale-lengths. The specified lengths must be given as an \
+        The default behaviour of GpRegressor is to determine an appropriate
+        scale-length for each dimension separately, such that for a problem
+        with N dimensions, there are N+1 total hyperparameters. Alternatively,
+        this can be reduced to only 2 hyperparameters regardless of the number
+        of dimensions by specifying the scale_lengths argument. In this case,
+        the hyperparameters become and amplitude and a scalar multiplier for
+        the provided scale-lengths. The specified lengths must be given as an
         iterable of length equal to the number of dimensions.
 
     :param hyperpars: \
-        The amplitude and scale-length parameters for the normal prior distribution. \
-        If a single global scale length should be used, the hyperparameters should be \
-        specified as a two element list, i.e. [amplitude, length]. Alternatively, a \
-        separate length-scale for each dimension can be specified by passing an \
+        The amplitude and scale-length parameters for the normal prior distribution.
+        If a single global scale length should be used, the hyperparameters should be
+        specified as a two element list, i.e. [amplitude, length]. Alternatively, a
+        separate length-scale for each dimension can be specified by passing an
         amplitude followed by iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
     """
     def __init__(self, x, y, y_err = None, scale_lengths = None, hyperpars = None):
@@ -462,31 +462,31 @@ class GpOptimiser(object):
     """
     A class for performing Gaussian-process optimisation in one or more dimensions.
 
-    GpOptimiser extends the functionality of GpRegressor to perform Gaussian-process \
-    optimisation, often also referred to as 'Bayesian optimisation'. This technique \
-    is suited to problems for which a single evaluation of the function being explored \
-    is expensive, such that the total number of function evaluations must be made as \
+    GpOptimiser extends the functionality of GpRegressor to perform Gaussian-process
+    optimisation, often also referred to as 'Bayesian optimisation'. This technique
+    is suited to problems for which a single evaluation of the function being explored
+    is expensive, such that the total number of function evaluations must be made as
     small as possible.
 
-    In order to construct the gaussian-process regression estimate which is used to \
-    search for the global maximum, on initialisation GpOptimiser must be provided with \
+    In order to construct the gaussian-process regression estimate which is used to
+    search for the global maximum, on initialisation GpOptimiser must be provided with
     at least two evaluations of the function which is to be maximised.
 
     :param x: \
-        The spatial coordinates of the y-data values. For the 1-dimensional case, \
-        this should be a list or array of floats. For greater than 1 dimension, \
+        The spatial coordinates of the y-data values. For the 1-dimensional case,
+        this should be a list or array of floats. For greater than 1 dimension,
         a list of coordinate arrays or tuples should be given.
 
     :param y: The y-data values as a list or array of floats.
 
     :param y_err: \
-        The error on the y-data values supplied as a list or array of floats. \
-        This technique explicitly assumes that errors are Gaussian, so the supplied \
-        error values represent normal distribution standard deviations. If this \
+        The error on the y-data values supplied as a list or array of floats.
+        This technique explicitly assumes that errors are Gaussian, so the supplied
+        error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
 
     :param bounds: \
-        A iterable containing tuples which specify for the upper and lower bounds \
+        A iterable containing tuples which specify for the upper and lower bounds
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
     """
     def __init__(self, x, y, y_err = None, bounds = None):
