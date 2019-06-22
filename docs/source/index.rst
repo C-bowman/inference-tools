@@ -25,6 +25,7 @@ me at ``chris.bowman.physics@gmail.com``.
    :caption: Contents:
 
    getting_started
+   demos
    mcmc
    pdf_tools
    gp_tools

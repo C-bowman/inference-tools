@@ -9,7 +9,7 @@ Installation
 inference-tools is available from the python package index `PyPi <https://pypi.org/project/inference-tools/>`_, so can
 be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
 
-.. code-block::
+.. code-block:: bash
 
    pip install inference-tools
 
@@ -42,8 +42,8 @@ Define a simple class to evaluate the posterior log-probability:
 
       def __call__(self, theta):
          m, c = theta
-         prediction = m*self.x + c
-         return -0.5*(((self.y - prediction)/sigma)**2).sum()
+         prediction = m*self.x + c # evaluate the forward model
+         return -0.5*(((self.y - prediction)/sigma)**2).sum() # return the posterior log-probability
 
 import one of the Markov-chain Monte-Carlo samplers from the mcmc module:
 
