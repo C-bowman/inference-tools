@@ -50,7 +50,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     axis_arrays = []
     for sample in samples:
         # get the 98% HDI to calculate plot limits
-        lwr, upr = sample_hdi(sample, interval = 0.98, force_single = True)
+        lwr, upr = sample_hdi(sample, fraction = 0.98, force_single = True)
         # store the limits and axis array
         axis_limits.append([lwr-(upr-lwr)*0.3, upr+(upr-lwr)*0.3])
         axis_arrays.append(linspace(lwr-(upr-lwr)*0.35, upr+(upr-lwr)*0.35, L))

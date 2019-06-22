@@ -28,3 +28,9 @@ A demonstration of how to use the UnimodalPdf class can be found in ``/demos/Uni
 
 .. autoclass:: inference.pdf_tools.UnimodalPdf
    :members: __call__, interval, plot_summary, mode
+
+.. _sample_hdi:
+
+sample_hdi
+~~~~~~~~~~~
+.. autofunction:: inference.pdf_tools.sample_hdi
