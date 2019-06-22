@@ -11,4 +11,4 @@ within the package root.
    :maxdepth: 2
    :caption: Contents:
 
-   spectroscopy_demo
+   /demos/spectroscopy_demo
