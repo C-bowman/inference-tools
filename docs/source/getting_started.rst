@@ -30,6 +30,8 @@ Generate some noisy straight-line data:
    errors = zeros(6)+0.5
    y = 2*x + 1 + normal(size=6)*errors
 
+.. image:: test_image.png
+
 Define a simple class to evaluate the posterior log-probability:
 
 .. code-block:: python
@@ -45,7 +47,7 @@ Define a simple class to evaluate the posterior log-probability:
          prediction = m*self.x + c # evaluate the forward model
          return -0.5*(((self.y - prediction)/sigma)**2).sum() # return the posterior log-probability
 
-import one of the Markov-chain Monte-Carlo samplers from the mcmc module:
+Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo samplers from the mcmc module:
 
 .. code-block:: python
 
