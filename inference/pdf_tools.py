@@ -10,6 +10,7 @@ from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, loga
 from numpy.random import random
 from scipy.integrate import quad, simps
 from scipy.optimize import minimize, minimize_scalar, differential_evolution
+from warnings import warn
 from itertools import product
 from functools import reduce
 from copy import copy
@@ -195,7 +196,12 @@ class DensityEstimator(object):
 
 class UnimodalPdf(DensityEstimator):
     """
-    Construct an estimate of a univariate, unimodal probability distribution based on a given set of samples.
+    Construct an estimate of a univariate, unimodal probability distribution based on a given
+    set of samples.
+
+    The UnimodalPdf class is designed to robustly estimate univariate, unimodal probability
+    distributions given a sample drawn from that distribution. This is a parametric method
+    based on an heavily modified student-t distribution, which is extremely flexible.
 
     :param sample: 1D array of samples from which to estimate the probability distribution
     :type sample: array-like
@@ -616,38 +622,62 @@ class BinaryTree:
 
 
 
-def sample_hdi(sample, interval, force_single = False):
+def sample_hdi(sample, fraction, force_single = False):
     """
     Estimate the highest-density interval(s) for a given sample.
 
-    :param sample: A sample for which the interval will be determined
+    This function computes the shortest possible single interval and double
+    interval which contain a chosen fraction of the elements in the given
+    sample.
 
-    :param float interval: The fraction of the total probability to be contained by the interval.
+    The double-interval solution is returned in place of the single-interval
+    solution only if it's total length is at least 1% less than that of the
+    single-interval.
 
-    :param bool force_single: When set to True, only the shortest single interval is computed \
-                              and returned, ignoring the possibility of a shorter double interval.
+    :param sample: \
+        A sample for which the interval will be determined
 
-    :return: tuple(s) specifying the range of the highest-density interval
+    :param float fraction: \
+        The fraction of the total probability to be contained by the interval.
+
+    :param bool force_single: \
+        When set to True, only the shortest single interval is computed and
+        returned, ignoring the possibility of a shorter double interval.
+
+    :return: tuple(s) specifying the lower and upper bounds of the highest-density interval(s)
     """
-    s = sort(sample)
-    n = len(s)
-    L = int(interval*n)
 
-    # find the optimal single hdi
+    # verify inputs are valid
+    if not 0. < fraction < 1.: raise ValueError('fraction parameter must be between 0 and 1')
+    if not hasattr(sample, '__len__') or len(sample) < 2: raise ValueError('The sample must have at least 2 elements')
+
+    s = array(sample)
+    if len(s.shape) > 1: s = s.flatten()
+    s = sort(s)
+    n = len(s)
+    L = int(fraction * n)
+
+    # check that we have enough samples to estimate the HDI for the chosen fraction
+    if n <= L:
+        warn('The number of samples is insufficient to estimate the interval for the given fraction')
+        return (s[0], s[-1])
+    elif n-L < 20:
+        warn('len(sample)*(1 - fraction) is small - calculated interval may be inaccurate')
+
+    # find the optimal single HDI
     widths = s[L:] - s[:n-L]
     i = widths.argmin()
     r1, w1 = (s[i], s[i+L]), s[i+L]-s[i]
 
     if not force_single:
         # now get the best 2-interval solution
-        minfunc = dbl_interval_length(sample, interval)
+        minfunc = dbl_interval_length(sample, fraction)
         bounds = minfunc.get_bounds()
         de_result = differential_evolution(minfunc, bounds)
         I1, I2 = minfunc.return_intervals(de_result.x)
         w2 = (I2[1]-I2[0]) + (I1[1]-I1[0])
 
-    # return the split interval if the width reduction
-    # is non-trivial:
+    # return the split interval if the width reduction is non-trivial:
     if not force_single and w2 < w1*0.99:
         return I1, I2
     else:
@@ -657,9 +687,9 @@ def sample_hdi(sample, interval, force_single = False):
 
 
 class dbl_interval_length(object):
-    def __init__(self, sample, interval):
+    def __init__(self, sample, fraction):
         self.sample = sort(sample)
-        self.f = interval
+        self.f = fraction
         self.N = len(sample)
         self.L = int(self.f*self.N)
         self.space = self.N - self.L
