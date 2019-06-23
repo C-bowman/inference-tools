@@ -62,24 +62,58 @@ Create an instance of the posterior class, and import one of the Markov-chain Mo
    from inference.mcmc import PcaChain
    posterior = SpectroPosterior(wavelength, intensity, errors)
 
-As a minimum the MCMC sampling classes in `inference.mcmc` must be provided with a
+As a minimum the MCMC sampling classes in :code:`inference.mcmc` must be provided with a
 log-posterior function and a starting location for the chain:
 
 .. code-block:: python
 
    chain = PcaChain(posterior = posterior, start = [1000, 1, 1000, 1, 30, 30])
 
-The chain can be advanced for a given number of steps using the `advance` method:
+The chain can be advanced for a given number of steps using the :code:`advance` method:
 
 .. code-block:: python
 
    chain.advance(20000)
 
 We can view diagnostics which give useful information regarding the convergence of the
-sample using the `plot_diagnostics` method:
+sample using the :code:`plot_diagnostics` method:
 
 .. code-block:: python
 
    chain.plot_diagnostics()
 
 .. image:: plot_diagnostics_example.png
+
+As this problem has six free parameters, the resulting posterior distribution is six-dimensional,
+so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of the posterior, which
+shows all possible 1D and 2D marginal distributions, using the :code:`matrix_plot` method:
+
+.. code-block:: python
+
+   chain.matrix_plot()
+
+.. image:: matrix_plot_example.png
+
+We can easily estimate 1D marginal distributions for any parameter using the :code:`get_marginal` method:
+
+.. code-block:: python
+
+   w1_pdf = chain.get_marginal(1, unimodal = True)
+   w2_pdf = chain.get_marginal(3, unimodal = True)
+
+:code:`get_marginal` returns an instance of one of the `density estimator` classes from the :code:`pdf_tools` module.
+These objects can be called as functions to return an estimate of the pdf that best represents the sample data.
+
+.. code-block:: python
+
+   ax = linspace(0.2, 4., 1000) # build an axis to evaluate the pdf estimates
+   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot estimates of each marginal PDF
+   plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
+   plt.title('Peak width 1D marginal distributions')
+   plt.xlabel('parameter value')
+   plt.ylabel('probability density')
+   plt.legend()
+   plt.grid()
+   plt.show()
+
+.. image:: width_pdfs_example.png

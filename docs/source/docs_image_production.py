@@ -1,7 +1,7 @@
 
 import matplotlib.pyplot as plt
 from numpy import linspace, sqrt, pi, array
-from numpy.random import normal
+from numpy.random import normal, seed
 
 from inference.mcmc import PcaChain
 
@@ -45,21 +45,22 @@ class SpectroPosterior(object):
 
 
 def build_plots():
-
     # Create some simulated data
-    N = 40
+    seed(9)
+    N = 35
     x_data = linspace(410, 440, N)
     P = SpectroPosterior(x_data, None, None)
-    theta = [1400, 2, 600, 1.5, 55, 35]
+    theta = [1000, 2, 400, 1.5, 35, 25]
     y_data = P.forward_model(x_data, theta)
-    errors = sqrt(y_data+1)
-    y_data += normal(size=N)*errors
+    errors = sqrt(y_data + 1) + 5
+    y_data += normal(size = N) * errors
 
 
 
 
     # plot the simulated data we're going to use
-    plt.plot( x_data, y_data, '.-')
+    plt.errorbar(x_data, y_data, errors, marker = 'D', ls = 'none', markersize = 4)
+    plt.plot(x_data, y_data, alpha = 0.5, c = 'C0', ls = 'dashed')
     plt.title('synthetic spectroscopy data')
     plt.xlabel('wavelength (nm)')
     plt.ylabel('intensity')
@@ -67,8 +68,6 @@ def build_plots():
     plt.tight_layout()
     plt.savefig('spectroscopy_data.png')
     plt.close()
-
-
 
 
     # create the posterior object
@@ -89,26 +88,25 @@ def build_plots():
     # we can get a quick overview of the posterior using the matrix_plot
     # functionality of chain objects, which plots all possible 1D & 2D
     # marginal distributions of the full parameter set (or a chosen sub-set).
+    chain.thin = 1
     chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
 
     # We can easily estimate 1D marginal distributions for any parameter
     # using the get_marginal method:
-    pdf_1 = chain.get_marginal(1, unimodal = True)
-    pdf_2 = chain.get_marginal(3, unimodal = True)
+    w1_pdf = chain.get_marginal(1, unimodal = True)
+    w2_pdf = chain.get_marginal(3, unimodal = True)
 
     # get_marginal returns a density estimator object, which can be called
-    # as a function to return the value of the pdf at any point.
-    # Make an axis on which to evaluate the PDFs:
-    # ax = linspace(0.5, 3., 1000)
-    # plt.plot(ax, pdf_1(ax), label = 'width #1 marginal', lw = 2)
-    # plt.plot(ax, pdf_2(ax), label = 'width #2 marginal', lw = 2)
-    # plt.title('Peak width 1D marginal distributions')
-    # plt.xlabel('parameter value')
-    # plt.ylabel('probability density')
-    # plt.legend()
-    # plt.grid()
-    # plt.tight_layout()
-    # plt.show()
+    ax = linspace(0.2, 4., 1000)  # build an axis to evaluate the pdf estimates
+    plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2)  # plot estimates of each marginal PDF
+    plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
+    plt.title('Peak width 1D marginal distributions')
+    plt.xlabel('parameter value')
+    plt.ylabel('probability density')
+    plt.legend()
+    plt.grid()
+    plt.savefig('width_pdfs_example.png')
+    plt.close()
 
 
 
@@ -129,13 +127,6 @@ def build_plots():
 
     # plot the PDF
     pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
-    # ax = linspace(0,3,300)
-    # plt.plot( ax, pdf(ax), lw = 2)
-    # plt.title('Peak widths ratio distribution')
-    # plt.xlabel('widths ratio')
-    # plt.ylabel('probability density')
-    # plt.grid()
-    # plt.show()
 
 
 
