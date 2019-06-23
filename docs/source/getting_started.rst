@@ -179,7 +179,7 @@ We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density interval
    plt.tight_layout()
    plt.show()
 
-.. image:: pdf_summary_example.png
+.. image:: prediction_uncertainty_example.png
 
 Further examples
 ----------------

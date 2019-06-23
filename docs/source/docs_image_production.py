@@ -164,5 +164,5 @@ def build_plots():
     plt.xlim([410, 440])
     plt.legend()
     plt.grid()
-    plt.savefig('prediction_uncertainty_example.pdf')
+    plt.savefig('prediction_uncertainty_example.png')
     plt.close()
