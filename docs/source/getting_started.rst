@@ -23,7 +23,7 @@ Example - spectroscopy data fitting
 Here we work through a toy problem of fitting the following synthetic spectroscopy, which contains two
 peaks with known centres and a linear background:
 
-.. image:: spectroscopy_data.pdf
+.. image:: spectroscopy_data.png
 
 First let's define a class to evaluate the log-posterior:
 
@@ -82,4 +82,4 @@ sample using the `plot_diagnostics` method:
 
    chain.plot_diagnostics()
 
-.. image:: plot_diagnostics_example.pdf
+.. image:: plot_diagnostics_example.png
