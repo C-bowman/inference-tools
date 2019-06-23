@@ -176,12 +176,5 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
-
-import matplotlib.pyplot as plt
-from numpy import linspace
-
-x = linspace(0,7,8)
-plt.plot(x, 2*x+1, '.-')
-plt.grid()
-plt.savefig('test_image.png')
-plt.close()
+import subprocess
+subprocess.call("docs_image_production.py", shell=True)
