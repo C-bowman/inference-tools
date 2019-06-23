@@ -73,7 +73,7 @@ The chain can be advanced for a given number of steps using the :code:`advance` 
 
 .. code-block:: python
 
-   chain.advance(20000)
+   chain.advance(50000)
 
 We can view diagnostics which give useful information regarding the convergence of the
 sample using the :code:`plot_diagnostics` method:
@@ -138,3 +138,52 @@ We can generate a plot which summaries the properties of the estimated PDF using
    width_ratio_pdf.plot_summary(label = 'Peak widths ratio')
 
 .. image:: pdf_summary_example.png
+
+You may also want to assess the level of uncertainty in the model predictions. This can be done easily by passing
+each sample through the forward-model and observing the distribution of model expressions that result.
+
+We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density intervals for the sample of model predictions:
+
+.. code-block:: python
+
+   # generate an axis on which to evaluate the model
+   M = 500
+   x_fits = linspace(400, 450, M)
+   # get the sample
+   sample = chain.get_sample()
+   # pass each through the forward model
+   curves = array([posterior.forward_model(x_fits, theta) for theta in sample])
+
+   # we can use the sample_hdi function from the pdf_tools module to produce highest-density
+   # intervals for each point where the model is evaluated:
+   from inference.pdf_tools import sample_hdi
+   hdi_1sigma = array([sample_hdi(curves[:, i], 0.68, force_single = True) for i in range(curves.shape[1])])
+   hdi_2sigma = array([sample_hdi(curves[:, i], 0.95, force_single = True) for i in range(curves.shape[1])])
+
+   # construct the plot
+   plt.figure(figsize = (8, 5))
+   # plot the 1 and 2-sigma highest-density intervals
+   plt.fill_between(x_fits, hdi_2sigma[:, 0], hdi_2sigma[:, 1], color = 'red', alpha = 0.10, label = '2-sigma HDI')
+   plt.fill_between(x_fits, hdi_1sigma[:, 0], hdi_1sigma[:, 1], color = 'red', alpha = 0.20, label = '1-sigma HDI')
+   # plot the MAP estimate
+   MAP = posterior.forward_model(x_fits, chain.mode())
+   plt.plot(x_fits, MAP, c = 'red', lw = 2, ls = 'dashed', label = 'MAP estimate')
+   # plot the data
+   plt.plot(x_data, y_data, 'D', c = 'blue', markeredgecolor = 'black', markersize = 5, label = 'data')
+   # configure the plot
+   plt.xlabel('wavelength (nm)')
+   plt.ylabel('intensity')
+   plt.xlim([410, 440])
+   plt.legend()
+   plt.grid()
+   plt.tight_layout()
+   plt.show()
+
+.. image:: pdf_summary_example.png
+
+Further examples
+----------------
+
+For additional code examples, including a demonstration code for every class in each module, see the
+`/demos/ <https://github.com/C-bowman/inference_tools/tree/master/demos>`_ directory of the source
+code.

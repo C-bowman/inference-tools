@@ -1,5 +1,5 @@
-The pdf_tools module
-====================
+Sample analysis with inference.pdf_tools
+========================================
 This module provides tools for reconstructing the probability density function from which
 a given set of samples was drawn.
 
