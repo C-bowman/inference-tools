@@ -175,6 +175,8 @@ epub_title = project
 epub_exclude_files = ['search.html']
 
 
-# -- Extension configuration -------------------------------------------------
-import subprocess
-subprocess.call("docs_image_production.py", shell=True)
+# -- Extension configuration ------------------------------------------------
+from docs_image_production import build_plots
+build_plots()
+# import subprocess
+# subprocess.call("docs_image_production.py", shell=True)

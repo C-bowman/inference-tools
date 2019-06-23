@@ -44,144 +44,144 @@ class SpectroPosterior(object):
 
 
 
+def build_plots():
 
-
-# Create some simulated data
-N = 40
-x_data = linspace(410, 440, N)
-P = SpectroPosterior(x_data, None, None)
-theta = [1400, 2, 600, 1.5, 55, 35]
-y_data = P.forward_model(x_data, theta)
-errors = sqrt(y_data+1)
-y_data += normal(size=N)*errors
-
-
-
-
-# plot the simulated data we're going to use
-plt.plot( x_data, y_data, '.-')
-plt.title('synthetic spectroscopy data')
-plt.xlabel('wavelength (nm)')
-plt.ylabel('intensity')
-plt.grid()
-plt.tight_layout()
-plt.savefig('spectroscopy_data.png')
-plt.close()
+    # Create some simulated data
+    N = 40
+    x_data = linspace(410, 440, N)
+    P = SpectroPosterior(x_data, None, None)
+    theta = [1400, 2, 600, 1.5, 55, 35]
+    y_data = P.forward_model(x_data, theta)
+    errors = sqrt(y_data+1)
+    y_data += normal(size=N)*errors
 
 
 
 
-# create the posterior object
-posterior = SpectroPosterior(x_data, y_data, errors)
-
-# create the markov chain object
-chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 30, 30] )
-
-# generate a sample by advancing the chain
-chain.advance(20000)
-
-# we can check the status of the chain using the plot_diagnostics method
-chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.png')
-
-# We can automatically set sensible burn and thin values for the sample
-chain.autoselect_burn_and_thin()
-
-# we can get a quick overview of the posterior using the matrix_plot
-# functionality of chain objects, which plots all possible 1D & 2D
-# marginal distributions of the full parameter set (or a chosen sub-set).
-chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
-
-# We can easily estimate 1D marginal distributions for any parameter
-# using the get_marginal method:
-pdf_1 = chain.get_marginal(1, unimodal = True)
-pdf_2 = chain.get_marginal(3, unimodal = True)
-
-# get_marginal returns a density estimator object, which can be called
-# as a function to return the value of the pdf at any point.
-# Make an axis on which to evaluate the PDFs:
-# ax = linspace(0.5, 3., 1000)
-# plt.plot(ax, pdf_1(ax), label = 'width #1 marginal', lw = 2)
-# plt.plot(ax, pdf_2(ax), label = 'width #2 marginal', lw = 2)
-# plt.title('Peak width 1D marginal distributions')
-# plt.xlabel('parameter value')
-# plt.ylabel('probability density')
-# plt.legend()
-# plt.grid()
-# plt.tight_layout()
-# plt.show()
+    # plot the simulated data we're going to use
+    plt.plot( x_data, y_data, '.-')
+    plt.title('synthetic spectroscopy data')
+    plt.xlabel('wavelength (nm)')
+    plt.ylabel('intensity')
+    plt.grid()
+    plt.tight_layout()
+    plt.savefig('spectroscopy_data.png')
+    plt.close()
 
 
 
 
+    # create the posterior object
+    posterior = SpectroPosterior(x_data, y_data, errors)
 
+    # create the markov chain object
+    chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 30, 30] )
 
-# what if instead we wanted a PDF for the ratio of the two widths?
-# get the sample for each width
-width_1 = chain.get_parameter(1)
-width_2 = chain.get_parameter(3)
+    # generate a sample by advancing the chain
+    chain.advance(20000)
 
-# make a new set of samples for the ratio
-widths_ratio = [i/j for i,j in zip(width_1, width_2)]
+    # we can check the status of the chain using the plot_diagnostics method
+    chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.png')
 
-# Use one of the density estimator objects from pdf_tools to get the PDF
-from inference.pdf_tools import UnimodalPdf
-pdf = UnimodalPdf(widths_ratio)
+    # We can automatically set sensible burn and thin values for the sample
+    chain.autoselect_burn_and_thin()
 
-# plot the PDF
-pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
-# ax = linspace(0,3,300)
-# plt.plot( ax, pdf(ax), lw = 2)
-# plt.title('Peak widths ratio distribution')
-# plt.xlabel('widths ratio')
-# plt.ylabel('probability density')
-# plt.grid()
-# plt.show()
+    # we can get a quick overview of the posterior using the matrix_plot
+    # functionality of chain objects, which plots all possible 1D & 2D
+    # marginal distributions of the full parameter set (or a chosen sub-set).
+    chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
+
+    # We can easily estimate 1D marginal distributions for any parameter
+    # using the get_marginal method:
+    pdf_1 = chain.get_marginal(1, unimodal = True)
+    pdf_2 = chain.get_marginal(3, unimodal = True)
+
+    # get_marginal returns a density estimator object, which can be called
+    # as a function to return the value of the pdf at any point.
+    # Make an axis on which to evaluate the PDFs:
+    # ax = linspace(0.5, 3., 1000)
+    # plt.plot(ax, pdf_1(ax), label = 'width #1 marginal', lw = 2)
+    # plt.plot(ax, pdf_2(ax), label = 'width #2 marginal', lw = 2)
+    # plt.title('Peak width 1D marginal distributions')
+    # plt.xlabel('parameter value')
+    # plt.ylabel('probability density')
+    # plt.legend()
+    # plt.grid()
+    # plt.tight_layout()
+    # plt.show()
 
 
 
 
 
 
-# You may also want to assess the level of uncertainty in the model predictions.
-# This can be done easily by passing each sample through the forward-model
-# and observing the distribution of model expressions that result.
+    # what if instead we wanted a PDF for the ratio of the two widths?
+    # get the sample for each width
+    width_1 = chain.get_parameter(1)
+    width_2 = chain.get_parameter(3)
 
-# However rather than taking the entire sample, it is better to take a sub-sample
-# which corresponds to some credible interval. For example, the 95% credible interval
-# sub sample can be generated by taking the 95% of samples which have the highest
-# associated probabilities.
+    # make a new set of samples for the ratio
+    widths_ratio = [i/j for i,j in zip(width_1, width_2)]
 
-# Markov-chain objects have a method for this called get_interval():
-interval_sample, interval_probs = chain.get_interval(samples = 1500)
-# by default the interval is 95%, but any fraction can be used using a keyword argument.
+    # Use one of the density estimator objects from pdf_tools to get the PDF
+    from inference.pdf_tools import UnimodalPdf
+    pdf = UnimodalPdf(widths_ratio)
 
-# generate an axis on which to evaluate the model
-M = 500
-x_fits = linspace(410, 440, M)
+    # plot the PDF
+    pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
+    # ax = linspace(0,3,300)
+    # plt.plot( ax, pdf(ax), lw = 2)
+    # plt.title('Peak widths ratio distribution')
+    # plt.xlabel('widths ratio')
+    # plt.ylabel('probability density')
+    # plt.grid()
+    # plt.show()
 
-# now evaluate the model for each sample
-models = []
-for theta in interval_sample:
-    curve = posterior.forward_model(x_fits, theta)
-    models.append(curve)
-models = array(models)
 
-# calculate the 95% envelope
-upper_bound = models.max(axis = 0)
-lower_bound = models.min(axis = 0)
 
-# also want to evaluate the most probable model using the mode:
-mode = posterior.forward_model(x_fits, chain.mode())
 
-# construct the plot
-# plt.figure(figsize = (10,7.5))
-# plt.plot(x_fits, mode, c = 'C2', lw = 2, label = 'mode')
-# plt.plot(x_fits, lower_bound, ls = 'dashed', c = 'red', lw = 2, label = '95% envelope')
-# plt.plot(x_fits, upper_bound, ls = 'dashed', c = 'red', lw = 2)
-# plt.plot( x_data, y_data, 'D', c = 'blue', markeredgecolor = 'black', markersize = 4, label = 'data')
-# plt.title('Forward model 95% interval')
-# plt.xlabel('wavelength (nm)')
-# plt.ylabel('intensity')
-# plt.legend()
-# plt.grid()
-# plt.show()
+
+
+    # You may also want to assess the level of uncertainty in the model predictions.
+    # This can be done easily by passing each sample through the forward-model
+    # and observing the distribution of model expressions that result.
+
+    # However rather than taking the entire sample, it is better to take a sub-sample
+    # which corresponds to some credible interval. For example, the 95% credible interval
+    # sub sample can be generated by taking the 95% of samples which have the highest
+    # associated probabilities.
+
+    # Markov-chain objects have a method for this called get_interval():
+    interval_sample, interval_probs = chain.get_interval(samples = 1500)
+    # by default the interval is 95%, but any fraction can be used using a keyword argument.
+
+    # generate an axis on which to evaluate the model
+    M = 500
+    x_fits = linspace(410, 440, M)
+
+    # now evaluate the model for each sample
+    models = []
+    for theta in interval_sample:
+        curve = posterior.forward_model(x_fits, theta)
+        models.append(curve)
+    models = array(models)
+
+    # calculate the 95% envelope
+    upper_bound = models.max(axis = 0)
+    lower_bound = models.min(axis = 0)
+
+    # also want to evaluate the most probable model using the mode:
+    mode = posterior.forward_model(x_fits, chain.mode())
+
+    # construct the plot
+    # plt.figure(figsize = (10,7.5))
+    # plt.plot(x_fits, mode, c = 'C2', lw = 2, label = 'mode')
+    # plt.plot(x_fits, lower_bound, ls = 'dashed', c = 'red', lw = 2, label = '95% envelope')
+    # plt.plot(x_fits, upper_bound, ls = 'dashed', c = 'red', lw = 2)
+    # plt.plot( x_data, y_data, 'D', c = 'blue', markeredgecolor = 'black', markersize = 4, label = 'data')
+    # plt.title('Forward model 95% interval')
+    # plt.xlabel('wavelength (nm)')
+    # plt.ylabel('intensity')
+    # plt.legend()
+    # plt.grid()
+    # plt.show()
