@@ -100,8 +100,7 @@ def build_plots():
     ax = linspace(0.2, 4., 1000)  # build an axis to evaluate the pdf estimates
     plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2)  # plot estimates of each marginal PDF
     plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
-    plt.title('Peak width 1D marginal distributions')
-    plt.xlabel('parameter value')
+    plt.xlabel('peak width')
     plt.ylabel('probability density')
     plt.legend()
     plt.grid()

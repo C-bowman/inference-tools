@@ -11,8 +11,6 @@ The GaussianKDE class provides an estimate of a univariate PDF for a given set o
 Gaussian kernel density estimation. An estimate of the mode is calulated automatically, and like
 UnimodalPdf, the credible interval for a given percentile is available through a method call.
 
-A demonstration of how to use the UnimodalPdf class can be found in ``/demos/GaussianKDE_demo.py``
-
 .. autoclass:: inference.pdf_tools.GaussianKDE
    :members: __call__, interval, plot_summary, locate_mode
 

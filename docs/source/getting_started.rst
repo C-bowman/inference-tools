@@ -109,11 +109,32 @@ These objects can be called as functions to return an estimate of the pdf that b
    ax = linspace(0.2, 4., 1000) # build an axis to evaluate the pdf estimates
    plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot estimates of each marginal PDF
    plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
-   plt.title('Peak width 1D marginal distributions')
-   plt.xlabel('parameter value')
+   plt.xlabel('peak width')
    plt.ylabel('probability density')
    plt.legend()
    plt.grid()
    plt.show()
 
 .. image:: width_pdfs_example.png
+
+Sample data for specific parameters can be accessed using the ``get parameter`` method:
+
+.. code-block:: python
+
+   w1_sample = chain.get_parameter(1)
+   w2_sample = chain.get_parameter(3)
+
+To estimate the PDF of a a quantity derived from the sample data, for example the ratio of the two peak widths,
+we can used one of the ``pdf_tools`` density estimators directly:
+
+.. code-block:: python
+   from inference.pdf_tools import UnimodalPdf
+   width_ratio_sample = [a/b for a,b in zip(w1_sample,w2_sample)]
+   width_ratio_pdf = UnimodalPdf(widths_ratio)
+
+We can generate a plot which summaries the properties of the estimated PDF using the ``plot_summary`` method:
+
+.. code-block:: python
+   width_ratio_pdf.plot_summary(label = 'Peak widths ratio')
+
+.. image:: pdf_summary_example.png

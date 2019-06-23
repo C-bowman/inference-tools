@@ -10,9 +10,6 @@ GibbsChain
 Gibbs samping is implemented as the GibbsChain class. This implementation is self-tuning, such that detailed knowledge of the PDF
 being sampled is not required in order for the algorithm to work efficiently.
 
-Demonstrations of how to use the GibbsChain class can be found in ``/demos/GibbsChain_demo.py`` and
-``/demos/spectroscopy_demo.py``
-
 .. autoclass:: inference.mcmc.GibbsChain
    :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_interval, plot_diagnostics, matrix_plot, set_non_negative, set_boundaries
 
@@ -28,8 +25,6 @@ with strongly correlated variables and scales favourably to higher-dimensionalit
 This implementation automatically selects an appropriate time-step for the Hamiltonian dynamics simulation, but
 does not currently automatically select an appropriate number of time-steps to take. We would like to add this
 functionality in the future, for example by implementing the NUTS algorithm.
-
-Demonstrations of how to use the HamiltonianChain class can be found in ``/demos/HamiltonianChain_demo.py``
 
 .. autoclass:: inference.mcmc.HamiltonianChain
    :members: advance, run_for, mode, get_marginal, get_parameter, plot_diagnostics, matrix_plot
