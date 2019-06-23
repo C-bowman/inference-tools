@@ -84,6 +84,9 @@ sample using the :code:`plot_diagnostics` method:
 
 .. image:: plot_diagnostics_example.png
 
+The diagnostics plot shows the history of the chains log-probability, the convergence tuning parameters
+such as proposal distribution widths, and effective sample size estimates for each parameter.
+
 As this problem has six free parameters, the resulting posterior distribution is six-dimensional,
 so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of the posterior, which
 shows all possible 1D and 2D marginal distributions, using the :code:`matrix_plot` method:
@@ -128,6 +131,7 @@ To estimate the PDF of a a quantity derived from the sample data, for example th
 we can used one of the ``pdf_tools`` density estimators directly:
 
 .. code-block:: python
+
    from inference.pdf_tools import UnimodalPdf
    width_ratio_sample = [a/b for a,b in zip(w1_sample,w2_sample)]
    width_ratio_pdf = UnimodalPdf(widths_ratio)
@@ -135,6 +139,7 @@ we can used one of the ``pdf_tools`` density estimators directly:
 We can generate a plot which summaries the properties of the estimated PDF using the ``plot_summary`` method:
 
 .. code-block:: python
+
    width_ratio_pdf.plot_summary(label = 'Peak widths ratio')
 
 .. image:: pdf_summary_example.png
