@@ -65,7 +65,7 @@ plt.xlabel('wavelength (nm)')
 plt.ylabel('intensity')
 plt.grid()
 plt.tight_layout()
-plt.savefig('spectroscopy_data.pdf')
+plt.savefig('spectroscopy_data.png')
 plt.close()
 
 
@@ -81,7 +81,7 @@ chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 30, 30] )
 chain.advance(20000)
 
 # we can check the status of the chain using the plot_diagnostics method
-chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.pdf')
+chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.png')
 
 # We can automatically set sensible burn and thin values for the sample
 chain.autoselect_burn_and_thin()
@@ -89,7 +89,7 @@ chain.autoselect_burn_and_thin()
 # we can get a quick overview of the posterior using the matrix_plot
 # functionality of chain objects, which plots all possible 1D & 2D
 # marginal distributions of the full parameter set (or a chosen sub-set).
-chain.matrix_plot(show = False, filename = 'matrix_plot_example.pdf')
+chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
 
 # We can easily estimate 1D marginal distributions for any parameter
 # using the get_marginal method:
@@ -128,7 +128,7 @@ from inference.pdf_tools import UnimodalPdf
 pdf = UnimodalPdf(widths_ratio)
 
 # plot the PDF
-pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.pdf')
+pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
 # ax = linspace(0,3,300)
 # plt.plot( ax, pdf(ax), lw = 2)
 # plt.title('Peak widths ratio distribution')
