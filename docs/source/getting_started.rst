@@ -20,7 +20,7 @@ or download the files from `PyPi <https://pypi.org/project/inference-tools/>`_ d
 Example - spectroscopy data fitting
 -----------------------------------
 
-Here we work through a toy problem of fitting the following synthetic spectroscopy, which contains two
+Here we work through a toy problem of fitting the following synthetic spectroscopy data, which contains two
 peaks with known centres and a linear background:
 
 .. image:: spectroscopy_data.png
@@ -31,6 +31,7 @@ First let's define a class to evaluate the log-posterior:
 
    class SpectroPosterior(object):
       def __init__(self, wavelength, intensity, errors):
+         # store the data
          self.x = wavelength
          self.y = intensity
          self.sigma = errors
@@ -38,10 +39,10 @@ First let's define a class to evaluate the log-posterior:
          self.c1 = 422.
          self.c2 = 428.
 
-      def __call__(self, theta):
+      def __call__(self, theta): # __call__ returns our posterior log-probability
          return self.likelihood(theta) # omitting prior term here means our prior is uniform everywhere
 
-      def likelihood(self, theta):
+      def likelihood(self, theta): # Gaussian likelihood
          return -0.5*sum( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 )
 
       def forward_model(self, x, theta):
@@ -55,7 +56,8 @@ First let's define a class to evaluate the log-posterior:
          # return the prediction of the data
          return peak_1 + peak_2 + background
 
-Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo samplers from the mcmc module:
+Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo samplers from
+``inference.mcmc``:
 
 .. code-block:: python
 
@@ -84,7 +86,7 @@ sample using the :code:`plot_diagnostics` method:
 
 .. image:: plot_diagnostics_example.png
 
-The diagnostics plot shows the history of the chains log-probability, the convergence tuning parameters
+The diagnostics plot shows the history of the chains log-probability, the convergence of tuning parameters
 such as proposal distribution widths, and effective sample size estimates for each parameter.
 
 As this problem has six free parameters, the resulting posterior distribution is six-dimensional,

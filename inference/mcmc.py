@@ -760,6 +760,12 @@ class GibbsChain(MarkovChain):
     """
     A Gibbs sampling class implemented as a child of the MarkovChain class.
 
+    In Gibbs sampling, each "step" in the chain consists of a series of 1D Metropolis-Hastings
+    steps, one for each parameter, such that each step all parameters have been adjusted.
+
+    This allows 1D step acceptance rate data to be collected independently for each parameter,
+    thereby allowing the proposal width of each parameter to be tuned individually.
+
     :param func posterior: \
         a function which returns the log-posterior probability density for a given set of model
         parameters theta, which should be the only argument so that: ln(P) = posterior(theta).
@@ -772,12 +778,6 @@ class GibbsChain(MarkovChain):
         vector of standard deviations which serve as initial guesses for the widths of the proposal
         distribution for each model parameter. If not specified, the starting widths will be
         approximated as 5% of the values in 'start'.
-
-    In Gibbs sampling, each "step" in the chain consists of a series of 1D Metropolis-Hastings
-    steps, one for each parameter, such that each step all parameters have been adjusted.
-
-    This allows 1D step acceptance rate data to be collected independently for each parameter,
-    thereby allowing the proposal width of each parameter to be tuned individually.
     """
     def __init__(self, *args, **kwargs):
         super(GibbsChain, self).__init__(*args, **kwargs)
@@ -827,20 +827,6 @@ class PcaChain(MarkovChain):
     """
     A class which performs Gibbs sampling over the eigenvectors of the covariance matrix.
 
-    :param func posterior: \
-        a function which returns the log-posterior probability density for a \
-        given set of model parameters theta, which should be the only argument \
-        so that: ln(P) = posterior(theta)
-
-    :param start: \
-        vector of model parameters which correspond to the parameter-space coordinates \
-        at which the chain will start.
-
-    :param widths: \
-        vector of standard deviations which serve as initial guesses for the widths of \
-        the proposal distribution for each model parameter. If not specified, the starting \
-        widths will be approximated as 5% of the values in 'start'.
-
     The PcaChain sampler uses 'principal component analysis' (PCA) to improve
     the performance of Gibbs sampling in cases where strong linear correlation
     exists between two or more variables in a problem.
@@ -853,6 +839,20 @@ class PcaChain(MarkovChain):
     results in standard gibbs sampling for the first samples in the chain.
     Subsequently, the covariance matrix periodically updated with an estimate
     derived from the sample itself, and the eigenvectors are re-calculated.
+
+    :param func posterior: \
+        a function which returns the log-posterior probability density for a
+        given set of model parameters theta, which should be the only argument
+        so that: ln(P) = posterior(theta)
+
+    :param start: \
+        vector of model parameters which correspond to the parameter-space coordinates
+        at which the chain will start.
+
+    :param widths: \
+        vector of standard deviations which serve as initial guesses for the widths of
+        the proposal distribution for each model parameter. If not specified, the starting
+        widths will be approximated as 5% of the values in 'start'.
     """
     def __init__(self, *args, parameter_boundaries = None, **kwargs):
         super(PcaChain, self).__init__(*args, **kwargs)
@@ -1052,37 +1052,37 @@ class PcaChain(MarkovChain):
 
 class HamiltonianChain(MarkovChain):
     """
-    Hamiltonian Monte-Carlo implemented as a child of the MarkovChain class.
+    Class for performing Hamiltonian Monte-Carlo sampling.
 
     :param func posterior: \
-        A function which returns the log-posterior probability density for a \
-        given set of model parameters theta, which should be the only argument \
+        A function which returns the log-posterior probability density for a
+        given set of model parameters theta, which should be the only argument
         so that: ln(P) = posterior(theta)
 
     :param func grad: \
-        A function which returns the gradient of the log-posterior probability density \
-        for a given set of model parameters theta. If this function is not given, the \
+        A function which returns the gradient of the log-posterior probability density
+        for a given set of model parameters theta. If this function is not given, the
         gradient will instead be estimated by finite difference.
 
     :param start: \
-        Vector of model parameters which correspond to the parameter-space coordinates \
+        Vector of model parameters which correspond to the parameter-space coordinates
         at which the chain will start.
 
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
 
     :param int temperature: \
-        The temperature of the markov chain. This parameter is used for parallel \
+        The temperature of the markov chain. This parameter is used for parallel
         tempering and should be otherwise left unspecified.
 
     :param bounds: \
-        A list or tuple containing two numpy arrays which specify the upper and lower \
+        A list or tuple containing two numpy arrays which specify the upper and lower
         bounds for the parameters in the form (lower_bounds, upper_bounds).
 
     :param inv_mass: \
-        A vector specifying the inverse-mass value to be used for each parameter. The \
-        inverse-mass can re-scale the parameters to make the problem more isotropic, \
-        which helps ensure good performance. The inverse-mass value for a given parameter \
+        A vector specifying the inverse-mass value to be used for each parameter. The
+        inverse-mass can re-scale the parameters to make the problem more isotropic,
+        which helps ensure good performance. The inverse-mass value for a given parameter
         should be set to roughly the range over which that parameter is expected to vary.
     """
     def __init__(self, posterior = None, grad = None, start = None, epsilon = 0.1, temperature = 1, bounds = None, inv_mass = None):
