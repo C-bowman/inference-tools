@@ -2,9 +2,8 @@
 This package aims to provide a set of python-based tools for Bayesian data analysis
 which are simple to use, allowing them to applied quickly and easily.
 
-The package documentation can be found [here](https://inference-tools.readthedocs.io/en/latest/). 
-For example code, see the [/demos/](https://github.com/C-bowman/inference_tools/tree/master/demos) folder 
-which contains a demonstration code for every available class, including detailed comments.
+Please see the [inference-tools documentation](https://inference-tools.readthedocs.io/en/latest/) if you are
+interested in using or learning more about the package.
 
 inference-tools is available from the python package index [PyPi](https://pypi.org/project/inference-tools/), so
 can also be installed using [pip](https://pip.pypa.io/en/stable/).

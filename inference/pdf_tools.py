@@ -52,8 +52,8 @@ class DensityEstimator(object):
         """
         Plot the estimated PDF along with summary statistics.
 
-        :param str filename: Filename to which the plot will be saved. If unspecified, the plot will not be saved.
-        :param bool show: Boolean value indicating whether the plot should be displayed in a window. (Default is True)
+        :keyword str filename: Filename to which the plot will be saved. If unspecified, the plot will not be saved.
+        :keyword bool show: Boolean value indicating whether the plot should be displayed in a window. (Default is True)
         :keyword str label: The label to be used for the x-axis on the plot as a string.
         """
         sigma_1 = self.interval(frac = 0.68268)
@@ -93,8 +93,8 @@ class DensityEstimator(object):
 
         gap = 0.05
         h = 0.95
-        x1 = 0.45
-        x2 = 0.5
+        x1 = 0.35
+        x2 = 0.40
         ax = plt.subplot2grid((1, 3), (0, 2))
 
         ax.text(0., h, 'Basics', horizontalalignment = 'left', fontweight = 'bold')
@@ -196,22 +196,14 @@ class DensityEstimator(object):
 
 class UnimodalPdf(DensityEstimator):
     """
-    Construct an estimate of a univariate, unimodal probability distribution based on a given
-    set of samples.
+    Construct a UnimodalPdf object, which can be called as a function to
+    return the estimated PDF of the given sample.
 
     The UnimodalPdf class is designed to robustly estimate univariate, unimodal probability
     distributions given a sample drawn from that distribution. This is a parametric method
     based on an heavily modified student-t distribution, which is extremely flexible.
 
     :param sample: 1D array of samples from which to estimate the probability distribution
-    :type sample: array-like
-
-
-    The UnimodalPdf class is designed to robustly estimate univariate, unimodal
-    probability distributions given a sample drawn from that distribution.
-
-    This is a parametric method based on an extensively modified student-t
-    distribution, which is extremely flexible.
     """
     def __init__(self, sample):
 
@@ -288,7 +280,7 @@ class UnimodalPdf(DensityEstimator):
         """
         Evaluate the PDF estimate at a set of given axis positions.
 
-        :param x_vals: axis location(s) at which to evaluate the estimate.
+        :param x: axis location(s) at which to evaluate the estimate.
         :return: values of the PDF estimate at the specified locations.
         """
         return exp(self.log_pdf_model(x, self.MAP) - self.map_lognorm)
@@ -328,9 +320,6 @@ class UnimodalPdf(DensityEstimator):
         Calculate the mean, variance skewness and excess kurtosis of the estimated PDF.
 
         :return: mean, variance, skewness, ex-kurtosis
-
-        Note that these quantities are calculated directly from the estimated PDF, and
-        note from the sample values.
         """
         s = self.MAP[1]
         f = self.MAP[3]
@@ -351,27 +340,31 @@ class UnimodalPdf(DensityEstimator):
 
 class GaussianKDE(DensityEstimator):
     """
-    Construct an estimate of a univariate probability distribution.
+    Construct a GaussianKDE object, which can be called as a function to
+    return the estimated PDF of the given sample.
 
-    :param sample: 1D array of samples from which to estimate the probability distribution
-    :type sample: array-like
+    GaussianKDE uses Gaussian kernel-density estimation to estimate the PDF
+    associated with a given sample.
 
-    :param float bandwidth: width of the Gaussian kernels used for the estimate. If not specified, \
-                            an appropriate width is estimated based on sample data.
+    :param sample: \
+        1D array of samples from which to estimate the probability distribution
 
-    :param bool cross_validation: Indicate whether or not cross-validation should be used to estimate \
-                                  the bandwidth in place of the simple 'rule of thumb' estimate \
-                                  which is normally used.
+    :param float bandwidth: \
+        Width of the Gaussian kernels used for the estimate. If not specified,
+        an appropriate width is estimated based on sample data.
 
-    :param int max_cv_samples: The maximum number of samples to be used when estimating the bandwidth \
-                               via cross-validation. The computational cost scales roughly quadratically \
-                               with the number of samples used, and can become prohibitive for samples of \
-                               size in the tens of thousands and up. Instead, if the sample size is greater \
-                               than *max_cv_samples*, the cross-validation is performed on a sub-sample of \
-                               this size.
+    :param bool cross_validation: \
+        Indicate whether or not cross-validation should be used to estimate
+        the bandwidth in place of the simple 'rule of thumb' estimate which
+        is normally used.
 
-    The GaussianKDE class uses Gaussian kernel-density estimation to approximate a
-    probability distribution given a sample drawn from that distribution.
+    :param int max_cv_samples: \
+        The maximum number of samples to be used when estimating the bandwidth
+        via cross-validation. The computational cost scales roughly quadratically
+        with the number of samples used, and can become prohibitive for samples of
+        size in the tens of thousands and up. Instead, if the sample size is greater
+        than *max_cv_samples*, the cross-validation is performed on a sub-sample of
+        this size.
     """
     def __init__(self, sample, bandwidth = None, cross_validation = False, max_cv_samples = 5000):
 
@@ -521,7 +514,8 @@ class GaussianKDE(DensityEstimator):
         return reduce(logaddexp, generator) - log(len(samples) * sqrt(2*pi))
 
     def locate_mode(self):
-        result = minimize_scalar(lambda x : -self.__call__(x), bounds = [self.s[0], self.s[-1]], method = 'bounded')
+        lwr, upr = sample_hdi(self.s, 0.1, force_single=True) # use the 10% HDI to get close to the mode
+        result = minimize_scalar(lambda x : -self.__call__(x), bounds = [lwr, upr], method = 'bounded')
         return result.x
 
     def moments(self):

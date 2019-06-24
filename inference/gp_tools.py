@@ -18,6 +18,13 @@ class GpRegressor(object):
     """
     A class for performing Gaussian-process regression in one or more dimensions.
 
+    Gaussian-process regression (GPR) is a non-parametric regression technique
+    which can fit arbitrarily spaced data in any number of dimensions. A unique
+    feature of GPR is its ability to account for uncertainties on the data
+    (which must be assumed to be Gaussian) and propagate that uncertainty to the
+    regression estimate by modelling the regression estimate itself as a multivariate
+    normal distribution.
+
     :param x: \
         The spatial coordinates of the y-data values. For the 1-dimensional case,
         this should be a list or array of floats. For greater than 1 dimension,
@@ -284,9 +291,6 @@ class GpInverter(object):
         cov	- covariance matrix for the data
 
         G	- the linearisation matrix
-
-
-    > [more documentation here!]
     """
     def __init__(self, x, y, cov, G, scale_length = None, mean = None, amplitude = None, selector = 'evidence'):
         self.x = x  # spatial location of the parameters, *not* the y data
@@ -479,13 +483,13 @@ class GpOptimiser(object):
 
     :param y: The y-data values as a list or array of floats.
 
-    :param y_err: \
+    :keyword y_err: \
         The error on the y-data values supplied as a list or array of floats.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
 
-    :param bounds: \
+    :keyword bounds: \
         A iterable containing tuples which specify for the upper and lower bounds
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
     """

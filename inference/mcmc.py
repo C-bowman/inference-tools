@@ -1342,8 +1342,6 @@ class HamiltonianChain(MarkovChain):
         x2 = 0.55
         fntsiz = 14
 
-        # ax4.text(0., h, 'Basics', horizontalalignment = 'left', fontweight = 'bold')
-        # h -= gap
         ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize=fntsiz)
         ax4.text(x2, h, '{:.5G}'.format(burn), horizontalalignment='left', fontsize=fntsiz)
         h -= gap

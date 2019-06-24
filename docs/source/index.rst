@@ -16,7 +16,7 @@ the problem within a modelling framework.
 Additionally, the package provides tools for analysing and plotting sampling results, as well as
 implementations of some useful applications of Gaussian processes.
 
-Requests for features/improvements can be made via the issue tracker
+Requests for features/improvements can be made via the
 `issue tracker <https://github.com/C-bowman/inference-tools/issues>`_. If you have questions
 or are interested in getting involved with the development of this package, please contact
 me at ``chris.bowman.physics@gmail.com``.
