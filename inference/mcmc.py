@@ -655,7 +655,7 @@ class MarkovChain(object):
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
         if params is None: params = range(self.L)
-        samples = [ self.get_parameter(i)[burn::thin] for i in params ]
+        samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
         matrix_plot(samples, **kwargs)
 
     def save(self, filename):
