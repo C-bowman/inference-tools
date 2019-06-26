@@ -7,9 +7,6 @@ highest-density interval calculation.
 
 GaussianKDE
 ~~~~~~~~~~~
-The GaussianKDE class provides an estimate of a univariate PDF for a given set of sample data using
-Gaussian kernel density estimation. The class also provides a method which returns the
-highest-density interval for a chosen percentile.
 
 .. autoclass:: inference.pdf_tools.GaussianKDE
    :members: __call__, interval, plot_summary, locate_mode
@@ -18,9 +15,6 @@ highest-density interval for a chosen percentile.
 
 UnimodalPdf
 ~~~~~~~~~~~
-UnimodalPdf provides smooth estimates of univariate, unimodal PDFs by fitting an extremely flexible
-parametric model to a given set of sample data. The class also provides a method which returns the
-highest-density interval for a chosen percentile.
 
 .. autoclass:: inference.pdf_tools.UnimodalPdf
    :members: __call__, interval, plot_summary, mode
