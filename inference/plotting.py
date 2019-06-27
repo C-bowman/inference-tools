@@ -39,7 +39,10 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
 
     N_par = len(samples)
     if labels is None:
-        labels = ['param ' + str(i) for i in range(N_par)]
+        if N_par >= 10:
+            labels = ['p' + str(i) for i in range(N_par)]
+        else:
+            labels = ['param ' + str(i) for i in range(N_par)]
     else:
         if len(labels) != N_par:
             raise ValueError('number of labels must match number of plotted parameters')
