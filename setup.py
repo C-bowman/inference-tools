@@ -11,7 +11,7 @@ setup(
     description="A collection of python tools for Bayesian data analysis",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/C-bowman/inference_tools",
+    url="https://github.com/C-bowman/inference-tools",
     packages=find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
