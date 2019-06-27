@@ -655,7 +655,7 @@ class MarkovChain(object):
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
         if params is None: params = range(self.L)
-        samples = [ self.get_parameter(i)[burn::thin] for i in params ]
+        samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
         matrix_plot(samples, **kwargs)
 
     def save(self, filename):
@@ -1053,6 +1053,18 @@ class PcaChain(MarkovChain):
 class HamiltonianChain(MarkovChain):
     """
     Class for performing Hamiltonian Monte-Carlo sampling.
+
+    Hamiltonian Monte-Carlo (HMC) is an MCMC algorithm where proposed steps are generated
+    by integrating Hamilton’s equations, treating the negative posterior log-probability
+    as a scalar potential. In order to do this, the algorithm requires the gradient of
+    the log-posterior with respect to the model parameters. Assuming this gradient can be
+    calculated efficiently, HMC deals  well with strongly correlated variables and scales
+    favourably to higher-dimensionality problems.
+
+    This implementation automatically selects an appropriate time-step for the Hamiltonian
+    dynamics simulation, but currently does not automatically select an appropriate number
+    of time-steps per proposal, or appropriate inverse-mass values. We would like to add
+    this functionality in the future, for example by implementing the NUTS algorithm.
 
     :param func posterior: \
         A function which returns the log-posterior probability density for a
