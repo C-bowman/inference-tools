@@ -7,3 +7,9 @@ matrix_plot
 -----------
 
 .. autofunction:: inference.plotting.matrix_plot
+
+
+trace_plot
+-----------
+
+.. autofunction:: inference.plotting.trace_plot
