@@ -1,5 +1,6 @@
 
-from numpy import array, meshgrid, linspace
+from numpy import array, meshgrid, linspace, sqrt, ceil
+from itertools import product, cycle
 import matplotlib.pyplot as plt
 from matplotlib.cm import get_cmap
 from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
@@ -146,6 +147,73 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     fig.tight_layout()
     fig.subplots_adjust(wspace = 0., hspace = 0.)
     # save/show the figure if required
+    if filename is not None: plt.savefig(filename)
+    if show:
+        plt.show()
+    else:
+        fig.clear()
+        plt.close(fig)
+
+
+
+
+def trace_plot(samples, labels = None, show = True, filename = None):
+    """
+    Construct a 'trace plot' for a set of variables which displays the
+    value of the variables as a function of step number in the chain.
+
+    :param samples: \
+        A list of array-like objects containing the samples for each variable.
+
+    :keyword labels: \
+        A list of strings to be used as axis labels for each parameter being plotted.
+
+    :keyword bool show: \
+        Sets whether the plot is displayed.
+
+    :keyword str filename: \
+        File path to which the matrix plot will be saved (if specified).
+    """
+    N_par = len(samples)
+    if labels is None:
+        if N_par >= 10:
+            labels = ['p' + str(i) for i in range(N_par)]
+        else:
+            labels = ['param ' + str(i) for i in range(N_par)]
+    else:
+        if len(labels) != N_par:
+            raise ValueError('number of labels must match number of plotted parameters')
+
+    # if for 'n' columns we allow up to m = 2*n rows, set 'n' to be as small as possible
+    # given the number of parameters.
+    n = int(ceil(sqrt(0.5*N_par)))
+    # now given fixed n, make m as small as we can
+    m = int(ceil(float(N_par) / float(n)))
+
+    fig = plt.figure(figsize=(12,8))
+    grid_inds = product(range(m),range(n))
+    colors = cycle(['C0', 'C1', 'C2', 'C3', 'C4'])
+    axes = {}
+    for s, label, coords, col in zip(samples, labels, grid_inds, colors):
+        i,j = coords
+        if i==0 and j==0:
+            axes[(i,j)] = plt.subplot2grid((m, n), (i, j))
+        else:
+            axes[(i,j)] = plt.subplot2grid((m, n), (i, j), sharex = axes[(0,0)])
+
+        axes[(i,j)].plot(s, '.', markersize = 4, alpha = 0.15, c = col)
+        axes[(i,j)].set_ylabel(label)
+        # get the 98% HDI to calculate plot limits, and 10% HDI to estimate the mode
+        lwr, upr = sample_hdi(s, fraction = 0.99, force_single = True)
+        mid = 0.5 * sum(sample_hdi(s, fraction=0.10, force_single=True))
+        axes[(i,j)].set_ylim([lwr-(mid-lwr)*0.7, upr+(upr-mid)*0.7])
+        # get the 10% HDI to estimate the mode
+        axes[(i,j)].set_yticks([lwr-(mid-lwr)*0.5, mid, upr+(upr-mid)*0.5])
+        if (i < m-1):
+            plt.setp(axes[(i,j)].get_xticklabels(), visible=False)
+        else:
+            axes[(i,j)].set_xlabel('chain step #')
+    fig.tight_layout()
     if filename is not None: plt.savefig(filename)
     if show:
         plt.show()

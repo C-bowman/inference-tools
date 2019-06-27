@@ -19,7 +19,7 @@ from numpy.random import normal, random
 from scipy.linalg import eigh
 
 from inference.pdf_tools import UnimodalPdf, GaussianKDE
-from inference.plotting import matrix_plot
+from inference.plotting import matrix_plot, trace_plot
 
 
 
@@ -638,25 +638,54 @@ class MarkovChain(object):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions. See the documentation of
-        inference.plotting.matrix_plot() for a description of other allowed
+        inference.plotting.matrix_plot for a description of other allowed
         keyword arguments.
 
-        :param params: A list of integers specifying the indices of parameters which \
-                       are to be plotted.
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted.
 
-        :param int burn: Number of samples to discard from the start of the chain. If not \
-                         specified, the value of self.burn is used instead.
+        :param int burn: \
+            Number of samples to discard from the start of the chain. If not
+            specified, the value of self.burn is used instead.
 
-        :param int thin: Rather than using every sample which is not discarded as part \
-                         of the burn-in, every *m*'th sample is used for a specified \
-                         integer *m*. If not specified, the value of self.thin is used \
-                         instead, which has a default value of 1.
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the
+            burn-in, every *m*'th sample is used for a specified integer *m*. If
+            not specified, the value of self.thin is used instead, which has
+            a default value of 1.
         """
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
         if params is None: params = range(self.L)
         samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
         matrix_plot(samples, **kwargs)
+
+    def trace_plot(self, params = None, thin = None, burn = None, **kwargs):
+        """
+        Construct a 'trace plot' of the parameters (or a subset) which displays
+        the value of the parameters as a function of step number in the chain.
+        See the documentation of inference.plotting.trace_plot for a description
+        of other allowed keyword arguments.
+
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted.
+
+        :param int burn: \
+            Number of samples to discard from the start of the chain. If not
+            specified, no samples are discarded.
+
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the
+            burn-in, every *m*'th sample is used for a specified integer *m*. If
+            not specified, no thinning is performed.
+        """
+        if burn is None: burn = 0
+        if thin is None: thin = 1
+        if params is None: params = range(self.L)
+        samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
+        trace_plot(samples, **kwargs)
 
     def save(self, filename):
         """
