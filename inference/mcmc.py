@@ -12,7 +12,7 @@ from time import time
 import matplotlib.pyplot as plt
 from numpy import array, zeros
 
-from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, percentile
+from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random
@@ -1129,12 +1129,12 @@ class HamiltonianChain(MarkovChain):
     def __init__(self, posterior = None, grad = None, start = None, epsilon = 0.1, temperature = 1, bounds = None, inv_mass = None):
 
         self.posterior = posterior
-
+        # if no gradient function is supplied, default to finite difference
         if grad is None:
             self.grad = self.finite_diff
         else:
             self.grad = grad
-
+        # set either the bounded or unbounded leapfrog update
         if bounds is None:
             self.leapfrog = self.standard_leapfrog
             self.bounded = False
@@ -1152,11 +1152,6 @@ class HamiltonianChain(MarkovChain):
             if not all(self.widths > 0):
                 raise ValueError('specified upper bounds must be greater than lower bounds')
 
-        if inv_mass is None:
-            self.inv_mass = 1
-        else:
-            self.inv_mass = inv_mass
-
         self.T = temperature
         if start is not None:
             self.theta = [start]
@@ -1164,6 +1159,12 @@ class HamiltonianChain(MarkovChain):
             self.leapfrog_steps = [0]
             self.L = len(start)
         self.n = 1
+
+        # set the variance to 1 if none supplied
+        if inv_mass is None:
+            self.variance = 1.
+        else:
+            self.variance = inv_mass
 
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
@@ -1179,19 +1180,20 @@ class HamiltonianChain(MarkovChain):
         accept = False
         steps_taken = 0
         while not accept:
-            r0 = normal(size = self.L)
+            r0 = normal(size = self.L)/sqrt(self.variance)
             t0 = self.theta[-1]
-            H0 = 0.5*dot(r0,r0)*self.inv_mass - self.probs[-1]
+            H0 = 0.5*dot(r0, r0/self.variance) - self.probs[-1]
 
             r = copy(r0)
             t = copy(t0)
             g = self.grad(t) / self.T
             n_steps = int(self.steps * (1+(random()-0.5)*0.2))
+
             t, r, g = self.run_leapfrog(t, r, g, n_steps)
 
             steps_taken += n_steps
             p = self.posterior(t) / self.T
-            H = 0.5*dot(r,r)*self.inv_mass - p
+            H = 0.5*dot(r, r / self.variance) - p
             test = exp( H0 - H )
 
             if isfinite(test):
@@ -1217,44 +1219,10 @@ class HamiltonianChain(MarkovChain):
         return t, r, g
 
     def hamiltonian(self, t, r):
-        return 0.5*dot(r,r)*self.inv_mass - self.posterior(t)/self.T
+        return 0.5*dot(r, r / self.variance) - self.posterior(t) / self.T
 
-    def compute_batch_distribution(self, theta_0, N):
-        thetas = [theta_0]
-        batches = []
-        for k in range(N):
-            r_k = normal(size=self.L)
-            t_star, r_star, J_k = self.longest_batch(thetas[k], r_k, self.steps)
-            batches.append(J_k)
-
-            if J_k < self.steps:
-                t_star, r_star, __ = self.run_leapfrog(t_star, r_star, self.grad(t_star), self.steps - J_k)
-
-            rho = min(1, exp(self.hamiltonian(thetas[k], r_k) - self.hamiltonian(t_star, r_star)))
-
-            if random() < rho:
-                thetas.append(t_star)
-            else:
-                thetas.append(copy(thetas[-1]))
-
-        return batches
-
-    def longest_batch(self, t, r, L):
-        ell = 0
-        t_plus = copy(t)
-        t_star = copy(t)
-        r_plus = copy(r)
-        r_star = copy(r)
-
-        while dot((t_plus-t),r_plus*self.inv_mass) >= 0.:
-            ell += 1
-            t_plus, r_plus, __ = self.leapfrog(t_plus, r_plus, self.grad(t_plus))
-
-            if ell == L:
-                t_star = t_plus
-                r_star = r_plus
-
-        return t_star, r_star, ell
+    def estimate_mass(self, burn = 1, thin = 1):
+        self.variance = var( array( self.theta[burn::thin] ), axis = 0)
 
     def finite_diff(self, t):
         p = self.posterior(t) / self.T
@@ -1267,15 +1235,15 @@ class HamiltonianChain(MarkovChain):
 
     def standard_leapfrog(self, t, r, g):
         r2 = r + (0.5*self.ES.epsilon)*g
-        t2 = t + self.ES.epsilon * r2 * self.inv_mass
+        t2 = t + self.ES.epsilon * r2 * self.variance
 
         g = self.grad(t2) / self.T
-        r3 = r2 + (0.5*self.ES.epsilon)*g
-        return t2, r3, g
+        r2 = r2 + (0.5*self.ES.epsilon)*g
+        return t2, r2, g
 
     def bounded_leapfrog(self, t, r, g):
         r2 = r + (0.5*self.ES.epsilon)*g
-        t2 = t + self.ES.epsilon * r2 * self.inv_mass
+        t2 = t + self.ES.epsilon * r2 * self.variance
 
         # check for values outside bounds
         lwr_bools = t2 < self.lwr_bounds
@@ -1292,8 +1260,8 @@ class HamiltonianChain(MarkovChain):
         r2 *= reflect
 
         g = self.grad(t2) / self.T
-        r3 = r2 + (0.5*self.ES.epsilon)*g
-        return t2, r3, g
+        r2 = r2 + (0.5*self.ES.epsilon)*g
+        return t2, r2, g
 
     def get_last(self):
         return self.theta[-1]
@@ -1339,7 +1307,7 @@ class HamiltonianChain(MarkovChain):
                              unspecified the plot won't be saved.
         """
         if burn is None: burn = self.estimate_burn_in()
-        param_ESS = [ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)]
+        param_ESS = [ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.L)]
 
         fig = plt.figure(figsize=(12,9))
 
@@ -1429,7 +1397,7 @@ class HamiltonianChain(MarkovChain):
             ('lwr_bounds', self.lwr_bounds),
             ('upr_bounds', self.upr_bounds),
             ('widths', self.widths),
-            ('inv_mass', self.inv_mass),
+            ('inv_mass', self.variance),
             ('T', self.T),
             ('theta', self.theta),
             ('probs', self.probs),
@@ -1462,7 +1430,7 @@ class HamiltonianChain(MarkovChain):
         chain = cls(posterior=posterior, grad=grad)
 
         chain.bounded = bool(D['bounded'])
-        chain.inv_mass = array(D['inv_mass'])
+        chain.variance = array(D['inv_mass'])
         chain.T = float(D['T'])
         chain.probs = list(D['probs'])
         chain.leapfrog_steps = list(D['leapfrog_steps'])
@@ -1508,12 +1476,12 @@ class EpsilonSelector(object):
         # settings for epsilon adjustment algorithm
         self.accept_rate = 0.65
         self.chk_int = 15  # interval of steps at which proposal widths are adjusted
-        self.growth_factor = 1.5  # factor by which self.chk_int grows when sigma is modified
+        self.growth_factor = 1.4  # factor by which self.chk_int grows when sigma is modified
 
     def add_probability(self, p):
         self.num += 1
         self.avg += p
-        self.var += p*(1-p)
+        self.var += max(p*(1-p), 0.03)
 
         if self.num >= self.chk_int:
             self.update_epsilon()
@@ -1530,8 +1498,8 @@ class EpsilonSelector(object):
         # now check if the desired success rate is within 2-sigma
         if ~(mu-2*std < self.accept_rate < mu+2*std):
             adj = (log(self.accept_rate) / log(mu))**(0.15)
-            adj = min(adj,3.)
-            adj = max(adj,0.2)
+            adj = min(adj,2.)
+            adj = max(adj,0.5)
             self.adjust_epsilon(adj)
         else: # increase the check interval
             self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
