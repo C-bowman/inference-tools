@@ -64,21 +64,21 @@ Create an instance of the posterior class, and import one of the Markov-chain Mo
    from inference.mcmc import PcaChain
    posterior = SpectroPosterior(wavelength, intensity, errors)
 
-As a minimum the MCMC sampling classes in :code:`inference.mcmc` must be provided with a
+As a minimum the MCMC sampling classes in ``inference.mcmc`` must be provided with a
 log-posterior function and a starting location for the chain:
 
 .. code-block:: python
 
    chain = PcaChain(posterior = posterior, start = [1000, 1, 1000, 1, 30, 30])
 
-The chain can be advanced for a given number of steps using the :code:`advance` method:
+The chain can be advanced for a given number of steps using the ``advance`` method:
 
 .. code-block:: python
 
    chain.advance(50000)
 
 We can view diagnostics which give useful information regarding the convergence of the
-sample using the :code:`plot_diagnostics` method:
+sample using the ``plot_diagnostics`` method:
 
 .. code-block:: python
 
@@ -91,7 +91,7 @@ such as proposal distribution widths, and effective sample size estimates for ea
 
 As this problem has six free parameters, the resulting posterior distribution is six-dimensional,
 so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of the posterior, which
-shows all possible 1D and 2D marginal distributions, using the :code:`matrix_plot` method:
+shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` method:
 
 .. code-block:: python
 
@@ -99,20 +99,20 @@ shows all possible 1D and 2D marginal distributions, using the :code:`matrix_plo
 
 .. image:: matrix_plot_example.png
 
-We can easily estimate 1D marginal distributions for any parameter using the :code:`get_marginal` method:
+We can easily estimate 1D marginal distributions for any parameter using the ``get_marginal`` method:
 
 .. code-block:: python
 
    w1_pdf = chain.get_marginal(1, unimodal = True)
    w2_pdf = chain.get_marginal(3, unimodal = True)
 
-:code:`get_marginal` returns an instance of one of the `density estimator` classes from the :code:`pdf_tools` module.
+``get_marginal`` returns an instance of one of the `density estimator` classes from the ``pdf_tools`` module.
 These objects can be called as functions to return an estimate of the pdf that best represents the sample data.
 
 .. code-block:: python
 
    ax = linspace(0.2, 4., 1000) # build an axis to evaluate the pdf estimates
-   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot estimates of each marginal PDF
+   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot estimates of each marginal
    plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
    plt.xlabel('peak width')
    plt.ylabel('probability density')
@@ -164,14 +164,14 @@ We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density interval
    # we can use the sample_hdi function from the pdf_tools module to produce highest-density
    # intervals for each point where the model is evaluated:
    from inference.pdf_tools import sample_hdi
-   hdi_1sigma = array([sample_hdi(curves[:, i], 0.68, force_single = True) for i in range(curves.shape[1])])
-   hdi_2sigma = array([sample_hdi(curves[:, i], 0.95, force_single = True) for i in range(curves.shape[1])])
+   hdi_1sigma = array([sample_hdi(curves[:,i], 0.68, force_single = True) for i in range(curves.shape[1])])
+   hdi_2sigma = array([sample_hdi(curves[:,i], 0.95, force_single = True) for i in range(curves.shape[1])])
 
    # construct the plot
    plt.figure(figsize = (8, 5))
    # plot the 1 and 2-sigma highest-density intervals
-   plt.fill_between(x_fits, hdi_2sigma[:, 0], hdi_2sigma[:, 1], color = 'red', alpha = 0.10, label = '2-sigma HDI')
-   plt.fill_between(x_fits, hdi_1sigma[:, 0], hdi_1sigma[:, 1], color = 'red', alpha = 0.20, label = '1-sigma HDI')
+   plt.fill_between(x_fits, hdi_2sigma[:,0], hdi_2sigma[:,1], color = 'red', alpha = 0.1, label = '2-sigma HDI')
+   plt.fill_between(x_fits, hdi_1sigma[:,0], hdi_1sigma[:,1], color = 'red', alpha = 0.2, label = '1-sigma HDI')
    # plot the MAP estimate
    MAP = posterior.forward_model(x_fits, chain.mode())
    plt.plot(x_fits, MAP, c = 'red', lw = 2, ls = 'dashed', label = 'MAP estimate')
