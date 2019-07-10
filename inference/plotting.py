@@ -40,7 +40,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     """
 
     N_par = len(samples)
-    if labels is None:
+    if labels is None: # set default axis labels if none are given
         if N_par >= 10:
             labels = ['p' + str(i) for i in range(N_par)]
         else:
@@ -52,7 +52,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     if reference is not None:
         if len(reference) != N_par:
             raise ValueError('number of reference values must match number of plotted parameters')
-
+    # check that given plot style is valid, else default to a histogram
     if plot_style not in ['contour', 'histogram', 'scatter']:
         plot_style = 'histogram'
         warn("""'plot_style' must be set as either 'contour', 'histogram' or 'scatter'""")
@@ -119,19 +119,19 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
             if plot_style is 'contour':
                 # Filled contour plotting using 2D gaussian KDE
                 pdf = KDE2D(x = x, y = y)
-                x_ax = axis_arrays[j][::2]
-                y_ax = axis_arrays[i][::2]
+                x_ax = axis_arrays[j][::4]
+                y_ax = axis_arrays[i][::4]
                 X, Y = meshgrid(x_ax, y_ax)
-                prob = array(pdf(X.flatten(), Y.flatten())).reshape([L//2, L//2])
+                prob = array(pdf(X.flatten(), Y.flatten())).reshape([L//4, L//4])
                 ax.set_facecolor(cmap(256//20))
                 ax.contourf(X, Y, prob, 10, cmap = cmap)
             elif plot_style is 'histogram':
                 # hexagonal-bin histogram
                 ax.set_facecolor(cmap(0))
-                ax.hexbin(x,y,gridsize = 35, cmap = cmap)
+                ax.hexbin(x, y, gridsize = 35, cmap = cmap)
             else:
                 # scatterplot
-                ax.scatter(x,y, color = marginal_color, s=1)
+                ax.scatter(x, y, color = marginal_color, s=1)
 
             # plot any reference points if given
             if reference is not None:
@@ -198,7 +198,7 @@ def trace_plot(samples, labels = None, show = True, filename = None):
             labels = ['param ' + str(i) for i in range(N_par)]
     else:
         if len(labels) != N_par:
-            raise ValueError('number of labels must match number of plotted parameters')
+            raise ValueError('number of labels must match the number of plotted parameters')
 
     # if for 'n' columns we allow up to m = 2*n rows, set 'n' to be as small as possible
     # given the number of parameters.
