@@ -79,7 +79,8 @@ class DensityEstimator(object):
 
         fig = plt.figure(figsize = (10,6))
         ax = plt.subplot2grid((1, 3), (0, 0), colspan = 2)
-        ax.plot(axis, self.__call__(axis), lw = 2)
+        ax.plot(axis, self.__call__(axis), lw = 1, c = 'C0')
+        ax.fill_between(axis, self.__call__(axis), color = 'C0', alpha = 0.1)
         ax.plot([self.mode, self.mode], [0., self.__call__(self.mode)], c = 'red', ls = 'dashed')
 
         if label is not None:
