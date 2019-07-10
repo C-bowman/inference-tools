@@ -68,7 +68,7 @@ def build_plots():
     plt.tight_layout()
     plt.savefig('spectroscopy_data.png')
     plt.close()
-
+    print(' # spectroscopy data plot finished')
 
     # create the posterior object
     posterior = SpectroPosterior(x_data, y_data, errors)
@@ -81,7 +81,7 @@ def build_plots():
 
     # we can check the status of the chain using the plot_diagnostics method
     chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.png')
-
+    print(' # diagnostics plot finished')
     # We can automatically set sensible burn and thin values for the sample
     chain.autoselect_burn_and_thin()
 
@@ -90,7 +90,7 @@ def build_plots():
     # marginal distributions of the full parameter set (or a chosen sub-set).
     chain.thin = 1
     chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
-
+    print(' # matrix plot finished')
     # We can easily estimate 1D marginal distributions for any parameter
     # using the get_marginal method:
     w1_pdf = chain.get_marginal(1, unimodal = True)
@@ -106,7 +106,7 @@ def build_plots():
     plt.grid()
     plt.savefig('width_pdfs_example.png')
     plt.close()
-
+    print(' # marginals plot finished')
 
 
 
@@ -126,7 +126,7 @@ def build_plots():
 
     # plot the PDF
     pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
-
+    print(' # widths ratio pdf plot finished')
 
 
 
@@ -145,11 +145,11 @@ def build_plots():
     # we can use the sample_hdi function from the pdf_tools module to produce highest-density
     # intervals for each point where the model is evaluated:
     from inference.pdf_tools import sample_hdi
-    hdi_1sigma = array([sample_hdi(curves[:, i], 0.68, force_single = True) for i in range(curves.shape[1])])
-    hdi_2sigma = array([sample_hdi(curves[:, i], 0.95, force_single = True) for i in range(curves.shape[1])])
+    hdi_1sigma = array([sample_hdi(curves[:,i], 0.68, force_single = True) for i in range(curves.shape[1])])
+    hdi_2sigma = array([sample_hdi(curves[:,i], 0.95, force_single = True) for i in range(curves.shape[1])])
 
     # construct the plot
-    plt.figure(figsize = (8, 5))
+    plt.figure(figsize = (8,5))
     # plot the 1 and 2-sigma highest-density intervals
     plt.fill_between(x_fits, hdi_2sigma[:, 0], hdi_2sigma[:, 1], color = 'red', alpha = 0.10, label = '2-sigma HDI')
     plt.fill_between(x_fits, hdi_1sigma[:, 0], hdi_1sigma[:, 1], color = 'red', alpha = 0.20, label = '1-sigma HDI')
@@ -166,3 +166,4 @@ def build_plots():
     plt.grid()
     plt.savefig('prediction_uncertainty_example.png')
     plt.close()
+    print(' # model prediction plot finished')
