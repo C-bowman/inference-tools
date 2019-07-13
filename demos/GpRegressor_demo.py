@@ -1,7 +1,7 @@
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from numpy import exp, sin
+from numpy import exp, sin, sqrt
 from numpy import linspace, zeros, array, meshgrid
 from numpy.random import multivariate_normal as mvn
 from numpy.random import normal, random
@@ -23,7 +23,7 @@ Nq = 200
 q = linspace(-4, 10, Nq) # cover whole range, including the gap
 
 
-sig = 0.04 # assumed normal error on the data points
+sig = 0.05 # assumed normal error on the data points
 y_c = ( 1. / (1 + exp(-q)) ) + 0.1*sin(2*q) # underlying function
 y   = ( 1. / (1 + exp(-x)) ) + 0.1*sin(2*x) + sig*normal(size=len(x)) # sampled y data
 errs = zeros(len(y)) + sig # y data errors
@@ -31,89 +31,82 @@ errs = zeros(len(y)) + sig # y data errors
 
 # plot the data points plus the underlying function
 # from which they are sampled
-fig = plt.figure( figsize = (15,9) )
+fig = plt.figure( figsize = (12,6) )
 ax = fig.add_subplot(111)
 ax.plot(q, y_c, lw = 2, color = 'black', label = 'test function')
-ax.plot(x, y, 'D', color = 'blue', label = 'sampled data')
-ax.errorbar(x, y, yerr = errs, fmt = 'none', ecolor = 'blue')
+ax.plot(x, y, 'o', color = 'red', label = 'sampled data')
+ax.errorbar(x, y, yerr = errs, fmt = 'none', ecolor = 'red')
 ax.set_ylim([-0.5, 1.5])
+ax.set_xlim([-4, 10])
 ax.set_title('Generate simulated data from a test function')
 ax.grid()
 ax.legend(loc=2)
+plt.tight_layout()
 plt.show()
 
 
 # initialise the class with the data and errors
 GP = GpRegressor(x, y, y_err = errs)
 
-# call the class to get estimates for points in q
+# call the instance to get estimates for the points in q
 mu_q, sig_q = GP(q)
 
-err_q = sig_q*2 # convert 1-sigma error to 95% credibility boundary
-
-
 # now plot the regression estimate and the data together
-c1 = 'blue'; c2 = 'red'; c3 = 'green'
-fig = plt.figure( figsize = (15,9) )
+c1 = 'red'; c2 = 'blue'; c3 = 'green'
+fig = plt.figure( figsize = (12,6) )
 ax = fig.add_subplot(111)
-ax.plot(x, y, 'D', color = c1, label = 'data')
-ax.plot(q, mu_q, lw = 2, color = c3, label = 'posterior mean')
-ax.plot(q, mu_q-err_q, lw = 2, ls = 'dashed', color = c2, label = '95% credible bounds')
-ax.plot(q, mu_q+err_q, lw = 2, ls = 'dashed', color = c2)
+ax.plot(q, mu_q, lw = 2, color = c2, label = 'posterior mean')
+ax.fill_between(q, mu_q-sig_q, mu_q-sig_q*2, color = c2, alpha = 0.15, label = '2-sigma HDI')
+ax.fill_between(q, mu_q+sig_q, mu_q+sig_q*2, color = c2, alpha = 0.15)
+ax.fill_between(q, mu_q-sig_q, mu_q+sig_q, color = c2, alpha = 0.3, label = '1-sigma HDI')
+ax.plot(x, y, 'o', color = c1, label = 'data', markerfacecolor = 'none', markeredgewidth = 2)
 ax.set_ylim([-0.5, 1.5])
+ax.set_xlim([-4, 10])
 ax.set_title('Prediction using posterior mean and covariance')
 ax.grid()
 ax.legend(loc=2)
+plt.tight_layout()
 plt.show()
 
 
-# now verify that the true function lies within the 95% envelope
-fig = plt.figure( figsize = (15,9) )
-ax = fig.add_subplot(111)
-ax.plot(q, y_c, lw = 2, color = 'black', label = 'test function')
-ax.plot(q, mu_q-err_q, lw = 2, ls = 'dashed', color = c2, label = '95% credible bounds')
-ax.plot(q, mu_q+err_q, lw = 2, ls = 'dashed', color = c2)
-ax.set_ylim([-0.5, 1.5])
-ax.set_title('Verify that the true function lies within the 95% envelope')
-ax.grid()
-ax.legend(loc=2)
-plt.show()
-
-
-# finally, possible posterior functions can be sampled from a multivariate
-# normal distribution
+# As the estimate itself is defined by a multivariate normal distribution,
+# we can draw samples from that distribution.
 # to do this, we need to build the full covariance matrix and mean for the
 # desired set of points using the 'build_posterior' method:
 mu, sigma = GP.build_posterior(q)
-fig = plt.figure( figsize = (15,9) )
-ax = fig.add_subplot(111)
+# now draw samples
 samples = mvn(mu, sigma, 100)
+# and plot all the samples
+fig = plt.figure( figsize = (12,6) )
+ax = fig.add_subplot(111)
 for i in range(100):
-    ax.plot(q, samples[i,:])
+    ax.plot(q, samples[i,:], lw = 0.5)
 ax.set_title('100 samples drawn from the posterior distribution')
+ax.set_xlim([-4, 10])
 plt.grid()
+plt.tight_layout()
 plt.show()
 
 
-# this allows use to obtain reliable uncertainties for derived quantities.
-# e.g. what if we wish to know the PDF of the gradient at x = 0?
+# The gradient of the Gaussian process estimate also has a multivariate normal distribution.
+# The mean vector and covariance matrix of the gradient distribution for a series of points
+# can be generated using the GP.gradient() method:
+gradient_mean, gradient_variance = GP.gradient(q)
+# in this example we have only one spatial dimension, so the covariance matrix has size 1x1
+sigma = sqrt(gradient_variance) # get the standard deviation at each point in 'q'
 
-# first generate samples around x = 0 to calculate the gradient
-q = [-0.01, 0.01]
-mu, sigma = GP.build_posterior(q)
-samples = mvn(mu, sigma, 1000)
-gradients = (samples[:,1]-samples[:,0])/0.02
-
-# now we have a set of gradient samples, generate a PDF from the sample.
-from inference.pdf_tools import UnimodalPdf
-pdf = UnimodalPdf(gradients)
-
-# plot the PDF
-ax = linspace(0.2,0.8,300)
-plt.plot( ax, pdf(ax), lw = 2)
-plt.xlabel('Gradient at x = 0')
-plt.ylabel('probability density')
-plt.grid()
+# plot the distribution of the gradient
+fig = plt.figure( figsize = (12,6) )
+ax = fig.add_subplot(111)
+ax.plot(q, gradient_mean, lw = 2, color = 'blue', label = 'gradient mean')
+ax.fill_between(q, gradient_mean-sigma, gradient_mean+sigma, alpha = 0.3, color = 'blue', label = '1-sigma HDI')
+ax.fill_between(q, gradient_mean+sigma, gradient_mean+2*sigma, alpha = 0.15, color = 'blue', label = '2-sigma HDI')
+ax.fill_between(q, gradient_mean-sigma, gradient_mean-2*sigma, alpha = 0.15, color = 'blue')
+ax.set_title('Distribution of the gradient of the GP')
+ax.set_xlim([-4, 10])
+ax.grid()
+ax.legend()
+plt.tight_layout()
 plt.show()
 
 
@@ -123,7 +116,6 @@ plt.show()
 2D example
 """
 from mpl_toolkits.mplot3d import Axes3D
-
 # define an 2D function as an example
 def solution(v):
     x, y = v
@@ -149,6 +141,7 @@ colmap = cm.viridis((z - min(z)) / (max(z) - min(z)))
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
 ax.scatter([i[0] for i in coords], [i[1] for i in coords], z, color = colmap)
+plt.tight_layout()
 plt.show()
 
 # Train the GP on the data
@@ -168,10 +161,6 @@ gp_coords = [ (i,j) for i in gp_x for j in gp_y ]
 # evaluate the estimate
 mu, sig = GP(gp_coords)
 
-
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
-
 # build a colormap for the surface
 Z = mu.reshape([40,40]).T
 Z = (Z-Z.min())/(Z.max()-Z.min())
@@ -179,8 +168,10 @@ colmap = cm.viridis(Z)
 rcount, ccount, _ = colmap.shape
 
 # surface plot the estimate
-surf = ax.plot_surface(*meshgrid(gp_x, gp_y), mu.reshape([40,40]).T, rcount=rcount, ccount=ccount,
-                       facecolors=colmap, shade=False)
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
+surf = ax.plot_surface(*meshgrid(gp_x, gp_y), mu.reshape([40,40]).T, rcount=rcount,
+                       ccount=ccount, facecolors=colmap, shade=False)
 surf.set_facecolor((0,0,0,0))
 
 # overplot the data points
