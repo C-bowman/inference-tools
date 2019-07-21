@@ -19,7 +19,7 @@ Create a spatial axis and use it to define a Gaussian process
    mean = zeros(N)
    covariance = exp(-0.1*subtract.outer(x,x)**2)
 
-sample from the Gaussian process
+Sample from the Gaussian process
 
 .. code-block:: python
 
@@ -27,7 +27,7 @@ sample from the Gaussian process
    samples = multivariate_normal(mean, covariance, size = 20000)
    samples = [ samples[:,i] for i in range(N) ]
 
-use matrix_plot to visualise the sample data
+Use ``matrix_plot`` to visualise the sample data
 
 .. code-block:: python
 
