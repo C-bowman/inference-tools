@@ -9,13 +9,5 @@ space.
    :maxdepth: 2
    :caption: Contents:
 
-   GpRegessor
-
-
-.. _GpOptimiser:
-
-GpOptimiser
-~~~~~~~~~~~
-
-.. autoclass:: inference.gp_tools.GpOptimiser
-   :members: search_for_maximum, add_evaluation
+   GpRegressor
+   GpOptimiser
