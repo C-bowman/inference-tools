@@ -5,13 +5,12 @@ This involves modelling data through multivariate normal distributions where the
 covariance of any two points is defined by the 'distance' between them in some arbitrary
 space.
 
-.. _GpRegressor:
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
-GpRegressor
-~~~~~~~~~~~
+   GpRegessor
 
-.. autoclass:: inference.gp_tools.GpRegressor
-   :members: __call__, build_posterior
 
 .. _GpOptimiser:
 
