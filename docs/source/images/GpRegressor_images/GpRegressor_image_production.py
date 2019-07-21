@@ -4,8 +4,10 @@ from matplotlib import cm
 from numpy import exp, sin, sqrt
 from numpy import linspace, zeros, array, meshgrid
 from numpy.random import multivariate_normal as mvn
-from numpy.random import normal, random
+from numpy.random import normal, random, seed
 from inference.gp_tools import GpRegressor
+
+seed(4)
 
 """
 Code demonstrating the use of the GpRegressor class found in inference.gp_tools
@@ -31,18 +33,18 @@ errs = zeros(len(y)) + sig # y data errors
 
 # plot the data points plus the underlying function
 # from which they are sampled
-fig = plt.figure( figsize = (12,6) )
+fig = plt.figure( figsize = (9,6) )
 ax = fig.add_subplot(111)
 ax.plot(q, y_c, lw = 2, color = 'black', label = 'test function')
 ax.plot(x, y, 'o', color = 'red', label = 'sampled data')
 ax.errorbar(x, y, yerr = errs, fmt = 'none', ecolor = 'red')
 ax.set_ylim([-0.5, 1.5])
 ax.set_xlim([-4, 10])
-ax.set_title('Generate simulated data from a test function')
-ax.set_ylabel('function value')
-ax.set_xlabel('spatial coordinate')
+ax.set_title('Generate simulated data from a test function', fontsize = 12)
+ax.set_ylabel('function value', fontsize = 12)
+ax.set_xlabel('spatial coordinate', fontsize = 12)
 ax.grid()
-ax.legend(loc=2)
+ax.legend(loc=2, fontsize = 12)
 plt.tight_layout()
 plt.savefig('sampled_data.png')
 plt.close()
@@ -56,7 +58,7 @@ mu_q, sig_q = GP(q)
 
 # now plot the regression estimate and the data together
 c1 = 'red'; c2 = 'blue'; c3 = 'green'
-fig = plt.figure( figsize = (12,6) )
+fig = plt.figure( figsize = (9,6) )
 ax = fig.add_subplot(111)
 ax.plot(q, mu_q, lw = 2, color = c2, label = 'posterior mean')
 ax.fill_between(q, mu_q-sig_q, mu_q-sig_q*2, color = c2, alpha = 0.15, label = r'$\pm 2 \sigma$ interval')
@@ -65,9 +67,9 @@ ax.fill_between(q, mu_q-sig_q, mu_q+sig_q, color = c2, alpha = 0.3, label = r'$\
 ax.plot(x, y, 'o', color = c1, label = 'data', markerfacecolor = 'none', markeredgewidth = 2)
 ax.set_ylim([-0.5, 1.5])
 ax.set_xlim([-4, 10])
-ax.set_title('Prediction using posterior mean and covariance')
-ax.set_ylabel('function value')
-ax.set_xlabel('spatial coordinate')
+ax.set_title('Prediction using posterior mean and covariance', fontsize = 12)
+ax.set_ylabel('function value', fontsize = 12)
+ax.set_xlabel('spatial coordinate', fontsize = 12)
 ax.grid()
 ax.legend(loc=2, fontsize = 12)
 plt.tight_layout()
@@ -83,11 +85,13 @@ mu, sigma = GP.build_posterior(q)
 # now draw samples
 samples = mvn(mu, sigma, 100)
 # and plot all the samples
-fig = plt.figure( figsize = (12,6) )
+fig = plt.figure( figsize = (9,6) )
 ax = fig.add_subplot(111)
 for i in range(100):
     ax.plot(q, samples[i,:], lw = 0.5)
-ax.set_title('100 samples drawn from the posterior distribution')
+ax.set_title('100 samples drawn from the posterior distribution', fontsize = 12)
+ax.set_ylabel('function value', fontsize = 12)
+ax.set_xlabel('spatial coordinate', fontsize = 12)
 ax.set_xlim([-4, 10])
 plt.grid()
 plt.tight_layout()
@@ -103,15 +107,15 @@ gradient_mean, gradient_variance = GP.gradient(q)
 sigma = sqrt(gradient_variance) # get the standard deviation at each point in 'q'
 
 # plot the distribution of the gradient
-fig = plt.figure( figsize = (12,6) )
+fig = plt.figure( figsize = (9,6) )
 ax = fig.add_subplot(111)
 ax.plot(q, gradient_mean, lw = 2, color = 'blue', label = 'gradient mean')
 ax.fill_between(q, gradient_mean-sigma, gradient_mean+sigma, alpha = 0.3, color = 'blue', label = r'$\pm 1 \sigma$ interval')
 ax.fill_between(q, gradient_mean+sigma, gradient_mean+2*sigma, alpha = 0.15, color = 'blue', label = r'$\pm 2 \sigma$ interval')
 ax.fill_between(q, gradient_mean-sigma, gradient_mean-2*sigma, alpha = 0.15, color = 'blue')
-ax.set_title('Distribution of the gradient of the GP')
-ax.set_ylabel('function gradient value')
-ax.set_xlabel('spatial coordinate')
+ax.set_title('Distribution of the gradient of the GP', fontsize = 12)
+ax.set_ylabel('function gradient value', fontsize = 12)
+ax.set_xlabel('spatial coordinate', fontsize = 12)
 ax.set_xlim([-4, 10])
 ax.grid()
 ax.legend(fontsize = 12)

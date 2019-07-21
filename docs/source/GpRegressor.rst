@@ -7,12 +7,7 @@ GpRegressor
    :members: __call__, gradient, build_posterior
 
 
-Example code
-~~~~~~~~~~~~
-
-"""
-Code demonstrating the use of the GpRegressor class found in inference.gp_tools
-"""
+**Example code**
 
 Create some testing data
 
@@ -96,7 +91,7 @@ Now plot the regression estimate and the data together
 
 As the estimate itself is defined by a multivariate normal distribution, we can draw samples
 from that distribution. To do this, we need to build the full covariance matrix and mean for the
-desired set of points using the 'build_posterior' method:
+desired set of points using the ``build_posterior`` method:
 
 .. code-block:: python
 
@@ -120,7 +115,7 @@ desired set of points using the 'build_posterior' method:
 
 The gradient of the Gaussian process estimate also has a multivariate normal distribution.
 The mean vector and covariance matrix of the gradient distribution for a series of points
-can be generated using the GP.gradient() method:
+can be generated using the ``gradient`` method:
 
 .. code-block:: python
 
