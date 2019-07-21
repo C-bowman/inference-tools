@@ -153,7 +153,7 @@ man_pages = [
 #  dir menu entry, description, category)
 texinfo_documents = [
     (master_doc, 'inference-tools', 'inference-tools Documentation',
-     author, 'inference-tools', 'One line description of project.',
+     author, 'inference-tools', 'A set of Python tools for Bayesian data analysis.',
      'Miscellaneous'),
 ]
 
@@ -177,5 +177,3 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration ------------------------------------------------
-from docs_image_production import build_plots
-build_plots()
