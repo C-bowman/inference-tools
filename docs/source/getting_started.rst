@@ -23,7 +23,7 @@ Example - spectroscopy data fitting
 Here we work through a toy problem of fitting the following synthetic spectroscopy data, which contains two
 peaks with known centres and a linear background:
 
-.. image:: spectroscopy_data.png
+.. image:: ./images/getting_started_images/spectroscopy_data.png
 
 First let's define a class to evaluate the log-posterior:
 
@@ -40,7 +40,7 @@ First let's define a class to evaluate the log-posterior:
          self.c2 = 428.
 
       def __call__(self, theta): # __call__ returns our posterior log-probability
-         return self.likelihood(theta) # omitting prior term here means our prior is uniform everywhere
+         return self.likelihood(theta) # omitting prior term here means our prior is uniform
 
       def likelihood(self, theta): # Gaussian likelihood
          return -0.5*sum( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 )
@@ -84,7 +84,7 @@ sample using the ``plot_diagnostics`` method:
 
    chain.plot_diagnostics()
 
-.. image:: plot_diagnostics_example.png
+.. image:: ./images/getting_started_images/plot_diagnostics_example.png
 
 The diagnostics plot shows the history of the chains log-probability, the convergence of tuning parameters
 such as proposal distribution widths, and effective sample size estimates for each parameter.
@@ -97,7 +97,7 @@ shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` m
 
    chain.matrix_plot()
 
-.. image:: matrix_plot_example.png
+.. image:: ./images/getting_started_images/matrix_plot_example.png
 
 We can easily estimate 1D marginal distributions for any parameter using the ``get_marginal`` method:
 
@@ -120,7 +120,7 @@ These objects can be called as functions to return an estimate of the pdf that b
    plt.grid()
    plt.show()
 
-.. image:: width_pdfs_example.png
+.. image:: ./images/getting_started_images/width_pdfs_example.png
 
 Sample data for specific parameters can be accessed using the ``get parameter`` method:
 
@@ -144,7 +144,7 @@ We can generate a plot which summaries the properties of the estimated PDF using
 
    width_ratio_pdf.plot_summary(label = 'Peak widths ratio')
 
-.. image:: pdf_summary_example.png
+.. image:: ./images/getting_started_images/pdf_summary_example.png
 
 You may also want to assess the level of uncertainty in the model predictions. This can be done easily by passing
 each sample through the forward-model and observing the distribution of model expressions that result.
@@ -186,7 +186,7 @@ We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density interval
    plt.tight_layout()
    plt.show()
 
-.. image:: prediction_uncertainty_example.png
+.. image:: ./images/getting_started_images/prediction_uncertainty_example.png
 
 Further examples
 ----------------
