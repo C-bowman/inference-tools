@@ -586,7 +586,7 @@ class GpOptimiser(object):
         return -sig**2
 
     def maximise_aquisition(self, aq_func):
-        opt_result = differential_evolution(aq_func, self.bounds)
+        opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
         return opt_result.x, opt_result.fun
 
     def learn_function(self):
