@@ -11,7 +11,7 @@ order to demonstrate how to construct a posterior distribution which may be used
 with the samplers in inference.mcmc
 """
 
-# it is usually very convenient to construct posteriors as classes with
+# its usually convenient to construct posteriors as classes with
 # a __call__ method - this allows all relevant data to be stored within
 # the object, while still being able to be called as a function.
 
@@ -63,7 +63,7 @@ class SpectroPosterior(object):
         are Gaussian, such that the log-likelihood takes the
         form given below:
         """
-        return -0.5*sum( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 )
+        return -0.5*( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 ).sum()
 
     def forward_model(self, x, theta):
         """
@@ -77,17 +77,12 @@ class SpectroPosterior(object):
         to account for the effect of an instrument function)
         """
         # unpack the model parameters
-        A1, w1, A2, w2, b0, b1 = theta
-
-        # evaluate each term of the model
-        peak_1 = (A1 / (pi*w1)) / (1 + ((x - self.c1)/w1)**2)
-        peak_2 = (A2 / (pi*w2)) / (1 + ((x - self.c2)/w2)**2)
-        d = (b1-b0)/(max(x) - min(x))
-        background = d*x + (b0 - d*min(x))
-
+        A1, w1, A2, w2, bg = theta
+        # evaluate the peaks
+        peak_1 = A1 / ((1 + ((x - self.c1)/w1)**2)*(pi*w1))
+        peak_2 = A2 / ((1 + ((x - self.c2)/w2)**2)*(pi*w2))
         # return the prediction of the data
-        return peak_1 + peak_2 + background
-
+        return peak_1 + peak_2 + bg
 
 
 
@@ -97,11 +92,10 @@ class SpectroPosterior(object):
 N = 40
 x_data = linspace(410, 440, N)
 P = SpectroPosterior(x_data, None, None)
-theta = [1000, 2, 400, 1.5, 35, 25]
+theta = [1000, 2, 400, 1.5, 35]
 y_data = P.forward_model(x_data, theta)
 errors = sqrt(y_data+1)+2
 y_data += normal(size=N)*errors
-
 
 
 
@@ -116,12 +110,11 @@ plt.show()
 
 
 
-
 # create the posterior object
 posterior = SpectroPosterior(x_data, y_data, errors)
 
 # create the markov chain object
-chain = PcaChain( posterior = posterior, start = [600, 1, 600, 1, 30, 30] )
+chain = PcaChain( posterior = posterior, start = [600, 1, 600, 1, 15] )
 
 # generate a sample by advancing the chain
 chain.advance(50000)
@@ -174,7 +167,6 @@ pdf.plot_summary()
 
 
 
-
 # You may also want to assess the level of uncertainty in the model predictions.
 # This can be done easily by passing each sample through the forward-model
 # and observing the distribution of model expressions that result.
@@ -190,8 +182,8 @@ curves = array([ posterior.forward_model(x_fits, theta) for theta in sample])
 # we can use the sample_hdi function from the pdf_tools module to produce highest-density
 # intervals for each point where the model is evaluated:
 from inference.pdf_tools import sample_hdi
-hdi_1sigma = array([ sample_hdi(curves[:,i], 0.68, force_single = True) for i in range(curves.shape[1])])
-hdi_2sigma = array([ sample_hdi(curves[:,i], 0.95, force_single = True) for i in range(curves.shape[1])])
+hdi_1sigma = array([sample_hdi(c, 0.68, force_single = True) for c in curves.T])
+hdi_2sigma = array([sample_hdi(c, 0.95, force_single = True) for c in curves.T])
 
 # construct the plot
 plt.figure(figsize = (8,5))
