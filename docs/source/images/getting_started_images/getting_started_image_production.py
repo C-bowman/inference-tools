@@ -28,18 +28,16 @@ class SpectroPosterior(object):
         return 0.
 
     def likelihood(self, theta):
-        return -0.5*sum( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 )
+        return -0.5*( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 ).sum()
 
     def forward_model(self, x, theta):
         # unpack the model parameters
-        A1, w1, A2, w2, b0, b1 = theta
+        A1, w1, A2, w2, bg = theta
         # evaluate each term of the model
         peak_1 = (A1 / (pi*w1)) / (1 + ((x - self.c1)/w1)**2)
         peak_2 = (A2 / (pi*w2)) / (1 + ((x - self.c2)/w2)**2)
-        d = (b1-b0)/(max(x) - min(x))
-        background = d*x + (b0 - d*min(x))
         # return the prediction of the data
-        return peak_1 + peak_2 + background
+        return peak_1 + peak_2 + bg
 
 
 
@@ -48,7 +46,7 @@ seed(9)
 N = 35
 x_data = linspace(410, 440, N)
 P = SpectroPosterior(x_data, None, None)
-theta = [1000, 2, 400, 1.5, 35, 25]
+theta = [1000, 2, 400, 1.5, 35]
 y_data = P.forward_model(x_data, theta)
 errors = sqrt(y_data + 1) + 5
 y_data += normal(size = N) * errors
@@ -72,7 +70,7 @@ print(' # spectroscopy data plot finished')
 posterior = SpectroPosterior(x_data, y_data, errors)
 
 # create the markov chain object
-chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 30, 30] )
+chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 20] )
 
 # generate a sample by advancing the chain
 chain.advance(50000)
@@ -87,7 +85,8 @@ chain.autoselect_burn_and_thin()
 # functionality of chain objects, which plots all possible 1D & 2D
 # marginal distributions of the full parameter set (or a chosen sub-set).
 chain.thin = 1
-chain.matrix_plot(show = False, filename = 'matrix_plot_example.png')
+labels = ['peak 1 area', 'peak 1 width', 'peak 2 area', 'peak 2 width', 'background']
+chain.matrix_plot(show = False, labels = labels, filename = 'matrix_plot_example.png')
 print(' # matrix plot finished')
 # We can easily estimate 1D marginal distributions for any parameter
 # using the get_marginal method:
@@ -143,8 +142,8 @@ curves = array([posterior.forward_model(x_fits, theta) for theta in sample])
 # we can use the sample_hdi function from the pdf_tools module to produce highest-density
 # intervals for each point where the model is evaluated:
 from inference.pdf_tools import sample_hdi
-hdi_1sigma = array([sample_hdi(curves[:,i], 0.68, force_single = True) for i in range(curves.shape[1])])
-hdi_2sigma = array([sample_hdi(curves[:,i], 0.95, force_single = True) for i in range(curves.shape[1])])
+hdi_1sigma = array([sample_hdi(c, 0.68, force_single=True) for c in curves.T])
+hdi_2sigma = array([sample_hdi(c, 0.95, force_single=True) for c in curves.T])
 
 # construct the plot
 plt.figure(figsize = (8,5))

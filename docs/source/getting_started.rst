@@ -21,7 +21,7 @@ Example - spectroscopy data fitting
 -----------------------------------
 
 Here we work through a toy problem of fitting the following synthetic spectroscopy data, which contains two
-peaks with known centres and a linear background:
+peaks with known centres and a constant background:
 
 .. image:: ./images/getting_started_images/spectroscopy_data.png
 
@@ -43,18 +43,16 @@ First let's define a class to evaluate the log-posterior:
          return self.likelihood(theta) # omitting prior term here means our prior is uniform
 
       def likelihood(self, theta): # Gaussian likelihood
-         return -0.5*sum( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 )
+         return -0.5*( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 ).sum()
 
       def forward_model(self, x, theta):
          # unpack the model parameters
-         A1, w1, A2, w2, b0, b1 = theta
-         # evaluate each term of the model
-         peak_1 = (A1 / (pi*w1)) / (1 + ((x - self.c1)/w1)**2)
-         peak_2 = (A2 / (pi*w2)) / (1 + ((x - self.c2)/w2)**2)
-         d = (b1-b0)/(max(x) - min(x))
-         background = d*x + (b0 - d*min(x))
+         A1, w1, A2, w2, bg = theta
+         # evaluate the peaks
+         peak_1 = A1 / ((pi*w1)*(1. + ((x - self.c1)/w1)**2))
+         peak_2 = A2 / ((pi*w2)*(1. + ((x - self.c2)/w2)**2))
          # return the prediction of the data
-         return peak_1 + peak_2 + background
+         return peak_1 + peak_2 + bg
 
 Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo samplers from
 ``inference.mcmc``:
@@ -69,7 +67,7 @@ log-posterior function and a starting location for the chain:
 
 .. code-block:: python
 
-   chain = PcaChain(posterior = posterior, start = [1000, 1, 1000, 1, 30, 30])
+   chain = PcaChain(posterior = posterior, start = [1000, 1, 1000, 1, 20])
 
 The chain can be advanced for a given number of steps using the ``advance`` method:
 
@@ -94,8 +92,8 @@ so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of t
 shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` method:
 
 .. code-block:: python
-
-   chain.matrix_plot()
+   labels = ['peak 1 area', 'peak 1 width', 'peak 2 area', 'peak 2 width', 'background']
+   chain.matrix_plot( labels = labels )
 
 .. image:: ./images/getting_started_images/matrix_plot_example.png
 
@@ -112,7 +110,7 @@ These objects can be called as functions to return an estimate of the pdf that b
 .. code-block:: python
 
    ax = linspace(0.2, 4., 1000) # build an axis to evaluate the pdf estimates
-   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot estimates of each marginal
+   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot the marginals
    plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
    plt.xlabel('peak width')
    plt.ylabel('probability density')
@@ -164,11 +162,11 @@ We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density interval
    # we can use the sample_hdi function from the pdf_tools module to produce highest-density
    # intervals for each point where the model is evaluated:
    from inference.pdf_tools import sample_hdi
-   hdi_1sigma = array([sample_hdi(curves[:,i], 0.68, force_single = True) for i in range(curves.shape[1])])
-   hdi_2sigma = array([sample_hdi(curves[:,i], 0.95, force_single = True) for i in range(curves.shape[1])])
+   hdi_1sigma = array([sample_hdi(c, 0.68, force_single = True) for c in curves.T])
+   hdi_2sigma = array([sample_hdi(c, 0.95, force_single = True) for c in curves.T])
 
    # construct the plot
-   plt.figure(figsize = (8, 5))
+   plt.figure(figsize = (8,5))
    # plot the 1 and 2-sigma highest-density intervals
    plt.fill_between(x_fits, hdi_2sigma[:,0], hdi_2sigma[:,1], color = 'red', alpha = 0.1, label = '2-sigma HDI')
    plt.fill_between(x_fits, hdi_1sigma[:,0], hdi_1sigma[:,1], color = 'red', alpha = 0.2, label = '1-sigma HDI')
