@@ -8,4 +8,4 @@ GpOptimiser
 Example code
 ^^^^^^^^^^^^
 
-.. image:: ./images/GpRegressor_images/GpOptimiser_iteration.gif
+.. image:: ./images/GpOptimiser_images/GpOptimiser_iteration.gif
