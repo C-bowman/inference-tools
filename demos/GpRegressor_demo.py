@@ -1,8 +1,8 @@
 
 import matplotlib.pyplot as plt
 from matplotlib import cm
-from numpy import exp, sin, sqrt
-from numpy import linspace, zeros, array, meshgrid
+from numpy import exp, sin, sqrt, concatenate
+from numpy import linspace, zeros, meshgrid
 from numpy.random import multivariate_normal as mvn
 from numpy.random import normal, random
 from inference.gp_tools import GpRegressor
@@ -13,9 +13,7 @@ Code demonstrating the use of the GpRegressor class found in inference.gp_tools
 
 # create some testing data
 Nx = 24*2
-x = list( linspace(-3,1,Nx//2) )
-x.extend( list( linspace(4,9,Nx//2) ) )
-x = array(x)
+x = concatenate([linspace(-3,1,Nx//2),linspace(4,9,Nx//2)])
 
 # generate points q at which to evaluate the
 # GP regression estimate
