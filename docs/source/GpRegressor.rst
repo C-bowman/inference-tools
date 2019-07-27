@@ -13,15 +13,16 @@ Create some testing data
 
 .. code-block:: python
 
-   Nx = 24*2
-   x = list( linspace(-3,1,Nx//2) )
-   x.extend( list( linspace(4,9,Nx//2) ) )
-   x = array(x)
-   sig = 0.05 # assumed normal error on the data points
-   y   = ( 1. / (1 + exp(-x)) ) + 0.1*sin(2*x) + sig*normal(size=len(x)) # sampled y data
-   errs = zeros(len(y)) + sig # y data errors
+   from numpy import linspace, concatenate, exp, sin, zeros
+   from numpy.random import normal
 
-Generate points q at which to evaluate the GP regression estimate
+   Nx = 24*2 # create an x-axis with a gap in it
+   x = concatenate([linspace(-3,1,Nx//2),linspace(4,9,Nx//2)])
+   sig = 0.05 # assumed normal error on the data points
+   y   = ( 1. / (1 + exp(-x)) ) + 0.1*sin(2*x) + sig*normal(size=Nx) # sampled y data
+   errs = zeros(Nx) + sig # y data errors
+
+Generate points a set of points ``q`` at which to evaluate the GP regression estimate
 
 .. code-block:: python
 
@@ -29,10 +30,11 @@ Generate points q at which to evaluate the GP regression estimate
    q = linspace(-4, 10, Nq) # cover whole range, including the gap
 
 
-
 Plot the data points plus the underlying function from which they are sampled
 
 .. code-block:: python
+
+   import matplotlib.pyplot as plt
 
    fig = plt.figure( figsize = (12,6) )
    ax = fig.add_subplot(111)
@@ -68,14 +70,13 @@ Now plot the regression estimate and the data together
 
 .. code-block:: python
 
-   c1 = 'red'; c2 = 'blue'; c3 = 'green'
    fig = plt.figure( figsize = (12,6) )
    ax = fig.add_subplot(111)
-   ax.plot(q, mu_q, lw = 2, color = c2, label = 'posterior mean')
-   ax.fill_between(q, mu_q-sig_q, mu_q-sig_q*2, color = c2, alpha = 0.15, label = r'$\pm 2 \sigma$ interval')
-   ax.fill_between(q, mu_q+sig_q, mu_q+sig_q*2, color = c2, alpha = 0.15)
-   ax.fill_between(q, mu_q-sig_q, mu_q+sig_q, color = c2, alpha = 0.3, label = r'$\pm 1 \sigma$ interval')
-   ax.plot(x, y, 'o', color = c1, label = 'data', markerfacecolor = 'none', markeredgewidth = 2)
+   ax.plot(q, mu_q, lw = 2, color = 'blue', label = 'posterior mean')
+   ax.fill_between(q, mu_q-sig_q, mu_q-sig_q*2, color = 'blue', alpha = 0.15, label = r'$\pm 2 \sigma$ interval')
+   ax.fill_between(q, mu_q+sig_q, mu_q+sig_q*2, color = 'blue', alpha = 0.15)
+   ax.fill_between(q, mu_q-sig_q, mu_q+sig_q, color = 'blue', alpha = 0.3, label = r'$\pm 1 \sigma$ interval')
+   ax.plot(x, y, 'o', color = 'red', label = 'data', markerfacecolor = 'none', markeredgewidth = 2)
    ax.set_ylim([-0.5, 1.5])
    ax.set_xlim([-4, 10])
    ax.set_title('Prediction using posterior mean and covariance')
@@ -98,7 +99,8 @@ desired set of points using the ``build_posterior`` method:
    # get the posterior information
    mu, covariance = GP.build_posterior(q)
    # now draw samples
-   samples = mvn(mu, covariance, 100)
+   from numpy.random import multivariate_normal
+   samples = multivariate_normal(mu, covariance, 100)
    # and plot all the samples
    fig = plt.figure( figsize = (12,6) )
    ax = fig.add_subplot(111)

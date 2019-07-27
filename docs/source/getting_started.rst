@@ -128,8 +128,8 @@ Sample data for specific parameters can be accessed using the ``get parameter`` 
    w1_sample = chain.get_parameter(1)
    w2_sample = chain.get_parameter(3)
 
-To estimate the PDF of a a quantity derived from the sample data, for example the ratio of the two peak widths,
-we can used one of the ``pdf_tools`` density estimators directly:
+To estimate the PDF of a quantity derived from the sample data, for example the ratio of the two peak widths,
+we can use one of the ``pdf_tools`` density estimators directly:
 
 .. code-block:: python
 
