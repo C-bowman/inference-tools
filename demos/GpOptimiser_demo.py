@@ -11,9 +11,8 @@ mpl.rcParams['axes.ymargin'] = 0
 def example_plot_1d():
     mu, sig = GP(x_gp)
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, gridspec_kw={'height_ratios': [1, 3, 1]}, figsize = (10,8))
-    plt.subplots_adjust(hspace=0)
 
-    ax1.plot(evaluations, max_values, marker = 'o', ls = 'solid', c = 'orange', label = 'optimum value', zorder = 5)
+    ax1.plot(evaluations, max_values, marker = 'o', ls = 'solid', c = 'orange', label = 'highest observed value', zorder = 5)
     ax1.plot([2,12], [max(y_func), max(y_func)], ls = 'dashed', label = 'actual max', c = 'black')
     ax1.set_xlabel('function evaluations')
     ax1.set_xlim([2,12])
@@ -31,14 +30,21 @@ def example_plot_1d():
     ax2.set_ylim([-1.5,4])
     ax2.set_ylabel('y')
     ax2.set_xticks([])
-    ax2.legend(loc=2)
 
     aq = array([abs(GP.expected_improvement(array([k]))) for k in x_gp])
-    ax3.plot(x_gp, 0.9*aq/max(aq), c = 'green', label = 'acquisition function')
+    proposal = x_gp[aq.argmax()]
+    ax3.plot(x_gp, 0.9*aq/aq.max(), c = 'green', label = 'acquisition function')
+    ax3.plot([proposal]*2, [0.,1.], c = 'green', ls = 'dashed', label = 'acquisition maximum')
+    ax2.plot([proposal]*2, [-1.5,search_function(proposal)], c = 'green', ls = 'dashed')
+    ax2.plot(proposal, search_function(proposal), 'o', c = 'green', label = 'proposed observation')
+    ax3.set_ylim([0,1])
     ax3.set_yticks([])
     ax3.set_xlabel('x')
     ax3.legend(loc=1)
+    ax2.legend(loc=2)
 
+    plt.tight_layout()
+    plt.subplots_adjust(hspace=0)
     plt.show()
 
 def example_plot_2d():
