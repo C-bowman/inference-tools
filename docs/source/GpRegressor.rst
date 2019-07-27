@@ -7,7 +7,8 @@ GpRegressor
    :members: __call__, gradient, build_posterior
 
 
-**Example code**
+Example code
+^^^^^^^^^^^^
 
 Create some testing data
 

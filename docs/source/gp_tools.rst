@@ -1,13 +1,12 @@
 Gaussian processes with inference.gp_tools
 ==========================================
-This module provides implementations of some useful applications of 'Gaussian processes'.
-This involves modelling data through multivariate normal distributions where the
-covariance of any two points is defined by the 'distance' between them in some arbitrary
-space.
+This module provides implementations of some useful applications of 'Gaussian processes';
+Gaussian process regression via the `GpRegressor <GpRegressor>`_ class, and Gaussian process
+optimisation as the `GpOptimiser <GpOptimiser>`_ class.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Classes:
 
-   GpRegressor
-   GpOptimiser
+   GpRegressor - Gaussian process regression <GpRegressor>
+   GpOptimiser - Gaussian process optimisation <GpOptimiser>
