@@ -92,6 +92,7 @@ so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of t
 shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` method:
 
 .. code-block:: python
+
    labels = ['peak 1 area', 'peak 1 width', 'peak 2 area', 'peak 2 width', 'background']
    chain.matrix_plot( labels = labels )
 
