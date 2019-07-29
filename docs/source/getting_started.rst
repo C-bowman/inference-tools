@@ -29,7 +29,7 @@ First let's define a class to evaluate the log-posterior:
 
 .. code-block:: python
 
-   class SpectroPosterior(object):
+   class SpectroscopyPosterior(object):
       def __init__(self, wavelength, intensity, errors):
          # store the data
          self.x = wavelength
@@ -60,7 +60,7 @@ Create an instance of the posterior class, and import one of the Markov-chain Mo
 .. code-block:: python
 
    from inference.mcmc import PcaChain
-   posterior = SpectroPosterior(wavelength, intensity, errors)
+   posterior = SpectroscopyPosterior(wavelength, intensity, errors)
 
 As a minimum the MCMC sampling classes in ``inference.mcmc`` must be provided with a
 log-posterior function and a starting location for the chain:
@@ -87,7 +87,7 @@ sample using the ``plot_diagnostics`` method:
 The diagnostics plot shows the history of the chains log-probability, the convergence of tuning parameters
 such as proposal distribution widths, and effective sample size estimates for each parameter.
 
-As this problem has six free parameters, the resulting posterior distribution is six-dimensional,
+As this problem has five free parameters, the resulting posterior distribution is five-dimensional,
 so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of the posterior, which
 shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` method:
 
