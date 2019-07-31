@@ -898,14 +898,16 @@ class PcaChain(MarkovChain):
         super(PcaChain, self).__init__(*args, **kwargs)
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
-        for p in self.params:
-            p.target_rate = 0.5
+        if hasattr(self, 'params'):
+            for p in self.params:
+                p.target_rate = 0.5
 
         self.directions = []
-        for i in range(self.L):
-            v = zeros(self.L)
-            v[i] = 1.
-            self.directions.append(v)
+        if hasattr(self, 'L'):
+            for i in range(self.L):
+                v = zeros(self.L)
+                v[i] = 1.
+                self.directions.append(v)
 
         # PCA update settings
         self.dir_update_interval = 100
