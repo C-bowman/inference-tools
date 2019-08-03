@@ -893,6 +893,10 @@ class PcaChain(MarkovChain):
         vector of standard deviations which serve as initial guesses for the widths of
         the proposal distribution for each model parameter. If not specified, the starting
         widths will be approximated as 5% of the values in 'start'.
+
+    :param parameter_boundaries: \
+        A list of length-2 tuples specifying the lower and upper bounds to be set on each
+        parameter, in the form (lower, upper).
     """
     def __init__(self, *args, parameter_boundaries = None, **kwargs):
         super(PcaChain, self).__init__(*args, **kwargs)
@@ -921,10 +925,17 @@ class PcaChain(MarkovChain):
 
         # Set-up for imposing boundaries if specified
         if parameter_boundaries is not None:
-            self.lower = array([ k[0] for k in parameter_boundaries ])
-            self.upper = array([ k[1] for k in parameter_boundaries ])
-            self.width = self.upper - self.lower
-            self.process_proposal = self.impose_boundaries
+            if len(parameter_boundaries) == self.L:
+                self.lower = array([ k[0] for k in parameter_boundaries ])
+                self.upper = array([ k[1] for k in parameter_boundaries ])
+                self.width = self.upper - self.lower
+                self.process_proposal = self.impose_boundaries
+            else:
+                warn("""
+                     # parameter_boundaries keyword error #
+                     The number of given lower/upper bounds pairs does not match
+                     the number of model parameters - bounds were not imposed.
+                     """)
         else:
             self.process_proposal = self.pass_through
 
