@@ -942,8 +942,12 @@ class PcaChain(MarkovChain):
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
         data = array( [ self.get_parameter(i)[self.last_update:] for i in range(self.L)] )
-        S = cov(data)
-        w, V = eigh(S)
+        if hasattr(self, 'covar'):
+            self.covar = 0.5*(self.covar + cov(data))
+        else:
+            self.covar = cov(data)
+
+        w, V = eigh(self.covar)
 
         # find the sine of the angle between the old and new eigenvectors to track convergence
         angles = [ sqrt(1. - dot(V[:,i], self.directions[i])**2) for i in range(self.L)]
@@ -1028,7 +1032,8 @@ class PcaChain(MarkovChain):
             ('next_update', self.next_update),
             ('angles_history', array(self.angles_history)),
             ('update_history', array(self.update_history)),
-            ('directions', array(self.directions)) ]
+            ('directions', array(self.directions)),
+            ('covar', self.covar) ]
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
@@ -1067,6 +1072,7 @@ class PcaChain(MarkovChain):
         chain.angles_history = [ D['angles_history'][i,:] for i in range(D['angles_history'].shape[0]) ]
         chain.update_history = list(D['update_history'])
         chain.directions = [ D['directions'][i,:] for i in range(D['directions'].shape[0]) ]
+        chain.covar = D['covar']
 
         # re-build all the parameter objects
         chain.params = []
