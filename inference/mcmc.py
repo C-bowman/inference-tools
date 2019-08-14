@@ -15,7 +15,7 @@ from numpy import array, zeros
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
-from numpy.random import normal, random
+from numpy.random import normal, random, shuffle
 from scipy.linalg import eigh
 
 from inference.pdf_tools import UnimodalPdf, GaussianKDE
@@ -1591,7 +1591,7 @@ class TemperedChain(MarkovChain):
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
         for p in self.params:
-            p.target_tries = 2
+            p.target_rate = 0.5
 
         self.T = temperature
         self.probs[0] /= temperature
@@ -1624,6 +1624,124 @@ class TemperedChain(MarkovChain):
         self.probs.append(p_new)
         self.n += 1
 
+
+
+
+from multiprocessing import Process, Pipe, Event
+
+
+def tempering_process(chain, connection, end):
+    # main loop
+    while not end.is_set():
+        # poll the pipe until there is something to read
+        while not end.is_set():
+            if connection.poll(timeout = 0.05):
+                D = connection.recv()
+                break
+
+        # if read loop was broken because of shutdown event
+        # then break the main loop as well
+        if end.is_set(): break
+
+        task = D['task']
+
+        # advance the chain
+        if task is 'advance':
+            chain.advance(D['advance_count'])
+            connection.send('advance_complete') # send signal to confirm completion
+
+        # return the current position of the chain
+        elif task is 'send_position':
+            connection.send((chain.get_last(), chain.probs[-1]))
+
+        # update the position of the chain
+        elif task is 'update_position':
+            for p,x in zip(chain.params, D['position']):
+                p.samples[-1] = x
+            chain.probs[-1] = D['probability'] / chain.T
+
+        # return the local chain object
+        elif task is 'send_chain':
+            connection.send(chain)
+
+
+
+class ParallelTempering(object):
+    def __init__(self, chains):
+
+        self.shutdown_evt = Event()
+        self.connections = []
+        self.processes = []
+        self.temperatures = [chain.T for chain in chains]
+        self.N_chains = len(chains)
+        for chn in chains:
+            parent_ctn, child_ctn = Pipe()
+            self.connections.append(parent_ctn)
+            p = Process( target = tempering_process, args=(chn, child_ctn, self.shutdown_evt) )
+            self.processes.append(p)
+
+        [ p.start() for p in self.processes ]
+
+    def advance(self, n):
+        # order the chains to advance n steps
+        D = {'task' : 'advance', 'advance_count' : n}
+        for pipe in self.connections:
+            pipe.send(D)
+
+        # block until all chains report successful advancement
+        responses = [ pipe.recv() == 'advance_complete' for pipe in self.connections ]
+        if not all(responses): raise ValueError('Unexpected data recieved from pipe')
+
+    def swap(self):
+        # ask each process to report the current position of its chain
+        D = {'task' : 'send_position'}
+        [ pipe.send(D) for pipe in self.connections ]
+
+        # receive the positions and probabilities
+        data = [pipe.recv() for pipe in self.connections]
+        positions = [ k[0] for k in data ]
+        probabilities = [ k[1] for k in data ]
+
+        # randomly pair up indicies for all the processes
+        proposed_swaps = [ i for i in range(self.N_chains) ]
+        shuffle(proposed_swaps)
+        proposed_swaps = [ (a,b) for a,b in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
+
+        # perform MH tests to see if the swaps occur or not
+        for i,j in proposed_swaps:
+            dt = 1./self.temperatures[i] - 1./self.temperatures[j]
+            dp = (self.temperatures[i]*probabilities[i] - self.temperatures[j]*probabilities[j])
+            print(dt*dp)
+            dt = self.temperatures[i] - self.temperatures[j]
+            dp = (probabilities[i]/self.temperatures[j] - probabilities[j]/self.temperatures[i])
+            print(-dt*dp)
+
+            if random() <= exp(-dt*dp): # check if the swap is successful
+                Di = {'task' : 'update_position',
+                      'position' : positions[i],
+                      'probability' : probabilities[i]*self.temperatures[i]}
+
+                Dj = {'task' : 'update_position',
+                      'position' : positions[j],
+                      'probability' : probabilities[j]*self.temperatures[j]}
+
+                self.connections[i].send(Dj)
+                self.connections[j].send(Di)
+
+                # TODO - we might need a confirmation reply here?
+
+    def return_chains(self):
+        # order each process to return its locally stored chain object
+        D = {'task' : 'send_chain'}
+        for pipe in self.connections:
+            pipe.send(D)
+
+        # recieve the chains and return them
+        return [ pipe.recv() for pipe in self.connections ]
+
+    def shutdown(self):
+        self.shutdown_evt.set()
+        [p.join() for p in self.processes]
 
 
 
