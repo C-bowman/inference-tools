@@ -242,10 +242,12 @@ class MarkovChain(object):
         distribution for each model parameter. If not specified, the starting widths will be approximated
         as 1% of the values in 'start'.
     """
-    def __init__(self, posterior = None, start = None, widths = None):
+    def __init__(self, posterior = None, start = None, widths = None, temperature = 1.):
 
         if start is None:
             start = []
+
+        self.inv_temp = 1. / temperature
 
         if posterior is not None:
             self.posterior = posterior
@@ -264,7 +266,7 @@ class MarkovChain(object):
 
             # add starting point as first step in chain
             if len(self.params) is not 0:
-                self.probs.append(self.posterior([p.samples[-1] for p in self.params]))
+                self.probs.append(self.posterior([p.samples[-1] for p in self.params])*self.inv_temp)
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
@@ -284,7 +286,7 @@ class MarkovChain(object):
         """
         while True:
             proposal = [p.proposal() for p in self.params]
-            pval = self.posterior(proposal)
+            pval = self.posterior(proposal) * self.inv_temp
 
             if pval > self.probs[-1]:
                 break
@@ -325,10 +327,11 @@ class MarkovChain(object):
             for i in range(m % k):
                 self.take_step()
 
-        # this is a little ugly...
-        sys.stdout.write('\r  advancing chain:   [ complete ]                         ')
-        sys.stdout.flush()
-        sys.stdout.write('\n')
+        if self.print_status:
+            # this is a little ugly...
+            sys.stdout.write('\r  advancing chain:   [ complete ]                         ')
+            sys.stdout.flush()
+            sys.stdout.write('\n')
 
     def run_for(self, minutes = 0, hours = 0, days = 0):
         """
@@ -531,21 +534,23 @@ class MarkovChain(object):
         """
         Estimate the 1D marginal distribution of a chosen parameter.
 
-        :param int n: Index of the parameter for which the marginal distribution is to be estimated.
+        :param int n: \
+            Index of the parameter for which the marginal distribution is to be estimated.
 
-        :param int burn: Number of samples to discard from the start of the chain. If not \
-                         specified, the value of self.burn is used instead.
+        :param int burn: \
+            Number of samples to discard from the start of the chain. If not specified,
+            the value of self.burn is used instead.
 
-        :param int thin: Rather than using every sample which is not discarded as part \
-                         of the burn-in, every *m*'th sample is used for a specified \
-                         integer *m*. If not specified, the value of self.thin is used \
-                         instead, which has a default value of 1.
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the burn-in,
+            every *m*'th sample is used for a specified integer *m*. If not specified, the
+            value of self.thin is used instead, which has a default value of 1.
 
-        :param bool unimodal: Selects the type of density estimation to be used. The default value \
-                              is False, which causes a GaussianKDE object to be returned. If however \
-                              the marginal distribution being estimated is known to be unimodal, \
-                              setting `unimodal = True` will result in the UnimodalPdf class being \
-                              used to estimate the density.
+        :param bool unimodal: \
+            Selects the type of density estimation to be used. The default value is False,
+            which causes a GaussianKDE object to be returned. If however the marginal
+            distribution being estimated is known to be unimodal, setting `unimodal = True`
+            will result in the UnimodalPdf class being used to estimate the density.
 
         Returns one of two 'density estimator' objects which can be
         called as functions to return the estimated PDF at any point.
@@ -711,6 +716,7 @@ class MarkovChain(object):
             ('probs', self.probs),
             ('burn', self.burn),
             ('thin', self.thin),
+            ('inv_temp', self.inv_temp),
             ('print_status', self.print_status) ]
 
         # get the parameter attributes
@@ -742,6 +748,7 @@ class MarkovChain(object):
         chain.n = int(D['n'])
         chain.L = int(D['L'])
         chain.probs = list(D['probs'])
+        chain.inv_temp = float(D['inv_temp'])
         chain.burn = int(D['burn'])
         chain.thin = int(D['thin'])
         chain.print_status = bool(D['print_status'])
@@ -838,7 +845,7 @@ class GibbsChain(MarkovChain):
 
             while True:
                 prop[i] = p.proposal()
-                p_new = self.posterior(prop)
+                p_new = self.posterior(prop) * self.inv_temp
 
                 if p_new > p_old:
                     p.submit_accept_prob(1.)
@@ -1579,54 +1586,6 @@ class ChainPool(object):
 
 
 
-
-class TemperedChain(MarkovChain):
-    """
-    TemperedChain is identical to GibbsChain, other than the fact that
-    the log-posterior probability is divided by the chain temperature
-    (stored as self.temp) after evaluation.
-    """
-    def __init__(self, temperature = 1., *args, **kwargs):
-        super(TemperedChain, self).__init__(*args, **kwargs)
-        # we need to adjust the target acceptance rate to 50%
-        # which is optimal for gibbs sampling:
-        for p in self.params:
-            p.target_rate = 0.5
-
-        self.T = temperature
-        self.probs[0] /= temperature
-
-    def take_step(self):
-        """
-        Take a 1D metropolis-hastings step for each parameter
-        """
-        p_old = self.probs[-1]
-        prop = [p.samples[-1] for p in self.params]
-
-        for i, p in enumerate(self.params):
-
-            while True:
-                prop[i] = p.proposal()
-                p_new = self.posterior(prop)/self.T
-
-                if p_new > p_old:
-                    break
-                else:
-                    test = random()
-                    if test < exp(p_new-p_old):
-                        break
-
-            p_old = deepcopy(p_new)  # NOTE - is deepcopy needed?
-
-        for v, p in zip(prop, self.params):
-            p.add_sample(v)
-
-        self.probs.append(p_new)
-        self.n += 1
-
-
-
-
 from multiprocessing import Process, Pipe, Event
 
 
@@ -1646,22 +1605,22 @@ def tempering_process(chain, connection, end):
         task = D['task']
 
         # advance the chain
-        if task is 'advance':
+        if task == 'advance':
             chain.advance(D['advance_count'])
             connection.send('advance_complete') # send signal to confirm completion
 
         # return the current position of the chain
-        elif task is 'send_position':
+        elif task == 'send_position':
             connection.send((chain.get_last(), chain.probs[-1]))
 
         # update the position of the chain
-        elif task is 'update_position':
+        elif task == 'update_position':
             for p,x in zip(chain.params, D['position']):
                 p.samples[-1] = x
-            chain.probs[-1] = D['probability'] / chain.T
+            chain.probs[-1] = D['probability'] * chain.inv_temp
 
         # return the local chain object
-        elif task is 'send_chain':
+        elif task == 'send_chain':
             connection.send(chain)
 
 
@@ -1672,7 +1631,7 @@ class ParallelTempering(object):
         self.shutdown_evt = Event()
         self.connections = []
         self.processes = []
-        self.temperatures = [chain.T for chain in chains]
+        self.temperatures = [1./chain.inv_temp for chain in chains]
         self.N_chains = len(chains)
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
@@ -1709,12 +1668,12 @@ class ParallelTempering(object):
 
         # perform MH tests to see if the swaps occur or not
         for i,j in proposed_swaps:
-            dt = 1./self.temperatures[i] - 1./self.temperatures[j]
-            dp = (self.temperatures[i]*probabilities[i] - self.temperatures[j]*probabilities[j])
-            print(dt*dp)
+            # dt = 1./self.temperatures[i] - 1./self.temperatures[j]
+            # dp = (self.temperatures[i]*probabilities[i] - self.temperatures[j]*probabilities[j])
+            # print(dt*dp)
             dt = self.temperatures[i] - self.temperatures[j]
             dp = (probabilities[i]/self.temperatures[j] - probabilities[j]/self.temperatures[i])
-            print(-dt*dp)
+            # print(-dt*dp)
 
             if random() <= exp(-dt*dp): # check if the swap is successful
                 Di = {'task' : 'update_position',
