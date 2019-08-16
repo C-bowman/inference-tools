@@ -1189,10 +1189,12 @@ class HamiltonianChain(MarkovChain):
             if not all(self.widths > 0):
                 raise ValueError('specified upper bounds must be greater than lower bounds')
 
-        self.T = temperature
+        self.temperature = temperature
+        self.inv_temp = 1. / temperature
+
         if start is not None:
             self.theta = [start]
-            self.probs = [self.posterior(start)/self.T]
+            self.probs = [self.posterior(start)*self.inv_temp]
             self.leapfrog_steps = [0]
             self.L = len(start)
         self.n = 1
@@ -1223,13 +1225,13 @@ class HamiltonianChain(MarkovChain):
 
             r = copy(r0)
             t = copy(t0)
-            g = self.grad(t) / self.T
+            g = self.grad(t) * self.inv_temp
             n_steps = int(self.steps * (1+(random()-0.5)*0.2))
 
             t, r, g = self.run_leapfrog(t, r, g, n_steps)
 
             steps_taken += n_steps
-            p = self.posterior(t) / self.T
+            p = self.posterior(t) * self.inv_temp
             H = 0.5*dot(r, r / self.variance) - p
             test = exp( H0 - H )
 
@@ -1256,25 +1258,25 @@ class HamiltonianChain(MarkovChain):
         return t, r, g
 
     def hamiltonian(self, t, r):
-        return 0.5*dot(r, r / self.variance) - self.posterior(t) / self.T
+        return 0.5*dot(r, r / self.variance) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn = 1, thin = 1):
         self.variance = var( array( self.theta[burn::thin] ), axis = 0)
 
     def finite_diff(self, t):
-        p = self.posterior(t) / self.T
+        p = self.posterior(t) * self.inv_temp
         G = zeros(self.L)
         for i in range(self.L):
             delta = zeros(self.L)+1
             delta[i] += 1e-5
-            G[i] = (self.posterior(t * delta) / self.T - p) / ( t[i] * 1e-5 )
+            G[i] = (self.posterior(t * delta) * self.inv_temp - p) / ( t[i] * 1e-5 )
         return G
 
     def standard_leapfrog(self, t, r, g):
         r2 = r + (0.5*self.ES.epsilon)*g
         t2 = t + self.ES.epsilon * r2 * self.variance
 
-        g = self.grad(t2) / self.T
+        g = self.grad(t2) * self.inv_temp
         r2 = r2 + (0.5*self.ES.epsilon)*g
         return t2, r2, g
 
@@ -1296,7 +1298,7 @@ class HamiltonianChain(MarkovChain):
         reflect = 1 - 2 * (lwr_bools | upr_bools)
         r2 *= reflect
 
-        g = self.grad(t2) / self.T
+        g = self.grad(t2) * self.inv_temp
         r2 = r2 + (0.5*self.ES.epsilon)*g
         return t2, r2, g
 
@@ -1434,7 +1436,7 @@ class HamiltonianChain(MarkovChain):
             ('upr_bounds', self.upr_bounds),
             ('widths', self.widths),
             ('inv_mass', self.variance),
-            ('T', self.T),
+            ('inv_temp', self.inv_temp),
             ('theta', self.theta),
             ('probs', self.probs),
             ('leapfrog_steps', self.leapfrog_steps),
@@ -1467,7 +1469,8 @@ class HamiltonianChain(MarkovChain):
 
         chain.bounded = bool(D['bounded'])
         chain.variance = array(D['inv_mass'])
-        chain.T = float(D['T'])
+        chain.inv_temp = float(D['inv_temp'])
+        chain.temperature = 1. / chain.inv_temp
         chain.probs = list(D['probs'])
         chain.leapfrog_steps = list(D['leapfrog_steps'])
         chain.L = int(D['L'])
