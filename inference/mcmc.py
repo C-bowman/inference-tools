@@ -998,7 +998,7 @@ class PcaChain(MarkovChain):
             while True:
                 prop = theta0 + v*p.sigma*normal()
                 prop = self.process_proposal(prop)
-                p_new = self.posterior(prop)
+                p_new = self.posterior(prop) * self.inv_temp
 
                 if p_new > p_old:
                     p.submit_accept_prob(1.)
@@ -1036,6 +1036,7 @@ class PcaChain(MarkovChain):
             ('probs', self.probs),
             ('burn', self.burn),
             ('thin', self.thin),
+            ('inv_temp', self.inv_temp),
             ('print_status', self.print_status),
             ('dir_update_interval', self.dir_update_interval),
             ('dir_growth_factor', self.dir_growth_factor),
@@ -1075,6 +1076,7 @@ class PcaChain(MarkovChain):
         chain.probs = list(D['probs'])
         chain.burn = int(D['burn'])
         chain.thin = int(D['thin'])
+        chain.inv_temp = float(D['inv_temp'])
         chain.print_status = bool(D['print_status'])
         chain.dir_update_interval = int(D['dir_update_interval'])
         chain.dir_growth_factor = float(D['dir_growth_factor'])
