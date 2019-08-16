@@ -381,6 +381,10 @@ class MarkovChain(object):
     def get_last(self):
         return [ p.samples[-1] for p in self.params ]
 
+    def replace_last(self, theta):
+        for p,t in zip(self.params, theta):
+            p.samples[-1] = t
+
     def get_parameter(self, n, burn = None, thin = None):
         """
         Return sample values for a chosen parameter.
@@ -1149,7 +1153,7 @@ class HamiltonianChain(MarkovChain):
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
 
-    :param int temperature: \
+    :param float temperature: \
         The temperature of the markov chain. This parameter is used for parallel
         tempering and should be otherwise left unspecified.
 
@@ -1304,6 +1308,9 @@ class HamiltonianChain(MarkovChain):
 
     def get_last(self):
         return self.theta[-1]
+
+    def replace_last(self, theta):
+        self.theta[-1] = theta
 
     def get_parameter(self, n, burn = None, thin = None):
         """
@@ -1618,8 +1625,7 @@ def tempering_process(chain, connection, end):
 
         # update the position of the chain
         elif task == 'update_position':
-            for p,x in zip(chain.params, D['position']):
-                p.samples[-1] = x
+            chain.replace_last(D['position'])
             chain.probs[-1] = D['probability'] * chain.inv_temp
 
         # return the local chain object
