@@ -1643,6 +1643,7 @@ class ParallelTempering(object):
         self.connections = []
         self.processes = []
         self.temperatures = [1./chain.inv_temp for chain in chains]
+        self.inv_temps = [chain.inv_temp for chain in chains]
         self.N_chains = len(chains)
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
@@ -1679,21 +1680,19 @@ class ParallelTempering(object):
 
         # perform MH tests to see if the swaps occur or not
         for i,j in proposed_swaps:
-            # dt = 1./self.temperatures[i] - 1./self.temperatures[j]
-            # dp = (self.temperatures[i]*probabilities[i] - self.temperatures[j]*probabilities[j])
-            # print(dt*dp)
-            dt = self.temperatures[i] - self.temperatures[j]
-            dp = (probabilities[i]/self.temperatures[j] - probabilities[j]/self.temperatures[i])
-            # print(-dt*dp)
+            dt = self.inv_temps[i] - self.inv_temps[j]
+            pi = probabilities[i]/self.inv_temps[i]
+            pj = probabilities[j]/self.inv_temps[j]
+            dp = pi - pj
 
             if random() <= exp(-dt*dp): # check if the swap is successful
                 Di = {'task' : 'update_position',
                       'position' : positions[i],
-                      'probability' : probabilities[i]*self.temperatures[i]}
+                      'probability' : pi}
 
                 Dj = {'task' : 'update_position',
                       'position' : positions[j],
-                      'probability' : probabilities[j]*self.temperatures[j]}
+                      'probability' : pj}
 
                 self.connections[i].send(Dj)
                 self.connections[j].send(Di)
