@@ -15,7 +15,7 @@ from numpy import array, zeros
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
-from numpy.random import normal, random, shuffle
+from numpy.random import normal, random, shuffle, seed, randint
 from scipy.linalg import eigh
 
 from inference.pdf_tools import UnimodalPdf, GaussianKDE
@@ -1601,7 +1601,9 @@ class ChainPool(object):
 from multiprocessing import Process, Pipe, Event
 
 
-def tempering_process(chain, connection, end):
+def tempering_process(chain, connection, end, proc_seed):
+    # used to ensure each process has a different random seed
+    seed(proc_seed)
     # main loop
     while not end.is_set():
         # poll the pipe until there is something to read
@@ -1648,7 +1650,7 @@ class ParallelTempering(object):
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
             self.connections.append(parent_ctn)
-            p = Process( target = tempering_process, args=(chn, child_ctn, self.shutdown_evt) )
+            p = Process( target = tempering_process, args=(chn, child_ctn, self.shutdown_evt, randint(30000)) )
             self.processes.append(p)
 
         [ p.start() for p in self.processes ]
