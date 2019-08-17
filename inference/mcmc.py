@@ -6,7 +6,7 @@
 import sys
 from warnings import warn
 from copy import copy, deepcopy
-from multiprocessing import Pool
+from multiprocessing import Process, Pipe, Event, Pool
 from time import time
 
 import matplotlib.pyplot as plt
@@ -1598,8 +1598,6 @@ class ChainPool(object):
 
 
 
-from multiprocessing import Process, Pipe, Event
-
 
 def tempering_process(chain, connection, end, proc_seed):
     # used to ensure each process has a different random seed
@@ -1638,9 +1636,45 @@ def tempering_process(chain, connection, end, proc_seed):
 
 
 
-class ParallelTempering(object):
-    def __init__(self, chains):
 
+
+
+class ParallelTempering(object):
+    """
+    A class which enables 'parallel tempering', a sampling algorithm which
+    advances multiple Markov-chains in parallel, each with a different
+    'temperature', with a probability that the chains will exchange their
+    positions during the advancement.
+
+    The 'temperature' concept introduces a transformation to the distribution
+    being sampled, such that a chain with temperature 'T' instead samples from
+    the provided posterior distribution raised to the power 1/T.
+
+    When T = 1, the original distribution is recovered, but choosing T > 1 has
+    the effect of 'compressing' the distribution, such that any two points having
+    different probability densities will have the difference between those densities
+    reduced as the temperature is increased. This allows chains with higher
+    temperatures to take much larger steps, and explore the distribution more
+    quickly.
+
+    Parallel tempering exploits this by advancing a collection of markov-chains at
+    different temperatures, with at least one chain at T = 1 (i.e. sampling from
+    the actual posterior distribution). At regular intervals, pairs of chains are
+    selected at random and a metropolis-hastings test is performed to decide if
+    the pair exchange their positions.
+
+    The ability for the T = 1 chain to exchange positions with chains of higher
+    temperatures allows it to make large jumps to other areas of the distribution
+    which it may take a large number of steps to reach otherwise.
+
+    This is particularly useful when sampling from highly-complex distributions
+    which may have many separate maxima and/or strong correlations.
+
+    :param chains: \
+        A list of Markov-Chain objects (such as GibbsChain, PcaChain, HamiltonianChain)
+        covering a range of different temperature levels.
+    """
+    def __init__(self, chains):
         self.shutdown_evt = Event()
         self.connections = []
         self.processes = []
@@ -1713,6 +1747,9 @@ class ParallelTempering(object):
     def shutdown(self):
         self.shutdown_evt.set()
         [p.join() for p in self.processes]
+
+
+
 
 
 
