@@ -18,18 +18,30 @@ temps = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
 # create a set of chains - one with each temperature
 chains = [ GibbsChain( posterior=multimodal_posterior, start = [0.5,0.5], temperature=T) for T in temps ]
 
+# When an instance of ParallelTempering is created, a dedicated process for each chain is spawned.
+# These separate processes will automatically make use of the available cpu cores, such that the
+# computations to advance the separate chains are performed in parallel.
 PT = ParallelTempering(chains=chains)
 
+# These processes wait for instructions which can be sent using the methods of the
+# ParallelTempering object:
 for i in range(5000):
-    PT.advance(10)
-    PT.swap()
+    PT.advance(10) # advance each chain by 10 steps
+    PT.swap() # attempt a swap for all chains
 
- 
+# To recover a copy of the chains held by the processes
+# we can use the return_chains method:
 chains = PT.return_chains()
 
-chains[0].plot_diagnostics()
+# by looking at the trace plot for the T = 1 chain, we see that it makes
+# large jumps across the parameter space due to the swaps.
 chains[0].trace_plot()
+
+# Even though the posterior has strongly separated peaks, the T = 1 chain
+# was able to explore all of them due to the swaps.
 chains[0].matrix_plot()
 
-# trigger the shutdown event to terminate all the processes
+# Because each process waits for instructions from the ParallelTempering object,
+# they will not self-terminate. To terminate all the processes we have to trigger
+# a shutdown even using the shutdown method:
 PT.shutdown()
