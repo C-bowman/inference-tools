@@ -17,17 +17,14 @@ temps = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
 
 # create a set of chains - one with each temperature
 chains = [ GibbsChain( posterior=multimodal_posterior, start = [0.5,0.5], temperature=T) for T in temps ]
-for c in chains:
-    c.print_status = False
-
 
 PT = ParallelTempering(chains=chains)
 
-for i in range(2000):
-    PT.advance(20)
+for i in range(5000):
+    PT.advance(10)
     PT.swap()
 
-
+ 
 chains = PT.return_chains()
 
 chains[0].plot_diagnostics()
