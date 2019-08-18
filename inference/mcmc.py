@@ -1618,7 +1618,7 @@ def tempering_process(chain, connection, end, proc_seed):
 
         # advance the chain
         if task == 'advance':
-            chain.advance(D['advance_count'])
+            for _ in range(D['advance_count']): chain.take_step()
             connection.send('advance_complete') # send signal to confirm completion
 
         # return the current position of the chain
@@ -1690,6 +1690,11 @@ class ParallelTempering(object):
         [ p.start() for p in self.processes ]
 
     def advance(self, n):
+        """
+        Advance all the chains *n* steps.
+
+        :param int n: The number of steps by which every chain is advanced.
+        """
         # order the chains to advance n steps
         D = {'task' : 'advance', 'advance_count' : n}
         for pipe in self.connections:
@@ -1700,6 +1705,9 @@ class ParallelTempering(object):
         if not all(responses): raise ValueError('Unexpected data recieved from pipe')
 
     def swap(self):
+        """
+        Randomly group all chains into pairs and propose a position swap between each pair.
+        """
         # ask each process to report the current position of its chain
         D = {'task' : 'send_position'}
         [ pipe.send(D) for pipe in self.connections ]
@@ -1709,7 +1717,7 @@ class ParallelTempering(object):
         positions = [ k[0] for k in data ]
         probabilities = [ k[1] for k in data ]
 
-        # randomly pair up indicies for all the processes
+        # randomly pair up indices for all the processes
         proposed_swaps = [ i for i in range(self.N_chains) ]
         shuffle(proposed_swaps)
         proposed_swaps = [ (a,b) for a,b in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
@@ -1736,6 +1744,11 @@ class ParallelTempering(object):
                 # TODO - we might need a confirmation reply here?
 
     def return_chains(self):
+        """
+        Recover the chain held by each process and return them in a list.
+
+        :return: A list containing the chain objects.
+        """
         # order each process to return its locally stored chain object
         D = {'task' : 'send_chain'}
         for pipe in self.connections:
@@ -1745,6 +1758,10 @@ class ParallelTempering(object):
         return [ pipe.recv() for pipe in self.connections ]
 
     def shutdown(self):
+        """
+        Trigger a shutdown event which tells the processes holding each of
+        the chains to terminate.
+        """
         self.shutdown_evt.set()
         [p.join() for p in self.processes]
 
