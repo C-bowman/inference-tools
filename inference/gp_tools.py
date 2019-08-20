@@ -125,12 +125,7 @@ class GpRegressor(object):
             standard deviations.
         """
         if theta is not None:
-            t = [exp(h) for h in theta]
-            self.a = t[0]
-            self.s = array(t[1:])
-            self.K_xx = self.build_covariance(self.a, self.s*self.scale_lengths)
-            self.L = cholesky(self.K_xx)
-            self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
+            self.set_hyperparameters(theta)
 
         lengths = self.s * self.scale_lengths
 
@@ -147,6 +142,14 @@ class GpRegressor(object):
             errs.append( self.a**2 - npsum(v**2) )
 
         return array(mu_q), sqrt( abs(array(errs)) )
+
+    def set_hyperparameters(self, theta):
+        t = [exp(h) for h in theta]
+        self.a = t[0]
+        self.s = array(t[1:])
+        self.K_xx = self.build_covariance(self.a, self.s * self.scale_lengths)
+        self.L = cholesky(self.K_xx)
+        self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower=True))
 
     def gradient(self, q):
         """
@@ -553,6 +556,7 @@ class GpOptimiser(object):
         self.gp = GpRegressor(x, y, y_err=y_err)
 
         self.ir2pi = 1 / sqrt(2*pi)
+        self.ir2 = 1. / sqrt(2.)
         self.mu_max = max(self.y)
         self.expected_fractional_improvement_history = []
 
@@ -615,4 +619,4 @@ class GpOptimiser(object):
        return exp(-0.5*z**2)*self.ir2pi
 
     def normal_cdf(self,z):
-        return 0.5*(1 + erf(z/sqrt(2)))
+        return 0.5*(1. + erf(z*self.ir2))
