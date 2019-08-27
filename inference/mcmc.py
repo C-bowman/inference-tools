@@ -1754,7 +1754,7 @@ class ParallelTempering(object):
         for pipe in self.connections:
             pipe.send(D)
 
-        # recieve the chains and return them
+        # receive the chains and return them
         return [ pipe.recv() for pipe in self.connections ]
 
     def shutdown(self):

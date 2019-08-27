@@ -539,10 +539,14 @@ class GpOptimiser(object):
         argument is not specified the errors are taken to be small but non-zero.
 
     :keyword bounds: \
-        A iterable containing tuples which specify for the upper and lower bounds
+        A iterable containing tuples which specify the upper and lower bounds
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
+
+    :param hyperpars: \
+        Hyper-parameters used by the GP-regression estimate. See the documentation of
+        the *hyperpars* keyword of the GpRegressor class for more details.
     """
-    def __init__(self, x, y, y_err = None, bounds = None):
+    def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None):
         self.x = list(x)
         self.y = list(y)
         self.y_err = y_err
@@ -553,7 +557,7 @@ class GpOptimiser(object):
         else:
             self.bounds = bounds
 
-        self.gp = GpRegressor(x, y, y_err=y_err)
+        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars)
 
         self.ir2pi = 1 / sqrt(2*pi)
         self.ir2 = 1. / sqrt(2.)
