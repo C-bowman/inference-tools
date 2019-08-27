@@ -10,3 +10,4 @@ be easily applied to inference problems.
    GibbsChain
    PcaChain
    HamiltonianChain
+   ParallelTempering
