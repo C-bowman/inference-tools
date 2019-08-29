@@ -1741,16 +1741,17 @@ class ParallelTempering(object):
                 self.connections[i].send(Dj)
                 self.connections[j].send(Di)
 
-    def advance(self, m, swap_interval = 10):
+    def advance(self, n, swap_interval = 10):
         """
-        Advances each chain by a total of *m* steps,
+        Advances each chain by a total of *n* steps, performing swap attempts
+        at intervals set by the *swap_interval* keyword.
 
-        :param int m: number of steps the chain will advance.
+        :param int n: number of steps each will advance.
         :param int swap_interval: \
             The number of steps that are taken in each chain between swap attempts.
         """
         k = 50  # divide chain steps into k groups to track progress
-        total_cycles = m // swap_interval
+        total_cycles = n // swap_interval
         if k < total_cycles:
             k = total_cycles
             cycles = 1
@@ -1779,8 +1780,8 @@ class ParallelTempering(object):
                 self.swap()
 
         # run remaining steps
-        if m % swap_interval != 0:
-            self.take_steps(m % swap_interval)
+        if n % swap_interval != 0:
+            self.take_steps(n % swap_interval)
 
         # print the completion message
         sys.stdout.write('\r  [ Running ParallelTempering - complete! ]                    ')
@@ -1789,10 +1790,10 @@ class ParallelTempering(object):
 
     def run_for(self, minutes = 0, hours = 0, swap_interval = 10):
         """
-        Advances all chains for a chosen amount of time.
+        Advances all chains for a chosen amount of computation time.
 
-        :param float minutes: Number of minutes for which to run the chain.
-        :param float hours: Number of hours for which to run the chain.
+        :param float minutes: Number of minutes for which to advance the chains.
+        :param float hours: Number of hours for which to advance the chains.
         :param int swap_interval: \
             The number of steps that are taken in each chain between swap attempts.
         """
