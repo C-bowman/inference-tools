@@ -1746,7 +1746,7 @@ class ParallelTempering(object):
         Advances each chain by a total of *n* steps, performing swap attempts
         at intervals set by the *swap_interval* keyword.
 
-        :param int n: number of steps each will advance.
+        :param int n: The number of steps each chain will advance.
         :param int swap_interval: \
             The number of steps that are taken in each chain between swap attempts.
         """
