@@ -1591,7 +1591,7 @@ class ChainPool(object):
     @staticmethod
     def adv_func(arg):
         n, chain = arg
-        chain.advance(n)
+        chain.take_steps(n)
         return chain
 
 
@@ -1689,9 +1689,9 @@ class ParallelTempering(object):
 
         [ p.start() for p in self.processes ]
 
-    def advance(self, n):
+    def take_steps(self, n):
         """
-        Advance all the chains *n* steps.
+        Advance all the chains *n* steps without performing any swaps.
 
         :param int n: The number of steps by which every chain is advanced.
         """
@@ -1741,7 +1741,93 @@ class ParallelTempering(object):
                 self.connections[i].send(Dj)
                 self.connections[j].send(Di)
 
-                # TODO - we might need a confirmation reply here?
+    def advance(self, m, swap_interval = 10):
+        """
+        Advances each chain by a total of *m* steps,
+
+        :param int m: number of steps the chain will advance.
+        :param int swap_interval: \
+            The number of steps that are taken in each chain between swap attempts.
+        """
+        k = 50  # divide chain steps into k groups to track progress
+        total_cycles = m // swap_interval
+        if k < total_cycles:
+            k = total_cycles
+            cycles = 1
+        else:
+            cycles = total_cycles // k
+
+        t_start = time()
+        for j in range(k):
+            for i in range(cycles):
+                self.take_steps(swap_interval)
+                self.swap()
+
+            dt = time() - t_start
+
+            # display the progress status message
+            pct = str(int(100*(j+1)/k))
+            eta = str(int(dt*((k/(j+1)-1))))
+            msg = '\r  [ Running ParallelTempering - {}% complete   ETA: {} sec ]'.format(pct, eta)
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+
+        # run the remaining cycles
+        if total_cycles % k != 0:
+            for i in range(total_cycles % k):
+                self.take_steps(swap_interval)
+                self.swap()
+
+        # run remaining steps
+        if m % swap_interval != 0:
+            self.take_steps(m % swap_interval)
+
+        # print the completion message
+        sys.stdout.write('\r  [ Running ParallelTempering - complete! ]                    ')
+        sys.stdout.flush()
+        sys.stdout.write('\n')
+
+    def run_for(self, minutes = 0, hours = 0, swap_interval = 10):
+        """
+        Advances all chains for a chosen amount of time.
+
+        :param float minutes: Number of minutes for which to run the chain.
+        :param float hours: Number of hours for which to run the chain.
+        :param int swap_interval: \
+            The number of steps that are taken in each chain between swap attempts.
+        """
+        # first find the runtime in seconds:
+        run_time = (hours*60. + minutes)*60.
+        start_time = time()
+        end_time = start_time + run_time
+
+        # estimate how long it takes to do one swap cycle
+        t1 = time()
+        self.take_steps(swap_interval)
+        self.swap()
+        t2 = time()
+
+        # number of cycles chosen to give a print-out roughly every 2 seconds
+        N = max(1,int(2./(t2-t1)))
+
+        while time() < end_time:
+            for i in range(N):
+                self.take_steps(swap_interval)
+                self.swap()
+
+            # display the progress status message
+            seconds_remaining = end_time - time()
+            m, s = divmod(seconds_remaining, 60)
+            h, m = divmod(m, 60)
+            time_left = "%d:%02d:%02d" % (h, m, s)
+            msg = '\r  [ Running ParallelTempering - time remaining: {} ]'.format(time_left)
+            sys.stdout.write(msg)
+            sys.stdout.flush()
+
+        # this is a little ugly...
+        sys.stdout.write('\r  [ Running ParallelTempering - complete! ]            ')
+        sys.stdout.flush()
+        sys.stdout.write('\n')
 
     def return_chains(self):
         """

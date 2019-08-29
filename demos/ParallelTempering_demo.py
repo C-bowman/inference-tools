@@ -25,9 +25,7 @@ PT = ParallelTempering(chains=chains)
 
 # These processes wait for instructions which can be sent using the methods of the
 # ParallelTempering object:
-for i in range(5000):
-    PT.advance(10) # advance each chain by 10 steps
-    PT.swap() # attempt a swap for all chains
+PT.run_for(minutes=0.5)
 
 # To recover a copy of the chains held by the processes
 # we can use the return_chains method:
