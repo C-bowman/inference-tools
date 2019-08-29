@@ -2,4 +2,4 @@ ParallelTempering
 ~~~~~~~~~~~~~~~~~
 
 .. autoclass:: inference.mcmc.ParallelTempering
-   :members: advance, swap, shutdown, return_chains
+   :members: advance, run_for, shutdown, return_chains
