@@ -6,8 +6,8 @@ GibbsChain
    :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_interval, plot_diagnostics, matrix_plot, trace_plot, set_non_negative, set_boundaries
 
 
-Example code
-^^^^^^^^^^^^
+GibbsChain example code
+^^^^^^^^^^^^^^^^^^^^^^^
 
 Define the Rosenbrock density to use as a test case:
 
@@ -111,11 +111,10 @@ using the ``get_marginal`` method:
 
 ``get_marginal`` returns a density estimator object, which can be called
 as a function to return the value of the pdf at any point.
-Make an axis on which to evaluate the PDFs:
 
 .. code-block:: python
 
-   ax = linspace(-3, 4, 500)
+   ax = linspace(-3, 4, 500) # axis on which to evaluate the marginal PDFs
    plt.plot( ax, pdf_1(ax), label = 'param #1 marginal', lw = 2)
    plt.plot( ax, pdf_2(ax), label = 'param #2 marginal', lw = 2)
    plt.xlabel('parameter value')
