@@ -23,18 +23,19 @@ for a single chain to explore:
       z = ((r - (0.5 + pi - phi*0.5))/0.1)
       return -0.5*z**2  + 4*log(sin(phi*2.)**2)
 
-Define a set of temperature levels
+Define a set of temperature levels:
 
 .. code-block:: python
 
    N_levels = 6
-   temps = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
+   temperatures = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
 
 Create a set of chains - one with each temperature:
 
 .. code-block:: python
+
    from inference.mcmc import GibbsChain, ParallelTempering
-   chains = [ GibbsChain( posterior=multimodal_posterior, start = [0.5,0.5], temperature=T) for T in temps ]
+   chains = [ GibbsChain( posterior=multimodal_posterior, start=[0.5,0.5], temperature=T) for T in temperatures ]
 
 When an instance of ``ParallelTempering`` is created, a dedicated process for each
 chain is spawned. These separate processes will automatically make use of the available
