@@ -21,7 +21,7 @@ Define the Rosenbrock density to use as a test case:
       X2 = X**2
       return -X2 - 15.*(Y - X2)**2 - 0.5*(X2 + Y**2)/3.
 
-Create the chain object
+Create the chain object:
 
 .. code-block:: python
 
@@ -34,8 +34,8 @@ Advance the chain 150k steps to generate a sample from the posterior:
 
    chain.advance(150000)
 
-The samples for the n'th parameter can be accessed through the
-get_parameter(n) method. We could use this to plot the path of
+The samples for any parameter can be accessed through the
+``get_parameter`` method. We could use this to plot the path of
 the chain through the 2D parameter space:
 
 .. code-block:: python
@@ -54,7 +54,7 @@ some early portion of the chain must be removed. This is referred to as
 the 'burn-in' period. This period allows the chain to both find the high
 density areas, and adjust the proposal widths to their optimal values.
 
-The plot_diagnostics() method can help us decide what size of burn-in to use:
+The ``plot_diagnostics`` method can help us decide what size of burn-in to use:
 
 .. code-block:: python
 
@@ -66,9 +66,9 @@ Occasionally samples are also 'thinned' by a factor of n (where only every
 n'th sample is used) in order to reduce the size of the data set for
 storage, or to produce uncorrelated samples.
 
-based on the diagnostics we can choose to manually set a global burn and
+Based on the diagnostics we can choose to manually set a global burn and
 thin value, which is used (unless otherwise specified) by all methods which
-access the samples
+access the samples:
 
 .. code-block:: python
 
@@ -110,11 +110,12 @@ using the ``get_marginal`` method:
    pdf_2 = chain.get_marginal(1, unimodal = True)
 
 ``get_marginal`` returns a density estimator object, which can be called
-as a function to return the value of the pdf at any point.
+as a function to return the value of the pdf at any point:
 
 .. code-block:: python
 
    ax = linspace(-3, 4, 500) # axis on which to evaluate the marginal PDFs
+   # plot the marginal distributions
    plt.plot( ax, pdf_1(ax), label = 'param #1 marginal', lw = 2)
    plt.plot( ax, pdf_2(ax), label = 'param #2 marginal', lw = 2)
    plt.xlabel('parameter value')
@@ -122,3 +123,5 @@ as a function to return the value of the pdf at any point.
    plt.legend()
    plt.grid()
    plt.show()
+
+.. image:: ./images/GibbsChain_images/gibbs_marginals.png

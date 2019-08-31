@@ -8,6 +8,9 @@ ParallelTempering
 ParallelTempering example code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Define a posterior with separated maxima, which is difficult
+for a single chain to explore:
+
 .. code-block:: python
 
    from numpy import log, sqrt, sin, arctan2, pi
