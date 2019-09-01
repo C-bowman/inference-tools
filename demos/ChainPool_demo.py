@@ -13,8 +13,7 @@ def rosenbrock(t):
     return -X2 - b*(Y - X2)**2 - 0.5*(X2 + Y**2)/v
 
 
-
-# this is required for some multi-process code on windows
+# required for multi-process code when running on windows
 if __name__ == "__main__":
 
     """
