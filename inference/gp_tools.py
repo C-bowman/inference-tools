@@ -53,7 +53,7 @@ class GpRegressor(object):
         If a single global scale length should be used, the hyperparameters should be
         specified as a two element list, i.e. [amplitude, length]. Alternatively, a
         separate length-scale for each dimension can be specified by passing an
-        amplitude followed by iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
+        amplitude followed by an iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
     """
     def __init__(self, x, y, y_err = None, scale_lengths = None, hyperpars = None):
 
@@ -74,13 +74,12 @@ class GpRegressor(object):
             for i in range(len(self.y)):
                 self.sig[i,i] = err
 
-        # number of spatial dimensions
+        # identify the number of spatial dimensions
         if hasattr(self.x[0], '__len__'):  # multi-dimensional case
             self.N = len(self.x[0])
         else:  # 1D case
             self.N = 1
             self.x = [ (k,) for k in self.x ]
-
 
         # checks or builds scale_lengths
         if scale_lengths is None:
@@ -97,11 +96,17 @@ class GpRegressor(object):
             z = array([a[i] for a in self.x])
             self.distances.append( -0.5*subtract.outer(z,z)**2 )
 
-        # selects optimal values for covariance function parameters
+        # if hyper-parameters are specified manually, allocate them
         if hyperpars is not None:
             self.a, self.s = hyperpars
+            if hasattr(self.s, '__len__'):
+                self.s = array(self.s)
+        # else if scale lengths are not specified, the scale-length
+        # in each dimension becomes a free parameter
         elif scale_lengths is None:
             self.optimize_hyperparameters_free_lengths()
+        # if scale-lengths are specified, then the scale-length in each dimension
+        # is scaled by a single global scale length modifier parameter
         else:
             self.optimize_hyperparameters_fixed_lengths()
 
@@ -151,7 +156,7 @@ class GpRegressor(object):
         self.L = cholesky(self.K_xx)
         self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower=True))
 
-    def gradient(self, q):
+    def gradient(self, points):
         """
         Calculate the mean and covariance of the gradient of the regression estimate
         with respect to the spatial coordinates at a series of specified points.
@@ -169,7 +174,7 @@ class GpRegressor(object):
         lengths = self.s*self.scale_lengths
         mu_q = []
         vars = []
-        for v in q:
+        for v in points:
             # build the covariance between the current point and all training points
             if hasattr(v, '__iter__'): # multi-dimensional case
                 K_qx = array([self.covariance(v, j, lengths) for j in self.x]).reshape([1, len(self.x)])
@@ -196,24 +201,25 @@ class GpRegressor(object):
             vars.append(covariance)
         return array(mu_q), vars
 
-    def build_posterior(self, q):
+    def build_posterior(self, points):
         """
         Generates the full mean vector and covariance matrix for the GP fit at
-        a set of specified points 'q'.
+        a set of specified points.
 
-        :param q: A list containing the spatial locations which will be used to construct \
-                  the Gaussian process. In the 1D case this would be a list of floats, or \
-                  a list of coordinate tuples in the multi-dimensional case.
+        :param points: \
+            A list containing the spatial locations which will be used to construct
+            the Gaussian process. In the 1D case this would be a list of floats, or
+            a list of coordinate tuples in the multi-dimensional case.
 
         :return: The mean vector as a 1D array, followed by covariance matrix as a 2D array.
         """
-        v = q
-        if hasattr(q, '__iter__'):
-            if hasattr(q[0], '__iter__'):
-                if len(q[0]) is not self.N:
+        v = points
+        if hasattr(points, '__iter__'):
+            if hasattr(points[0], '__iter__'):
+                if len(points[0]) is not self.N:
                     raise ValueError('Specified coordinates have incorrect dimensionality')
             elif self.N is 1:
-                v = [(k,) for k in q]
+                v = [(k,) for k in points]
             else:
                 raise ValueError('The number of specified points must be greater than 1')
         else:
@@ -265,12 +271,10 @@ class GpRegressor(object):
         D = sum( d/l**2 for d,l in zip(self.distances, lengths) )
         return (a**2) * exp(D) + self.sig
 
-    def LML(self, theta):
+    def marginal_likelihood(self, theta):
         """
         returns the negative log marginal likelihood for the
         supplied hyperparameter values.
-        Used by the scipy.optimize.minimize function to maximise
-        the log marginal likelihood.
         """
         t = [exp(h) for h in theta]
         a = t[0]
@@ -280,10 +284,9 @@ class GpRegressor(object):
         try: # protection against singular matrix error crash
             L = cholesky(K_xx)
             alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
-            lml = 0.5*dot( self.y.T, alpha ) + log(diagonal(L)).sum()
+            return -0.5*dot( self.y.T, alpha ) - log(diagonal(L)).sum()
         except:
-            lml = 1e50
-        return lml
+            return -1e50
 
     def optimize_hyperparameters_fixed_lengths(self):
         a_std = log(std(self.y)) # rough guess for amplitude value
@@ -294,7 +297,8 @@ class GpRegressor(object):
         D_upr = log( sqrt( D.max() ) ) + 1
         bnds = [(a_std-4, a_std+4), (D_lwr, D_upr)]
 
-        opt_result = differential_evolution(self.LML, bnds) # optimise the hyperparameters
+        # optimise the hyperparameters
+        opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
 
         # parameters are selected in log-space, so taking exp() here yields desired values.
         self.a, self.s = [exp(h) for h in opt_result.x]
@@ -309,7 +313,8 @@ class GpRegressor(object):
             upr = log(L.max()) + 1
             bnds.append( (lwr, upr) )
 
-        opt_result = differential_evolution(self.LML, bnds) # optimise the hyperparameters
+        # optimise the hyperparameters
+        opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
 
         # parameters are selected in log-space, so taking exp() here yields desired values.
         t = [exp(h) for h in opt_result.x]
