@@ -252,9 +252,10 @@ class MarkovChain(object):
         if posterior is not None:
             self.posterior = posterior
 
-            # if widths are not specified, take 1% of the starting values:
+            # if widths are not specified, take 5% of the starting values (unless they're zero)
             if widths is None:
-                widths = [ abs(i)*0.05 for i in start ]
+                widths = [ (s!=0.)*abs(s)*0.05 + (s==0.) for s in start ]
+
 
             # create a list of parameter objects
             self.params = [Parameter(value = v, sigma = s) for v, s in zip(start, widths)]
