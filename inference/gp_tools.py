@@ -613,8 +613,14 @@ class GpOptimiser(object):
 
         :return: location of the next proposed evaluation.
         """
+        # find the evaluation point which maximises the acquisition function
         proposed_ev, max_EI = self.maximise_aquisition(self.expected_improvement)
+        # store the expected fractional improvement to track convergence
         self.expected_fractional_improvement_history.append( abs(max_EI / self.mu_max) )
+        # if the problem is 1D, but the result is returned as a length-1 array,
+        # extract the result from the array
+        if hasattr(proposed_ev, '__len__') and len(proposed_ev) == 1:
+            proposed_ev = proposed_ev[0]
         return proposed_ev
 
     def expected_improvement(self,x):
