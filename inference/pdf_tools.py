@@ -234,7 +234,7 @@ class UnimodalPdf(DensityEstimator):
         guesses = sorted(guesses, key = self.minfunc)
 
         # minimise based on the best guess
-        self.min_result = minimize(self.minfunc, guesses[0])
+        self.min_result = minimize(self.minfunc, guesses[0], method='Nelder-Mead')
         self.MAP = self.min_result.x
         self.mode = self.MAP[0] #: The mode of the pdf, calculated automatically when an instance of UnimodalPdf is created.
 
@@ -242,7 +242,7 @@ class UnimodalPdf(DensityEstimator):
         if self.skip > 1:
             self.x = self.sample
             self.n = self.n_samps
-            self.min_result = minimize(self.minfunc, self.MAP)
+            self.min_result = minimize(self.minfunc, self.MAP, method='Nelder-Mead')
             self.MAP = self.min_result.x
             self.mode = self.MAP[0]
 
