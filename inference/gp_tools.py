@@ -598,12 +598,12 @@ class GpOptimiser(object):
         _, sig = self.gp(x)
         return -sig**2
 
-    def maximise_aquisition(self, aq_func):
+    def maximise_acquisition(self, aq_func):
         opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
         return opt_result.x, opt_result.fun
 
     def learn_function(self):
-        return self.maximise_aquisition(self.variance_aq)[0]
+        return self.maximise_acquisition(self.variance_aq)[0]
 
     def search_for_maximum(self):
         """
@@ -614,7 +614,7 @@ class GpOptimiser(object):
         :return: location of the next proposed evaluation.
         """
         # find the evaluation point which maximises the acquisition function
-        proposed_ev, max_EI = self.maximise_aquisition(self.expected_improvement)
+        proposed_ev, max_EI = self.maximise_acquisition(self.expected_improvement)
         # store the expected fractional improvement to track convergence
         self.expected_fractional_improvement_history.append( abs(max_EI / self.mu_max) )
         # if the problem is 1D, but the result is returned as a length-1 array,
