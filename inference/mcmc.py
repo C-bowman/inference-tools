@@ -1592,7 +1592,7 @@ class ChainPool(object):
     @staticmethod
     def adv_func(arg):
         n, chain = arg
-        chain.take_steps(n)
+        for _ in range(n): chain.take_step()
         return chain
 
 
