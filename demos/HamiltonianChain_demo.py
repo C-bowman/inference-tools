@@ -65,7 +65,6 @@ L = 1.5
 ax.set_xlim([-L,L]); ax.set_ylim([-L,L]); ax.set_zlim([-L,L])
 ax.set_xlabel('x'); ax.set_ylabel('y'); ax.set_zlabel('z')
 ax.scatter(xs, ys, zs, c=colors)
-ax.axis('equal')
 
 plt.tight_layout()
 plt.show()
