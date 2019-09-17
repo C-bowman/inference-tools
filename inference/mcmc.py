@@ -1,6 +1,6 @@
 
 """
-.. moduleauthor:: Chris Bowman <chris.bowman@york.ac.uk>
+.. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
 import sys

@@ -1,9 +1,7 @@
 
 """
-.. moduleauthor:: Chris Bowman <chris.bowman@york.ac.uk>
+.. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
-
-
 
 from numpy import exp, log, mean, std, sqrt, tanh, cos, cov
 from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, logaddexp
