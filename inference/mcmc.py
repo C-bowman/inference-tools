@@ -10,7 +10,7 @@ from multiprocessing import Process, Pipe, Event, Pool
 from time import time
 
 import matplotlib.pyplot as plt
-from numpy import array, zeros
+from numpy import array, arange, zeros
 
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
@@ -1682,6 +1682,8 @@ class ParallelTempering(object):
         self.temperatures = [1./chain.inv_temp for chain in chains]
         self.inv_temps = [chain.inv_temp for chain in chains]
         self.N_chains = len(chains)
+        self.successful_swaps = []
+
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
             self.connections.append(parent_ctn)
@@ -1703,7 +1705,7 @@ class ParallelTempering(object):
 
         # block until all chains report successful advancement
         responses = [ pipe.recv() == 'advance_complete' for pipe in self.connections ]
-        if not all(responses): raise ValueError('Unexpected data recieved from pipe')
+        if not all(responses): raise ValueError('Unexpected data received from pipe')
 
     def swap(self):
         """
@@ -1719,11 +1721,13 @@ class ParallelTempering(object):
         probabilities = [ k[1] for k in data ]
 
         # randomly pair up indices for all the processes
-        proposed_swaps = [ i for i in range(self.N_chains) ]
+        proposed_swaps = arange(self.N_chains)
         shuffle(proposed_swaps)
         proposed_swaps = [ (a,b) for a,b in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
 
         # perform MH tests to see if the swaps occur or not
+        self.successful_swaps.append(0)
+
         for i,j in proposed_swaps:
             dt = self.inv_temps[i] - self.inv_temps[j]
             pi = probabilities[i]/self.inv_temps[i]
@@ -1741,6 +1745,7 @@ class ParallelTempering(object):
 
                 self.connections[i].send(Dj)
                 self.connections[j].send(Di)
+                self.successful_swaps[-1] += 1
 
     def advance(self, n, swap_interval = 10):
         """
@@ -1830,6 +1835,19 @@ class ParallelTempering(object):
         sys.stdout.write('\r  [ Running ParallelTempering - complete! ]            ')
         sys.stdout.flush()
         sys.stdout.write('\n')
+
+    def swap_diagnostics(self):
+        from numpy import convolve
+        N = 1000
+        w = zeros(N)+ 1./float(N)
+        # plt.plot(self.successful_swaps, '.')
+        plt.hist(self.successful_swaps, bins = arange(2 + self.N_chains//2)-0.5, normed=True)
+        plt.xticks(arange(1 + self.N_chains//2))
+        plt.ylabel('probability')
+        plt.xlabel('number of successful swaps')
+        plt.grid()
+        plt.tight_layout()
+        plt.show()
 
     def return_chains(self):
         """
