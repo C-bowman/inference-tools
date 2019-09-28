@@ -12,7 +12,7 @@ from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
 
 
 def matrix_plot(samples, labels = None, show = True, reference = None, filename = None,
-                plot_style = 'contour', colormap = 'Blues', show_ticks = None):
+                plot_style = 'contour', colormap = 'Blues', show_ticks = None, point_colors = None):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
     1D and 2D marginal distributions.
@@ -41,6 +41,10 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
         By default, axis ticks are only shown when plotting less than 6 variables.
         This behaviour can be overridden for any number of parameters by setting
         show_ticks to either True or False.
+
+    :keyword point_colors: \
+        An array containing data which will be used to set the colors of the points
+        if the plot_style argument is set to 'scatter'.
     """
 
     N_par = len(samples)
@@ -135,7 +139,10 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
                 ax.hexbin(x, y, gridsize = 35, cmap = cmap)
             else:
                 # scatterplot
-                ax.scatter(x, y, color = marginal_color, s=1)
+                if point_colors is None:
+                    ax.scatter(x, y, color = marginal_color, s=1)
+                else:
+                    ax.scatter(x, y, c = point_colors, s=1, cmap = cmap)
 
             # plot any reference points if given
             if reference is not None:
