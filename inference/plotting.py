@@ -11,8 +11,8 @@ from matplotlib.cm import get_cmap
 from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
 
 
-def matrix_plot(samples, labels = None, show = True, reference = None, filename = None,
-                plot_style = 'contour', colormap = 'Blues', show_ticks = None, point_colors = None):
+def matrix_plot(samples, labels = None, show = True, reference = None, filename = None, plot_style = 'contour',
+                colormap = 'Blues', show_ticks = None, point_colors = None, point_size = 1):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
     1D and 2D marginal distributions.
@@ -44,6 +44,10 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
 
     :keyword point_colors: \
         An array containing data which will be used to set the colors of the points
+        if the plot_style argument is set to 'scatter'.
+
+    :keyword point_size: \
+        An array containing data which will be used to set the size of the points
         if the plot_style argument is set to 'scatter'.
     """
 
@@ -140,9 +144,9 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
             else:
                 # scatterplot
                 if point_colors is None:
-                    ax.scatter(x, y, color = marginal_color, s=1)
+                    ax.scatter(x, y, color = marginal_color, s=point_size)
                 else:
-                    ax.scatter(x, y, c = point_colors, s=1, cmap = cmap)
+                    ax.scatter(x, y, c = point_colors, s=point_size, cmap = cmap)
 
             # plot any reference points if given
             if reference is not None:
