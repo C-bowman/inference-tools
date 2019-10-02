@@ -626,6 +626,10 @@ class GpOptimiser(object):
         _, sig = self.gp(x)
         return -sig**2
 
+    def max_prediction(self,x):
+        mu, _ = self.gp(x)
+        return -mu
+
     def maximise_acquisition(self, aq_func):
         opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
         return opt_result.x, opt_result.fun
