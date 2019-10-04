@@ -623,12 +623,12 @@ class GpOptimiser(object):
         self.mu_max = max(self.y)
 
     def variance_aq(self,x):
-        _, sig = self.gp(x)
-        return -sig**2
+        _, sig = self.gp([x])
+        return -sig[0]**2
 
     def max_prediction(self,x):
-        mu, _ = self.gp(x)
-        return -mu
+        mu, _ = self.gp([x])
+        return -mu[0]
 
     def maximise_acquisition(self, aq_func):
         opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
