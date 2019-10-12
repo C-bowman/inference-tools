@@ -4,7 +4,7 @@
 """
 
 from numpy import exp, log, dot, sqrt, std, argmin, diagonal, nonzero, ndarray, subtract
-from numpy import zeros, ones, array, where, pi, diag, concatenate
+from numpy import zeros, ones, array, where, pi, diag, concatenate, eye
 from numpy import sum as npsum
 from scipy.special import erf
 from numpy.linalg import inv, slogdet, solve, cholesky
@@ -238,28 +238,39 @@ class GpRegressor(object):
         Calculates the 'leave-one out' (LOO) predictions for the data,
         where each data point is removed from the training set and then
         has its value predicted using the remaining data.
-        """
-        def cut(A, n):
-            B = concatenate([A[:n, :], A[n+1:, :]], axis = 0)
-            B = concatenate([B[:, :n], B[:, n+1:]], axis = 1)
-            return B
 
-        mu = []
-        errs = []
-        for i in range(len(self.x)):
-            # remove the data point being left-out from the arrays
-            K_xx = cut(self.K_xx, i)
-            K_qx = concatenate([self.K_xx[:i,i], self.K_xx[i+1:,i]])
-            y = concatenate([self.y[:i], self.y[i+1:]])
-            # re-factorise the covariance matrix
-            L = cholesky(K_xx)
-            H = solve_triangular(L.T, solve_triangular(L, y, lower = True))
-            # get the prediction of left-out data point
-            mu.append(dot(K_qx, H))
-            v = solve_triangular(L, K_qx.T, lower = True)
-            errs.append(self.a**2 - npsum(v**2))
-        # return the LOO predictions
-        return array(mu), sqrt(abs(array(errs)))
+        This implementation is based on equation (5.12) from Rasmussen &
+        Williams.
+        """
+        # Use the Cholesky decomposition of the covariance to find its inverse
+        I = eye(len(self.x))
+        iK = solve_triangular(self.L.T, solve_triangular(self.L, I, lower = True))
+        var = 1./diag(iK)
+
+        mu = self.y - self.H*var
+        sigma = sqrt(var)
+        return mu, sigma
+
+    def loo_likelihood(self, theta):
+        """
+        Calculates the 'leave-one out' (LOO) log-likelihood.
+
+        This implementation is based on equations (5.10, 5.11, 5.12) from
+        Rasmussen & Williams.
+        """
+        t = [exp(h) for h in theta]
+        a = t[0]
+        s = array(t[1:])
+        K_xx = self.build_covariance(a, s*self.scale_lengths)
+        L = cholesky(K_xx)
+
+        # Use the Cholesky decomposition of the covariance to find its inverse
+        I = eye(len(self.x))
+        iK = solve_triangular(L.T, solve_triangular(L, I, lower = True))
+        alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
+        var = 1. / diag(iK)
+
+        return -0.5*(var*alpha**2 + log(var)).sum()
 
     def dist(self, a, b, l):
         """
