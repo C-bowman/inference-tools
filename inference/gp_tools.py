@@ -3,14 +3,54 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import exp, log, dot, sqrt, std, argmin, diagonal, nonzero, ndarray, subtract
-from numpy import zeros, ones, array, where, pi, diag, concatenate, eye
+from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray
+from numpy import zeros, ones, array, where, pi, diag, eye
 from numpy import sum as npsum
 from scipy.special import erf
 from numpy.linalg import inv, slogdet, solve, cholesky
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize, differential_evolution
 from itertools import product
+
+
+class SquaredExponential(object):
+    def __init__(self, x, y, S):
+        # pre-calculates hyperparameter-independent part of the
+        # data covariance matrix as an optimisation
+        dx = x[:,None,:] - x[None,:,:]
+        self.distances = -0.5*dx**2 # distributed outer subtraction using broadcasting
+        self.S = S
+
+        s = log(y.std())
+        self.bounds = [(s-4,s+4)]
+        for i in range(x.shape[1]):
+            lwr = log(abs(dx[:,:,i]).mean())-4
+            upr = log(dx[:,:,i].max())+2
+            self.bounds.append((lwr,upr))
+        print(self.bounds)
+
+    def __call__(self, u, v, theta):
+        a = exp(theta[0])
+        L = exp(theta[1:])
+        D = -0.5*(u[:,None,:] - v[None,:,:])**2
+        C = exp((D / L[None,None,:]**2).sum(axis=2))
+        return (a**2)*C + self.S
+
+    def build_covariance(self, theta):
+        """
+        Optimized version of self.matrix() specifically for the data
+        covariance matrix where the vectors v1 & v2 are both self.x.
+        """
+        a = exp(theta[0])
+        L = exp(theta[1:])
+        C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
+        return (a**2)*C + self.S
+
+    def get_bounds(self):
+        return self.bounds
+
+
+
 
 
 
@@ -55,14 +95,24 @@ class GpRegressor(object):
         separate length-scale for each dimension can be specified by passing an
         amplitude followed by an iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
     """
-    def __init__(self, x, y, y_err = None, scale_lengths = None, hyperpars = None):
+    def __init__(self, x, y, y_err = None, hyperpars = None):
 
+        self.N_points = len(x)
+        # identify the number of spatial dimensions
+        if hasattr(x[0], '__len__'):  # multi-dimensional case
+            self.N_dimensions = len(x[0])
+        else:  # 1D case
+            self.N_dimensions = 1
+
+        # load the spatial data into a 2D array
+        self.x = zeros([self.N_points,self.N_dimensions])
+        for i,v in enumerate(x): self.x[i,:] = v
+        print(self.N_points, self.N_dimensions)
         # data to fit
-        self.x = x
         self.y = array(y)
 
         # data errors covariance matrix
-        self.sig = zeros([len(self.y), len(self.y)])
+        self.sig = zeros([self.N_points, self.N_points])
         if y_err is not None:
             if len(y) == len(y_err):
                 for i in range(len(self.y)):
@@ -74,46 +124,22 @@ class GpRegressor(object):
             for i in range(len(self.y)):
                 self.sig[i,i] = err
 
-        # identify the number of spatial dimensions
-        if hasattr(self.x[0], '__len__'):  # multi-dimensional case
-            self.N = len(self.x[0])
-        else:  # 1D case
-            self.N = 1
-            self.x = [ (k,) for k in self.x ]
-
-        # checks or builds scale_lengths
-        if scale_lengths is None:
-            self.scale_lengths = ones(self.N)
-        elif len(scale_lengths)==self.N:
-            self.scale_lengths = array(scale_lengths)
-        else:
-            raise ValueError('exactly one scale length per dimension is required')
-
-        # pre-calculates hyperparameter-independent part of the
-        # data covariance matrix as an optimisation
-        self.distances = []
-        for i in range(self.N):
-            z = array([a[i] for a in self.x])
-            self.distances.append( -0.5*subtract.outer(z,z)**2 )
+        # create an instance of the covariance function class
+        self.cov = SquaredExponential(self.x, self.y, self.sig)
 
         # if hyper-parameters are specified manually, allocate them
-        if hyperpars is not None:
-            self.a, self.s = hyperpars
-            if hasattr(self.s, '__len__'):
-                self.s = array(self.s)
-        # else if scale lengths are not specified, the scale-length
-        # in each dimension becomes a free parameter
-        elif scale_lengths is None:
-            self.optimize_hyperparameters_free_lengths()
-        # if scale-lengths are specified, then the scale-length in each dimension
-        # is scaled by a single global scale length modifier parameter
-        else:
-            self.optimize_hyperparameters_fixed_lengths()
+        if hyperpars is None:
+            hyperpars = self.optimize_hyperparameters()
 
         # build the covariance matrix
-        self.K_xx = self.build_covariance(self.a, self.s*self.scale_lengths)
+        self.hyperpars = hyperpars
+        self.K_xx = self.cov.build_covariance(hyperpars)
+        print(self.K_xx.shape)
+        self.K_xx = (self.K_xx + self.K_xx.T)*0.5
+        print((self.K_xx - self.K_xx.T).sum())
         self.L = cholesky(self.K_xx)
-        self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
+        print(self.L)
+        self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
 
     def __call__(self, points, theta = None):
         """
@@ -132,29 +158,49 @@ class GpRegressor(object):
         if theta is not None:
             self.set_hyperparameters(theta)
 
-        lengths = self.s * self.scale_lengths
-
         mu_q = []
         errs = []
-        for v in points:
-            if hasattr(v, '__iter__'):
-                K_qx = array([self.covariance(v, j, lengths) for j in self.x]).reshape([1, len(self.x)])
-            else:
-                K_qx = array([self.covariance((v,), j, lengths) for j in self.x]).reshape([1, len(self.x)])
-
-            mu_q.append( dot( K_qx, self.H )[0] )
+        p = self.process_points(points)
+        for v in p:
+            K_qx = self.cov(self.x, v.reshape([1,self.N_dimensions]), self.hyperpars)
+            # K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
+            K_qq = self.cov(v.reshape([1,self.N_dimensions]), v.reshape([1,self.N_dimensions]), self.hyperpars)
+            mu_q.append(dot(K_qx, self.alpha)[0])
+            print(self.L)
             v = solve_triangular(self.L, K_qx.T, lower = True)
-            errs.append( self.a**2 - npsum(v**2) )
+            errs.append( K_qq[0,0] - npsum(v**2) )
+            # errs.append( exp(self.hyperpars[0])**2 - npsum(v**2) )
 
         return array(mu_q), sqrt( abs(array(errs)) )
 
     def set_hyperparameters(self, theta):
-        t = [exp(h) for h in theta]
-        self.a = t[0]
-        self.s = array(t[1:])
-        self.K_xx = self.build_covariance(self.a, self.s * self.scale_lengths)
+        self.hyperpars = theta
+        self.K_xx = self.cov.build_covariance(theta)
         self.L = cholesky(self.K_xx)
-        self.H = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower=True))
+        self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
+
+    def process_points(self, points):
+        if type(points) is ndarray:
+            x = points
+        else:
+            x = array(points)
+
+        m = len(x.shape)
+        if self.N_dimensions == 1:
+            if m == 0: # the case when given a float
+                x = x.reshape([1,1])
+            elif m == 1:
+                x = x.reshape([x.shape[0],1])
+            elif m == 2 and x.shape[1] != 1:
+                raise ValueError('given spatial points have an incorrect number of dimensions')
+        else:
+            if m == 0:
+                raise ValueError('given spatial points have an incorrect number of dimensions')
+            elif m == 1 and x.shape[1] == self.N_dimensions:
+                x = x.reshape([1, self.N_dimensions])
+            elif m == 2 and x.shape[1] != self.N_dimensions:
+                raise ValueError('given spatial points have an incorrect number of dimensions')
+        return x
 
     def gradient(self, points):
         """
@@ -171,15 +217,12 @@ class GpRegressor(object):
             A list of mean vectors and a list of covariance matrices for the gradient distribution
             at each given spatial point.
         """
-        lengths = self.s*self.scale_lengths
         mu_q = []
         vars = []
-        for v in points:
-            # build the covariance between the current point and all training points
-            if hasattr(v, '__iter__'): # multi-dimensional case
-                K_qx = array([self.covariance(v, j, lengths) for j in self.x]).reshape([1, len(self.x)])
-            else: # 1-dimensional case
-                K_qx = array([self.covariance((v,), j, lengths) for j in self.x]).reshape([1, len(self.x)])
+        p = self.process_points(points)
+        for v in p:
+            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
+            K_qq = self.cov(v.reshape([1,self.N_dimensions]), v.reshape([1,self.N_dimensions]), self.hyperpars)
 
             v = array(v)
             # calculate required terms
@@ -187,7 +230,7 @@ class GpRegressor(object):
             iL = diag(1./array(lengths)**2)
 
             A = -dot(iL, dX.T)
-            B = (K_qx*self.H).T
+            B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A*K_qx).T, lower = True)
 
             # calculate the mean and covariance
@@ -229,7 +272,7 @@ class GpRegressor(object):
         lengths = self.s * self.scale_lengths
         K_qx = self.matrix(v, self.x, lengths)
         K_qq = self.matrix(v, v, lengths)
-        self.mu = dot(K_qx, self.H)
+        self.mu = dot(K_qx, self.alpha)
         self.sigma = K_qq - dot( K_qx, solve( self.K_xx, K_qx.T ) )
         return self.mu, self.sigma
 
@@ -247,7 +290,7 @@ class GpRegressor(object):
         iK = solve_triangular(self.L.T, solve_triangular(self.L, I, lower = True))
         var = 1./diag(iK)
 
-        mu = self.y - self.H*var
+        mu = self.y - self.alpha * var
         sigma = sqrt(var)
         return mu, sigma
 
@@ -258,10 +301,7 @@ class GpRegressor(object):
         This implementation is based on equations (5.10, 5.11, 5.12) from
         Rasmussen & Williams.
         """
-        t = [exp(h) for h in theta]
-        a = t[0]
-        s = array(t[1:])
-        K_xx = self.build_covariance(a, s*self.scale_lengths)
+        K_xx = self.cov.build_covariance(theta)
         L = cholesky(K_xx)
 
         # Use the Cholesky decomposition of the covariance to find its inverse
@@ -272,53 +312,12 @@ class GpRegressor(object):
 
         return -0.5*(var*alpha**2 + log(var)).sum()
 
-    def dist(self, a, b, l):
-        """
-        Calculates the effective squared-distance between any two
-        points in the space by normalising the change in each
-        dimension to the corresponding value in self.scale_lengths
-        """
-        # works for non-arrays
-        return sum( ((i-j)/k)**2 for i,j,k in zip(a, b, l) )
-
-    def covariance(self, x1, x2, lengths):
-        """
-        Evaluates the covariance function K(x1, x2) which is
-        used to construct the covariance matrix for the data.
-
-        In this case K(x1, x2) is taken to be Gaussian, and may
-        be tuned to the data provided using the hyperparameters
-        self.s and self.a
-        """
-        z = self.dist(x1, x2, lengths)
-        return (self.a**2) * exp(-0.5*z)
-
-    def matrix(self, v1, v2, lengths):
-        """
-        Given two vectors of points on the x axis v1 & v2,
-        this function returns the covariance matrix for those
-        vectors as a numpy array of size [len(v1), len(v2)]
-        """
-        M = [[self.covariance(i, j, lengths) for j in v2] for i in v1]
-        return array(M)
-
-    def build_covariance(self, a, lengths):
-        """
-        Optimized version of self.matrix() specifically for the data
-        covariance matrix where the vectors v1 & v2 are both self.x.
-        """
-        D = sum( d/l**2 for d,l in zip(self.distances, lengths) )
-        return (a**2) * exp(D) + self.sig
-
     def marginal_likelihood(self, theta):
         """
         returns the negative log marginal likelihood for the
         supplied hyperparameter values.
         """
-        t = [exp(h) for h in theta]
-        a = t[0]
-        s = array(t[1:])
-        K_xx = self.build_covariance(a, s*self.scale_lengths)
+        K_xx = self.cov.build_covariance(theta)
 
         try: # protection against singular matrix error crash
             L = cholesky(K_xx)
@@ -327,38 +326,12 @@ class GpRegressor(object):
         except:
             return -1e50
 
-    def optimize_hyperparameters_fixed_lengths(self):
-        a_std = log(std(self.y)) # rough guess for amplitude value
-
-        D = -2*sum(d / l**2 for d, l in zip(self.distances, self.scale_lengths))
-        # generate optimisation bounds
-        D_lwr = log( sqrt( D[nonzero(D)].min() ) ) - 1
-        D_upr = log( sqrt( D.max() ) ) + 1
-        bnds = [(a_std-4, a_std+4), (D_lwr, D_upr)]
-
+    def optimize_hyperparameters(self):
+        bnds = self.cov.get_bounds()
         # optimise the hyperparameters
         opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
-
-        # parameters are selected in log-space, so taking exp() here yields desired values.
-        self.a, self.s = [exp(h) for h in opt_result.x]
-
-    def optimize_hyperparameters_free_lengths(self):
-        a_std = log(std(self.y)) # rough guess for amplitude value
-        bnds = [(a_std - 4, a_std + 4)]
-
-        for d in self.distances:
-            L = sqrt(-2*d)
-            lwr = log(L[nonzero(L)].min()) - 1
-            upr = log(L.max()) + 1
-            bnds.append( (lwr, upr) )
-
-        # optimise the hyperparameters
-        opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
-
-        # parameters are selected in log-space, so taking exp() here yields desired values.
-        t = [exp(h) for h in opt_result.x]
-        self.a = t[0]
-        self.s = array(t[1:])
+        print(opt_result.fun)
+        return opt_result.x
 
 
 
