@@ -13,6 +13,8 @@ from scipy.optimize import minimize, differential_evolution
 from itertools import product
 
 
+
+
 class SquaredExponential(object):
     def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
@@ -105,7 +107,7 @@ class GpRegressor(object):
         separate length-scale for each dimension can be specified by passing an
         amplitude followed by an iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential):
+    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
 
         self.N_points = len(x)
         # identify the number of spatial dimensions
@@ -136,6 +138,11 @@ class GpRegressor(object):
 
         # create an instance of the covariance function class
         self.cov = kernel(self.x, self.y)
+
+        if cross_val:
+            self.model_selector = self.loo_likelihood
+        else:
+            self.model_selector = self.marginal_likelihood
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
@@ -315,7 +322,7 @@ class GpRegressor(object):
     def optimize_hyperparameters(self):
         bnds = self.cov.get_bounds()
         # optimise the hyperparameters
-        opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
+        opt_result = differential_evolution(lambda x : -self.model_selector(x), bnds)
         return opt_result.x
 
 
