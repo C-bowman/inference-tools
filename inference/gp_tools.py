@@ -20,13 +20,13 @@ class SquaredExponential(object):
         dx = x[:,None,:] - x[None,:,:]
         self.distances = -0.5*dx**2 # distributed outer subtraction using broadcasting
 
+        # construct sensible bounds on the hyperparameter values
         s = log(y.std())
         self.bounds = [(s-4,s+4)]
         for i in range(x.shape[1]):
             lwr = log(abs(dx[:,:,i]).mean())-4
             upr = log(dx[:,:,i].max())+2
             self.bounds.append((lwr,upr))
-        print(self.bounds)
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -44,6 +44,17 @@ class SquaredExponential(object):
         L = exp(theta[1:])
         C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
         return (a**2)*C
+
+    def gradient_terms(self, v, x, theta):
+        """
+        Calculates the covariance-function specific parts of
+        the expression for the predictive mean and covariance
+        of the gradient of the GP estimate.
+        """
+        a = exp(theta[0])
+        L = exp(theta[1:])
+        A = (x - v[None,:]) / L[None,:]**2
+        return A.T, (a/L)**2
 
     def get_bounds(self):
         return self.bounds
@@ -94,7 +105,7 @@ class GpRegressor(object):
         separate length-scale for each dimension can be specified by passing an
         amplitude followed by an iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None):
+    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential):
 
         self.N_points = len(x)
         # identify the number of spatial dimensions
@@ -106,7 +117,7 @@ class GpRegressor(object):
         # load the spatial data into a 2D array
         self.x = zeros([self.N_points,self.N_dimensions])
         for i,v in enumerate(x): self.x[i,:] = v
-        print(self.N_points, self.N_dimensions)
+
         # data to fit
         self.y = array(y)
 
@@ -124,7 +135,7 @@ class GpRegressor(object):
                 self.sig[i,i] = err
 
         # create an instance of the covariance function class
-        self.cov = SquaredExponential(self.x, self.y)
+        self.cov = kernel(self.x, self.y)
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
@@ -215,20 +226,15 @@ class GpRegressor(object):
         p = self.process_points(points)
         for v in p:
             K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
-            K_qq = self.cov(v.reshape([1,self.N_dimensions]), v.reshape([1,self.N_dimensions]), self.hyperpars)
+            A, R = self.cov.gradient_terms(v, self.x, self.hyperpars)
 
-            v = array(v)
-            # calculate required terms
-            dX = array([v - array(a) for a in self.x])
-            iL = diag(1./array(lengths)**2)
-
-            A = -dot(iL, dX.T)
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A*K_qx).T, lower = True)
 
             # calculate the mean and covariance
             mean = dot(A,B)
-            covariance = (self.a**2)*iL - Q.T.dot(Q)
+            covariance = R - Q.T.dot(Q)
+
             # if there's only one spatial dimension, convert mean/covariance to floats
             if covariance.shape == (1,1): covariance = covariance[0,0]
             if mean.shape == (1,1): mean = mean[0,0]
@@ -310,7 +316,6 @@ class GpRegressor(object):
         bnds = self.cov.get_bounds()
         # optimise the hyperparameters
         opt_result = differential_evolution(lambda x : -self.marginal_likelihood(x), bnds)
-        print(opt_result.fun)
         return opt_result.x
 
 
