@@ -66,6 +66,55 @@ class SquaredExponential(object):
 
 
 
+class RationalQuadratic(object):
+    def __init__(self, x, y):
+        # pre-calculates hyperparameter-independent part of the
+        # data covariance matrix as an optimisation
+        dx = x[:,None,:] - x[None,:,:]
+        self.distances = 0.5*dx**2 # distributed outer subtraction using broadcasting
+
+        # construct sensible bounds on the hyperparameter values
+        s = log(y.std())
+        self.bounds = [(s-4,s+4), (-2,6)]
+        for i in range(x.shape[1]):
+            lwr = log(abs(dx[:,:,i]).mean())-4
+            upr = log(dx[:,:,i].max())+2
+            self.bounds.append((lwr,upr))
+
+    def __call__(self, u, v, theta):
+        a = exp(theta[0])
+        k = exp(theta[1])
+        L = exp(theta[2:])
+        D = 0.5*(u[:,None,:] - v[None,:,:])**2
+        Z = (D / L[None,None,:]**2).sum(axis=2)
+        return (a**2)*(1 + Z/k)**(-k)
+
+    def build_covariance(self, theta):
+        a = exp(theta[0])
+        k = exp(theta[1])
+        L = exp(theta[2:])
+        Z = (self.distances / L[None,None,:]**2).sum(axis=2)
+        return (a**2)*(1 + Z/k)**(-k)
+
+    def gradient_terms(self, v, x, theta):
+        """
+        Calculates the covariance-function specific parts of
+        the expression for the predictive mean and covariance
+        of the gradient of the GP estimate.
+        """
+        raise ValueError("""
+        Gradient calculations are not yet available for the
+        RationalQuadratic covariance function.
+        """)
+
+    def get_bounds(self):
+        return self.bounds
+
+
+
+
+
+
 class GpRegressor(object):
     """
     A class for performing Gaussian-process regression in one or more dimensions.
@@ -294,16 +343,18 @@ class GpRegressor(object):
         This implementation is based on equations (5.10, 5.11, 5.12) from
         Rasmussen & Williams.
         """
-        K_xx = self.cov.build_covariance(theta) + self.sig
-        L = cholesky(K_xx)
+        try:
+            K_xx = self.cov.build_covariance(theta) + self.sig
+            L = cholesky(K_xx)
 
-        # Use the Cholesky decomposition of the covariance to find its inverse
-        I = eye(len(self.x))
-        iK = solve_triangular(L.T, solve_triangular(L, I, lower = True))
-        alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
-        var = 1. / diag(iK)
-
-        return -0.5*(var*alpha**2 + log(var)).sum()
+            # Use the Cholesky decomposition of the covariance to find its inverse
+            I = eye(len(self.x))
+            iK = solve_triangular(L.T, solve_triangular(L, I, lower = True))
+            alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
+            var = 1. / diag(iK)
+            return -0.5*(var*alpha**2 + log(var)).sum()
+        except:
+            return -1e50
 
     def marginal_likelihood(self, theta):
         """
