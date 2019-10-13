@@ -249,25 +249,12 @@ class GpRegressor(object):
 
         :return: The mean vector as a 1D array, followed by covariance matrix as a 2D array.
         """
-        v = points
-        if hasattr(points, '__iter__'):
-            if hasattr(points[0], '__iter__'):
-                if len(points[0]) is not self.N:
-                    raise ValueError('Specified coordinates have incorrect dimensionality')
-            elif self.N is 1:
-                v = [(k,) for k in points]
-            else:
-                raise ValueError('The number of specified points must be greater than 1')
-        else:
-            raise ValueError('The number of specified points must be greater than 1')
-
-
-        lengths = self.s * self.scale_lengths
-        K_qx = self.matrix(v, self.x, lengths)
-        K_qq = self.matrix(v, v, lengths)
-        self.mu = dot(K_qx, self.alpha)
-        self.sigma = K_qq - dot( K_qx, solve( self.K_xx, K_qx.T ) )
-        return self.mu, self.sigma
+        v = self.process_points(points)
+        K_qx = self.cov(v, self.x, self.hyperpars)
+        K_qq = self.cov(v, v, self.hyperpars)
+        mu = dot(K_qx, self.alpha)
+        sigma = K_qq - dot( K_qx, solve( self.K_xx, K_qx.T ) )
+        return mu, sigma
 
     def loo_predictions(self):
         """
