@@ -14,12 +14,11 @@ from itertools import product
 
 
 class SquaredExponential(object):
-    def __init__(self, x, y, S):
+    def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
         self.distances = -0.5*dx**2 # distributed outer subtraction using broadcasting
-        self.S = S
 
         s = log(y.std())
         self.bounds = [(s-4,s+4)]
@@ -34,7 +33,7 @@ class SquaredExponential(object):
         L = exp(theta[1:])
         D = -0.5*(u[:,None,:] - v[None,:,:])**2
         C = exp((D / L[None,None,:]**2).sum(axis=2))
-        return (a**2)*C + self.S
+        return (a**2)*C
 
     def build_covariance(self, theta):
         """
@@ -44,7 +43,7 @@ class SquaredExponential(object):
         a = exp(theta[0])
         L = exp(theta[1:])
         C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
-        return (a**2)*C + self.S
+        return (a**2)*C
 
     def get_bounds(self):
         return self.bounds
@@ -125,7 +124,7 @@ class GpRegressor(object):
                 self.sig[i,i] = err
 
         # create an instance of the covariance function class
-        self.cov = SquaredExponential(self.x, self.y, self.sig)
+        self.cov = SquaredExponential(self.x, self.y)
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
@@ -133,12 +132,9 @@ class GpRegressor(object):
 
         # build the covariance matrix
         self.hyperpars = hyperpars
-        self.K_xx = self.cov.build_covariance(hyperpars)
-        print(self.K_xx.shape)
+        self.K_xx = self.cov.build_covariance(hyperpars) + self.sig
         self.K_xx = (self.K_xx + self.K_xx.T)*0.5
-        print((self.K_xx - self.K_xx.T).sum())
         self.L = cholesky(self.K_xx)
-        print(self.L)
         self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
 
     def __call__(self, points, theta = None):
@@ -162,20 +158,17 @@ class GpRegressor(object):
         errs = []
         p = self.process_points(points)
         for v in p:
-            K_qx = self.cov(self.x, v.reshape([1,self.N_dimensions]), self.hyperpars)
-            # K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
+            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
             K_qq = self.cov(v.reshape([1,self.N_dimensions]), v.reshape([1,self.N_dimensions]), self.hyperpars)
             mu_q.append(dot(K_qx, self.alpha)[0])
-            print(self.L)
             v = solve_triangular(self.L, K_qx.T, lower = True)
             errs.append( K_qq[0,0] - npsum(v**2) )
-            # errs.append( exp(self.hyperpars[0])**2 - npsum(v**2) )
 
         return array(mu_q), sqrt( abs(array(errs)) )
 
     def set_hyperparameters(self, theta):
         self.hyperpars = theta
-        self.K_xx = self.cov.build_covariance(theta)
+        self.K_xx = self.cov.build_covariance(theta) + self.sig
         self.L = cholesky(self.K_xx)
         self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
 
@@ -301,7 +294,7 @@ class GpRegressor(object):
         This implementation is based on equations (5.10, 5.11, 5.12) from
         Rasmussen & Williams.
         """
-        K_xx = self.cov.build_covariance(theta)
+        K_xx = self.cov.build_covariance(theta) + self.sig
         L = cholesky(K_xx)
 
         # Use the Cholesky decomposition of the covariance to find its inverse
@@ -317,7 +310,7 @@ class GpRegressor(object):
         returns the negative log marginal likelihood for the
         supplied hyperparameter values.
         """
-        K_xx = self.cov.build_covariance(theta)
+        K_xx = self.cov.build_covariance(theta) + self.sig
 
         try: # protection against singular matrix error crash
             L = cholesky(K_xx)
