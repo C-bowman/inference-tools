@@ -16,6 +16,17 @@ from itertools import product
 
 
 class SquaredExponential(object):
+    """
+    SquaredExponential is a covariance-function class which can be passed to
+    GpRegressor via the 'kernel' keyword argument. The hyperparameters required
+    by Squared exponential are as follows:
+
+    For a problem with N spatial dimensions, SquaredExponential has N+1 hyper-parameters.
+    For some array of hyper-parameters 'h':
+
+        - h[0] is the natural log of the standard deviation parameter.
+        - h[1:] are the natural log of the scale-lengths for each of the N spatial dimensions.
+    """
     def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
         # data covariance matrix as an optimisation
@@ -67,6 +78,18 @@ class SquaredExponential(object):
 
 
 class RationalQuadratic(object):
+    """
+    RationalQuadratic is a covariance-function class which can be passed to
+    GpRegressor via the 'kernel' keyword argument. The hyperparameters required
+    by RationalQuadratic are as follows:
+
+    For a problem with N spatial dimensions, SquaredExponential has N+2 hyper-parameters.
+    For some array of hyper-parameters 'h':
+
+        - h[0] is the natural log of the standard deviation parameter.
+        - h[1] is the natural log of the exponent parameter.
+        - h[2:] are the natural log of the scale-lengths for each of the N spatial dimensions.
+    """
     def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
         # data covariance matrix as an optimisation
@@ -139,22 +162,22 @@ class GpRegressor(object):
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
 
-    :param scale_lengths: \
-        The default behaviour of GpRegressor is to determine an appropriate
-        scale-length for each dimension separately, such that for a problem
-        with N dimensions, there are N+1 total hyperparameters. Alternatively,
-        this can be reduced to only 2 hyperparameters regardless of the number
-        of dimensions by specifying the scale_lengths argument. In this case,
-        the hyperparameters become and amplitude and a scalar multiplier for
-        the provided scale-lengths. The specified lengths must be given as an
-        iterable of length equal to the number of dimensions.
-
     :param hyperpars: \
-        The amplitude and scale-length parameters for the normal prior distribution.
-        If a single global scale length should be used, the hyperparameters should be
-        specified as a two element list, i.e. [amplitude, length]. Alternatively, a
-        separate length-scale for each dimension can be specified by passing an
-        amplitude followed by an iterable of lengths, i.e. [amplitude, (L1, L2, ...)].
+        An array specifying the hyperparameter values to be used by the
+        covariance function class, which by default is SquaredExponential.
+        See the documentation for the relevant covariance function class for
+        a description of the required hyperparameters. Generally this argument
+        should be left unspecified, in which case the hyperparameters will be
+        selected automatically.
+
+    :param class kernel: \
+        The covariance function class which will be used to model the data. The
+        covariance function classes can be imported from the gp_tools module and
+        then passed to GpRegressor using this keyword argument.
+
+    :param bool cross_val: \
+        If set to True, leave-one-out cross-validation is used to select the
+        hyperparameters in place of marginal likelihood.
     """
     def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
 
