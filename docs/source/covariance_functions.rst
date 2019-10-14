@@ -1,8 +1,8 @@
 
 Covariance functions
 ~~~~~~~~~~~~~~~~~~~~
-Gaussian-process regression & optimisation require a covariance function to specify the
-covariance between any two points in space. These functions...
+Gaussian-process regression & optimisation model the spatial structure of data using a
+covariance function which specifies the covariance between any two points in the space.
 
 The available covariance functions are implemented as classes within ``inference.gp_tools``,
 and can be passed either to ``GpRegressor`` or ``GpOptimiser`` via the ``kernel`` keyword
