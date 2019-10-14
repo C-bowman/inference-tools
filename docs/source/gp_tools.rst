@@ -10,3 +10,4 @@ optimisation as the `GpOptimiser <GpOptimiser>`_ class.
 
    GpRegressor - Gaussian process regression <GpRegressor>
    GpOptimiser - Gaussian process optimisation <GpOptimiser>
+   Covariance functions <covariance_functions>
