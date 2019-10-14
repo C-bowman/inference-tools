@@ -148,8 +148,12 @@ ax.scatter([i[0] for i in coords], [i[1] for i in coords], z, color = colmap)
 plt.tight_layout()
 plt.show()
 
+# This time, use the RationalQuadratic covariance function instead
+# of the default SquaredExponential function.
+from inference.gp_tools import RationalQuadratic
+
 # Train the GP on the data
-GP = GpRegressor(coords, z)
+GP = GpRegressor(coords, z, kernel = RationalQuadratic)
 
 # if we provide no error data, a small value is used (compared with
 # spread of values in the data) such that the estimate is forced to
