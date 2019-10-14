@@ -16,22 +16,21 @@ from itertools import product
 
 
 class SquaredExponential(object):
-    """
-    SquaredExponential is a covariance-function class which can be passed to
-    GpRegressor via the 'kernel' keyword argument. It uses the 'squared-exponential'
+    r"""
+    ``SquaredExponential`` is a covariance-function class which can be passed to
+    ``GpRegressor`` via the ``kernel`` keyword argument. It uses the 'squared-exponential'
     covariance function given by:
 
     .. math::
 
-       K(\underline{u}, \underline{v}) = a^2 \exp \left( -\frac{1}{2} \sum_i \left(\frac{u_i - v_i}{l_i}\right)^2 \right)
+       K(\underline{u}, \underline{v}) = A^2 \exp \left( -\frac{1}{2} \sum_{i=1}^{n} \left(\frac{u_i - v_i}{l_i}\right)^2 \right)
 
-    The hyperparameters required by Squared exponential are as follows:
+    The hyper-parameter vector :math:`\underline{\theta}` used by ``SquaredExponential`` to define
+    the above function is structured as follows:
 
-    For a problem with N spatial dimensions, SquaredExponential has N+1 hyper-parameters.
-    For some array of hyper-parameters 'h':
+    .. math::
 
-        - h[0] is the natural log of the standard deviation parameter.
-        - h[1:] are the natural log of the scale-lengths for each of the N spatial dimensions.
+       \underline{\theta} = [ \ln{A}, \ln{l_1}, \ldots, \ln{l_n}]
     """
     def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
@@ -84,17 +83,21 @@ class SquaredExponential(object):
 
 
 class RationalQuadratic(object):
-    """
-    RationalQuadratic is a covariance-function class which can be passed to
-    GpRegressor via the 'kernel' keyword argument. The hyperparameters required
-    by RationalQuadratic are as follows:
+    r"""
+    ``RationalQuadratic`` is a covariance-function class which can be passed to
+    ``GpRegressor`` via the ``kernel`` keyword argument. It uses the 'rational quadratic'
+    covariance function given by:
 
-    For a problem with N spatial dimensions, SquaredExponential has N+2 hyper-parameters.
-    For some array of hyper-parameters 'h':
+    .. math::
 
-        - h[0] is the natural log of the standard deviation parameter.
-        - h[1] is the natural log of the exponent parameter.
-        - h[2:] are the natural log of the scale-lengths for each of the N spatial dimensions.
+       K(\underline{u}, \underline{v}) = A^2 \left( 1 + \frac{1}{2\alpha} \sum_{i=1}^{n} \left(\frac{u_i - v_i}{l_i}\right)^2 \right)^{-\alpha}
+
+    The hyper-parameter vector :math:`\underline{\theta}` used by ``RationalQuadratic`` to define
+    the above function is structured as follows:
+
+    .. math::
+
+       \underline{\theta} = [ \ln{A}, \ln{\alpha}, \ln{l_1}, \ldots, \ln{l_n}]
     """
     def __init__(self, x, y):
         # pre-calculates hyperparameter-independent part of the
@@ -169,21 +172,21 @@ class GpRegressor(object):
         argument is not specified the errors are taken to be small but non-zero.
 
     :param hyperpars: \
-        An array specifying the hyperparameter values to be used by the
-        covariance function class, which by default is SquaredExponential.
+        An array specifying the hyper-parameter values to be used by the
+        covariance function class, which by default is ``SquaredExponential``.
         See the documentation for the relevant covariance function class for
-        a description of the required hyperparameters. Generally this argument
-        should be left unspecified, in which case the hyperparameters will be
+        a description of the required hyper-parameters. Generally this argument
+        should be left unspecified, in which case the hyper-parameters will be
         selected automatically.
 
     :param class kernel: \
         The covariance function class which will be used to model the data. The
         covariance function classes can be imported from the gp_tools module and
-        then passed to GpRegressor using this keyword argument.
+        then passed to ``GpRegressor`` using this keyword argument.
 
     :param bool cross_val: \
-        If set to True, leave-one-out cross-validation is used to select the
-        hyperparameters in place of marginal likelihood.
+        If set to `True`, leave-one-out cross-validation is used to select the
+        hyper-parameters in place of the marginal likelihood.
     """
     def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
 
@@ -628,10 +631,23 @@ class GpOptimiser(object):
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
     :param hyperpars: \
-        Hyper-parameters used by the GP-regression estimate. See the documentation of
-        the *hyperpars* keyword of the GpRegressor class for more details.
+        An array specifying the hyper-parameter values to be used by the
+        covariance function class, which by default is ``SquaredExponential``.
+        See the documentation for the relevant covariance function class for
+        a description of the required hyper-parameters. Generally this argument
+        should be left unspecified, in which case the hyper-parameters will be
+        selected automatically.
+
+    :param class kernel: \
+        The covariance function class which will be used to model the data. The
+        covariance function classes can be imported from the gp_tools module and
+        then passed to ``GpOptimiser`` using this keyword argument.
+
+    :param bool cross_val: \
+        If set to `True`, leave-one-out cross-validation is used to select the
+        hyper-parameters in place of the marginal likelihood.
     """
-    def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None):
+    def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
         self.x = list(x)
         self.y = list(y)
         self.y_err = y_err
@@ -642,7 +658,9 @@ class GpOptimiser(object):
         else:
             self.bounds = bounds
 
-        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars)
+        self.kernel = kernel
+        self.cross_val = cross_val
+        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel = kernel, cross_val = cross_val)
 
         self.ir2pi = 1 / sqrt(2*pi)
         self.ir2 = 1. / sqrt(2.)
@@ -671,7 +689,7 @@ class GpOptimiser(object):
                 raise ValueError('y_err must be specified for new evaluations if y_err was specified during __init__')
 
         # re-train the GP
-        self.gp = GpRegressor(self.x, self.y, y_err=self.y_err)
+        self.gp = GpRegressor(self.x, self.y, y_err=self.y_err, kernel = self.kernel, cross_val = self.cross_val)
         self.mu_max = max(self.y)
 
     def variance_aq(self,x):
