@@ -18,8 +18,14 @@ from itertools import product
 class SquaredExponential(object):
     """
     SquaredExponential is a covariance-function class which can be passed to
-    GpRegressor via the 'kernel' keyword argument. The hyperparameters required
-    by Squared exponential are as follows:
+    GpRegressor via the 'kernel' keyword argument. It uses the 'squared-exponential'
+    covariance function given by:
+
+    .. math::
+
+       K(\underline{u}, \underline{v}) = a^2 \exp \left( -\frac{1}{2} \sum_i \left(\frac{u_i - v_i}{l_i}\right)^2 \right)
+
+    The hyperparameters required by Squared exponential are as follows:
 
     For a problem with N spatial dimensions, SquaredExponential has N+1 hyper-parameters.
     For some array of hyper-parameters 'h':
