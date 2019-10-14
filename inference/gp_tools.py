@@ -198,11 +198,7 @@ class GpRegressor(object):
             hyperpars = self.optimize_hyperparameters()
 
         # build the covariance matrix
-        self.hyperpars = hyperpars
-        self.K_xx = self.cov.build_covariance(hyperpars) + self.sig
-        self.K_xx = (self.K_xx + self.K_xx.T)*0.5
-        self.L = cholesky(self.K_xx)
-        self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y, lower = True))
+        self.set_hyperparameters(hyperpars)
 
     def __call__(self, points, theta = None):
         """
