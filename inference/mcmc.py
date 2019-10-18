@@ -317,9 +317,9 @@ class MarkovChain(object):
 
             # display the progress status message
             if self.print_status:
-                pct = str(int(100*(j+1)/k))
-                eta = str(int(dt*((k/(j+1)-1))))
-                msg = '\r  advancing chain:   [ {}% complete   ETA: {} sec ]'.format(pct, eta)
+                pct = int(100*(j+1)/k)
+                eta = int(dt*((k/(j+1)-1)))
+                msg = f'\r  advancing chain:   [ {pct}% complete   ETA: {eta} sec ]'
                 sys.stdout.write(msg)
                 sys.stdout.flush()
 
