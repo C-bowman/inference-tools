@@ -319,7 +319,7 @@ class MarkovChain(object):
             if self.print_status:
                 pct = int(100*(j+1)/k)
                 eta = int(dt*((k/(j+1)-1)))
-                msg = f'\r  advancing chain:   [ {pct}% complete   ETA: {eta} sec ]'
+                msg = '\r  advancing chain:   [ {}% complete   ETA: {} sec ]'.format(pct,eta)
                 sys.stdout.write(msg)
                 sys.stdout.flush()
 
@@ -1951,7 +1951,7 @@ class EnsembleSampler(object):
 
             if attempts == self.max_attempts:
                 self.total_proposals[i].append(attempts)
-                warn(f'Walker #{i} failed to advance within the maximum allowed attempts')
+                warn('Walker #{} failed to advance within the maximum allowed attempts'.format(i))
 
     def advance_all(self):
         for i in range(self.N_walkers):
@@ -1962,7 +1962,7 @@ class EnsembleSampler(object):
     def advance(self, n):
         t_start = time()
         sys.stdout.write('\n')
-        sys.stdout.write(f'\r  EnsembleSampler:   [ 0 / {n} iterations completed ]')
+        sys.stdout.write('\r  EnsembleSampler:   [ 0 / {} iterations completed ]'.format(n))
         sys.stdout.flush()
 
         for k in range(n):
@@ -1970,13 +1970,13 @@ class EnsembleSampler(object):
 
             # display the progress status message
             dt = time() - t_start
-            eta = int(dt * ((n / (k + 1) - 1)))
-            msg = f'\r  EnsembleSampler:   [ {k + 1} / {n} iterations completed  |  ETA: {eta} sec ]'
+            eta = int(dt * ((n/(k+1) - 1)))
+            msg = '\r  EnsembleSampler:   [ {} / {} iterations completed  |  ETA: {} sec ]'.format(k+1,n, eta)
             sys.stdout.write(msg)
             sys.stdout.flush()
 
         # this is a little ugly...
-        sys.stdout.write(f'\r  EnsembleSampler:   [ {n} / {n} iterations completed ]                  ')
+        sys.stdout.write('\r  EnsembleSampler:   [ {} / {} iterations completed ]                  '.format(n,n))
         sys.stdout.flush()
         sys.stdout.write('\n')
 
