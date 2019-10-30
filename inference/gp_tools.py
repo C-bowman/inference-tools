@@ -284,7 +284,7 @@ class GpRegressor(object):
         else:
             if m == 0:
                 raise ValueError('given spatial points have an incorrect number of dimensions')
-            elif m == 1 and x.shape[1] == self.N_dimensions:
+            elif m == 1 and x.shape[0] == self.N_dimensions:
                 x = x.reshape([1, self.N_dimensions])
             elif m == 2 and x.shape[1] != self.N_dimensions:
                 raise ValueError('given spatial points have an incorrect number of dimensions')
