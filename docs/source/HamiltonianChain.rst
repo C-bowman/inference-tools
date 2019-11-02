@@ -13,6 +13,8 @@ Here we define a toroidal (donut-shaped!) posterior distribution which has stron
 
 .. code-block:: python
 
+   from numpy import array, sqrt
+
    class ToroidalGaussian(object):
       def __init__(self):
          self.R0 = 1. # torus major radius
@@ -32,7 +34,7 @@ Here we define a toroidal (donut-shaped!) posterior distribution which has stron
          return -g/self.w2
 
 
-Build the posterior and chains objects then generate the sample:
+Build the posterior and chain objects then generate the sample:
 
 .. code-block:: python
 
