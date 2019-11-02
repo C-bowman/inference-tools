@@ -1,4 +1,10 @@
-# The inference-tools package
+# The inference-tools package 
+
+[![Documentation Status](https://readthedocs.org/projects/inference-tools/badge/?version=stable)](https://inference-tools.readthedocs.io/en/stable/?badge=stable)
+[![GitHub license](https://img.shields.io/github/license/C-bowman/inference-tools?color=blue)](https://github.com/C-bowman/inference-tools/blob/master/LICENSE)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/inference-tools?color=purple)](https://pypi.org/project/inference-tools/)
+![PyPI - Python Version](https://img.shields.io/pypi/pyversions/inference-tools)
+
 This package aims to provide a set of python-based tools for Bayesian data analysis
 which are simple to use, allowing them to applied quickly and easily.
 
