@@ -17,21 +17,21 @@ Here we define a toroidal (donut-shaped!) posterior distribution which has stron
 
    class ToroidalGaussian(object):
       def __init__(self):
-         self.R0 = 1. # torus major radius
+         self.R0 = 1.  # torus major radius
          self.ar = 10. # torus aspect ratio
-         self.w2 = (self.R0/self.ar)**2
+         self.iw2 = (self.ar/self.R0)**2
 
       def __call__(self, theta):
          x, y, z = theta
          r = sqrt(z**2 + (sqrt(x**2 + y**2) - self.R0)**2)
-         return -0.5*r**2 / self.w2
+         return -0.5*self.iw2*r**2
 
       def gradient(self, theta):
          x, y, z = theta
          R = sqrt(x**2 + y**2)
          K = 1 - self.R0/R
          g = array([K*x, K*y, z])
-         return -g/self.w2
+         return -g*self.iw2
 
 
 Build the posterior and chain objects then generate the sample:
@@ -50,7 +50,7 @@ Build the posterior and chain objects then generate the sample:
    # choose how many samples will be thrown away from the start of the chain as 'burn-in'
    chain.burn = 2000
 
-We can use the `Plotly <https://plot.ly/>`_ plotting library to generate an interactive 3D scatterplot of our sample:
+We can use the `Plotly <https://plot.ly/>`_ library to generate an interactive 3D scatterplot of our sample:
 
 .. code-block:: python
 
