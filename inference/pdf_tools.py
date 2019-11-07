@@ -394,10 +394,10 @@ class GaussianKDE(DensityEstimator):
         # get the cutoff indices
         lwr_inds = searchsorted(self.s, mids - self.cutoff)
         upr_inds = searchsorted(self.s, mids + self.cutoff)
-        cuts = list(zip(lwr_inds, upr_inds))
+        slices = [slice(l,u) for l,u in zip(lwr_inds, upr_inds)]
 
-        # now build a dict that maps midpoints to cut indices
-        self.cut_map = dict(zip(mids, cuts))
+        # now build a dict that maps midpoints to the slices
+        self.slice_map = dict(zip(mids, slices))
 
         # build a binary tree which allows fast look-up of which
         # region contains a given value
@@ -422,9 +422,9 @@ class GaussianKDE(DensityEstimator):
         # look-up the region
         region = self.tree.lookup(x)
         # look-up the cutting points
-        cuts = self.cut_map[region[2]]
+        slc = self.slice_map[region[2]]
         # evaluate the density estimate from the slice
-        return self.norm * exp(-((x - self.s[cuts[0]:cuts[1]])*self.q)**2).sum()
+        return self.norm * exp(-((x - self.s[slc])*self.q)**2).sum()
 
     def simple_bandwidth_estimator(self):
         # A simple estimate which assumes the distribution close to a Gaussian
@@ -500,7 +500,7 @@ class GaussianKDE(DensityEstimator):
         d = log(c) - log(width * len(samples) * sqrt(2*pi)) - log_pdf
         loo_adjustment = log(1 - exp(d))
         log_probs = log_pdf + loo_adjustment
-        return sum(log_probs) # sum to find the overall log-probability
+        return log_probs.sum() # sum to find the overall log-probability
 
     @staticmethod
     def log_kernel(x, c, h):
