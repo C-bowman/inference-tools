@@ -12,7 +12,7 @@ from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
 
 
 def matrix_plot(samples, labels = None, show = True, reference = None, filename = None, plot_style = 'contour',
-                colormap = 'Blues', show_ticks = None, point_colors = None, point_size = 1):
+                colormap = 'Blues', show_ticks = None, point_colors = None, point_size = 1, label_size = 10):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
     1D and 2D marginal distributions.
@@ -49,6 +49,9 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     :keyword point_size: \
         An array containing data which will be used to set the size of the points
         if the plot_style argument is set to 'scatter'.
+
+    :keyword int label_size: \
+        The font-size used for axis labels.
     """
 
     N_par = len(samples)
@@ -156,8 +159,8 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
                         markerfacecolor = 'none', markeredgecolor = 'red', markeredgewidth = 2)
 
         # assign axis labels
-        if i == N_par - 1: ax.set_xlabel(labels[j])
-        if j == 0 and i != 0: ax.set_ylabel(labels[i])
+        if i == N_par - 1: ax.set_xlabel(labels[j], fontsize = label_size)
+        if j == 0 and i != 0: ax.set_ylabel(labels[i], fontsize = label_size)
         # impose x-limits on bottom row
         if i == N_par - 1: ax.set_xlim(axis_limits[j])
         # impose y-limits on left column, except the top-left corner
