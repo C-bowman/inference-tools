@@ -589,28 +589,14 @@ class BinaryTree:
     def __init__(self, layers, limits):
         self.n = layers
         self.lims = limits
-        self.midpoint = 0.5*(limits[0] + limits[1])
+        self.edges = linspace(limits[0], limits[1], 2**self.n + 1)
 
-        # first generate n trees of depth 1
-        L = linspace(limits[0], limits[1], 2**self.n + 1)
-        self.mids = 0.5*(L[1:] + L[:-1])
-        L = [ [L[i], L[i+1], 0.5*(L[i]+L[i+1])] for i in range(2**self.n) ]
-
-        # now recursively merge them until we have 1 tree of depth n
-        for k in range(self.n-1):
-            q = []
-            for i in range(len(L)//2):
-                q.append( [L[2*i], L[2*i+1], 0.5*(L[2*i][2] + L[2*i+1][2])] )
-            L = copy(q)
-
-        L.append(self.midpoint)
-        self.tree = L
+        self.p = [[a,b,0.5*(a+b)] for a,b in zip(self.edges[:-1], self.edges[1:])]
+        self.p.insert(0,self.p[0])
+        self.p.append(self.p[-1])
 
     def lookup(self, val):
-        D = self.tree
-        for i in range(self.n):
-            D = D[val > D[2]]
-        return D
+        return self.p[searchsorted(self.edges, val)]
 
 
 
