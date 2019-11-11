@@ -6,10 +6,11 @@
 from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray
 from numpy import zeros, ones, array, where, pi, diag, eye
 from numpy import sum as npsum
+from numpy.random import random
 from scipy.special import erf
 from numpy.linalg import inv, slogdet, solve, cholesky
 from scipy.linalg import solve_triangular
-from scipy.optimize import minimize, differential_evolution
+from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from itertools import product
 
 
@@ -702,7 +703,21 @@ class GpOptimiser(object):
 
     def maximise_acquisition(self, aq_func):
         opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
-        return opt_result.x, opt_result.fun
+        solution = opt_result.x
+        funcval = opt_result.fun
+        if hasattr(funcval, '__len__'): funcval = funcval[0]
+        return solution, funcval
+
+    def multistart_bfgs(self, aq_func, starts = 10):
+        # starting positions guesses by random sampling
+        lwr, upr = [array([k[i] for k in self.bounds]) for i in [0,1]]
+        starting_positions = [ lwr + (upr-lwr)*random(size = len(self.bounds)) for _ in range(starts) ]
+        # run BFGS for each starting position
+        results = [ fmin_l_bfgs_b(aq_func, x0, approx_grad = True, bounds = self.bounds) for x0 in starting_positions ]
+        # extract best solution
+        solution, funcval = sorted(results, key = lambda x : x[1])[0][:2]
+        if hasattr(funcval, '__len__'): funcval = funcval[0]
+        return solution, funcval
 
     def learn_function(self):
         return self.maximise_acquisition(self.variance_aq)[0]
