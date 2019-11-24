@@ -75,6 +75,16 @@ class SquaredExponential(object):
         A = (x - v[None,:]) / L[None,:]**2
         return A.T, (a/L)**2
 
+    def covariance_and_gradients(self, theta):
+        a = exp(theta[0])
+        L = exp(theta[1:])
+        C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
+        K = (a**2)*C
+        grads = [(2.*a)*C]
+        for i,k in enumerate(L):
+            grads.append( (-2./k**3)*self.distances[:,:,i]*K )
+        return K, grads
+
     def get_bounds(self):
         return self.bounds
 
@@ -139,6 +149,24 @@ class RationalQuadratic(object):
         Gradient calculations are not yet available for the
         RationalQuadratic covariance function.
         """)
+
+    def covariance_and_gradients(self, theta):
+        a = exp(theta[0])
+        q = exp(theta[1])
+        L = exp(theta[2:])
+        Z = (self.distances / L[None,None,:]**2).sum(axis=2)
+
+        F = (1 + Z/q)
+        ln_F = log(F)
+        C = exp(-q*ln_F)
+
+        K = (a**2)*C
+        grads = [(2.*a)*C]
+        grads.append( -K*(ln_F - (Z/q)/F) )
+        G = 2*K/F
+        for i,l in enumerate(L):
+            grads.append( G*(self.distances[:,:,i]/l**3) )
+        return K, grads
 
     def get_bounds(self):
         return self.bounds
@@ -223,8 +251,10 @@ class GpRegressor(object):
 
         if cross_val:
             self.model_selector = self.loo_likelihood
+            self.model_selector_gradient = self. loo_likelihood_gradient
         else:
             self.model_selector = self.marginal_likelihood
+            self.model_selector_gradient = self.marginal_likelihood_gradient
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
@@ -385,10 +415,37 @@ class GpRegressor(object):
         except:
             return -1e50
 
+    def loo_likelihood_gradient(self, theta):
+        """
+        Calculates the 'leave-one out' (LOO) log-likelihood, as well as its
+        gradient with respect to the hyperparameters.
+
+        This implementation is based on equations (5.10, 5.11, 5.12, 5.13, 5.14)
+        from Rasmussen & Williams.
+        """
+        K_xx, grad_K = self.cov.covariance_and_gradients(theta)
+        K_xx += self.sig
+        L = cholesky(K_xx)
+
+        # Use the Cholesky decomposition of the covariance to find its inverse
+        I = eye(len(self.x))
+        iK = solve_triangular(L.T, solve_triangular(L, I, lower = True))
+        alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
+        var = 1. / diag(iK)
+        LOO = -0.5*(var*alpha**2 + log(var)).sum()
+
+        grad = zeros(len(grad_K))
+        for i,dK in enumerate(grad_K):
+            Z = iK.dot(dK)
+            grad[i] = ((alpha*Z.dot(alpha) - 0.5*(1 + var*alpha**2)*diag(Z.dot(iK))) * var).sum()
+
+        return LOO, grad*exp(theta)
+
     def marginal_likelihood(self, theta):
         """
-        returns the negative log marginal likelihood for the
-        supplied hyperparameter values.
+        returns the log-marginal likelihood for the supplied hyperparameter values.
+
+        This implementation is based on equation (5.8) from Rasmussen & Williams.
         """
         K_xx = self.cov.build_covariance(theta) + self.sig
 
@@ -399,11 +456,49 @@ class GpRegressor(object):
         except:
             return -1e50
 
+    def marginal_likelihood_gradient(self, theta):
+        """
+        returns the log-marginal likelihood and its gradient with respect
+        to the hyperparameters.
+
+        This implementation is based on equations (5.8, 5.9) from Rasmussen & Williams.
+        """
+        K_xx, grad_K = self.cov.covariance_and_gradients(theta)
+        K_xx += self.sig
+
+        # get the cholesky decomposition
+        L = cholesky(K_xx)
+        # calculate the log-marginal likelihood
+        alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
+        LML = -0.5*dot( self.y.T, alpha ) - log(diagonal(L)).sum()
+        # calculate the gradients
+        iK = solve_triangular(L.T, solve_triangular(L, eye(L.shape[0]), lower = True))
+        Q = alpha[:,None]*alpha[None,:] - iK
+        grad = array([ 0.5*(Q*dK.T).sum() for dK in grad_K])*exp(theta)
+        return LML, grad
+
     def optimize_hyperparameters(self):
         bnds = self.cov.get_bounds()
         # optimise the hyperparameters
         opt_result = differential_evolution(lambda x : -self.model_selector(x), bnds)
         return opt_result.x
+
+    def bfgs_func(self, theta):
+        y, grad_y = self.model_selector_gradient(theta)
+        return -y, -grad_y
+
+    def multistart_bfgs(self):
+        bnds = self.cov.get_bounds()
+        starts = int(2*sqrt(len(bnds)))+1
+        # starting positions guesses by random sampling + one in the centre of the hypercube
+        lwr, upr = [array([k[i] for k in bnds]) for i in [0,1]]
+        starting_positions = [ lwr + (upr-lwr)*random(size = len(bnds)) for _ in range(starts-1) ]
+        starting_positions.append(0.5*(lwr+upr))
+        # run BFGS for each starting position
+        results = [ fmin_l_bfgs_b(self.bfgs_func, x0, approx_grad = False, bounds = bnds) for x0 in starting_positions ]
+        # extract best solution
+        solution = sorted(results, key = lambda x : x[1])[0][0]
+        return solution
 
 
 
