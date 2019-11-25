@@ -786,7 +786,7 @@ class MarkovChain(object):
 
     def autoselect_burn_and_thin(self):
         self.burn = self.estimate_burn_in()
-        param_ESS = [ ESS(array(self.get_parameter(i))) for i in range(self.L) ]
+        param_ESS = [ ESS(array(self.get_parameter(i, thin = 1))) for i in range(self.L) ]
         self.thin = int( (self.n-self.burn) / min(param_ESS) )
         if self.thin < 1:
             self.thin = 1
@@ -796,13 +796,15 @@ class MarkovChain(object):
         elif (self.n-self.burn)/self.thin < 100:
             warn('Sample size after thinning is less than 100')
 
-        msg = '\n~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
-        msg+= '         burn-in set to ' + str(self.burn) + '\n'
-        msg+= '        thinning set to ' + str(self.thin) + '\n'
-        msg+= ' thinned sample size is ' + str(len(self.probs[self.burn::self.thin])) + '\n'
-        msg+= '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n'
+        msg = """
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                  burn-in set to {}    
+                 thinning set to {}    
+          thinned sample size is {}    
+        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n
+        """.format(self.burn, self.thin, len(self.probs[self.burn::self.thin]))
         print(msg)
-            
+
 
 
 
