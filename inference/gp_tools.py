@@ -12,6 +12,7 @@ from numpy.linalg import inv, slogdet, solve, cholesky
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from itertools import product
+from warnings import warn
 
 
 
@@ -38,6 +39,7 @@ class SquaredExponential(object):
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
         self.distances = -0.5*dx**2 # distributed outer subtraction using broadcasting
+        self.epsilon = 1e-10 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
         s = log(y.std())
@@ -61,7 +63,7 @@ class SquaredExponential(object):
         """
         a = exp(theta[0])
         L = exp(theta[1:])
-        C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
+        C = exp((self.distances / L[None,None,:]**2).sum(axis=2)) + self.epsilon
         return (a**2)*C
 
     def gradient_terms(self, v, x, theta):
@@ -78,7 +80,7 @@ class SquaredExponential(object):
     def covariance_and_gradients(self, theta):
         a = exp(theta[0])
         L = exp(theta[1:])
-        C = exp((self.distances / L[None,None,:]**2).sum(axis=2))
+        C = exp((self.distances / L[None,None,:]**2).sum(axis=2)) + self.epsilon
         K = (a**2)*C
         grads = [(2.*a)*C]
         for i,k in enumerate(L):
@@ -115,6 +117,7 @@ class RationalQuadratic(object):
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
         self.distances = 0.5*dx**2 # distributed outer subtraction using broadcasting
+        self.epsilon = 1e-10 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
         s = log(y.std())
@@ -137,7 +140,7 @@ class RationalQuadratic(object):
         k = exp(theta[1])
         L = exp(theta[2:])
         Z = (self.distances / L[None,None,:]**2).sum(axis=2)
-        return (a**2)*(1 + Z/k)**(-k)
+        return (a**2)*((1 + Z/k)**(-k) + self.epsilon)
 
     def gradient_terms(self, v, x, theta):
         """
@@ -158,7 +161,7 @@ class RationalQuadratic(object):
 
         F = (1 + Z/q)
         ln_F = log(F)
-        C = exp(-q*ln_F)
+        C = exp(-q*ln_F) + self.epsilon
 
         K = (a**2)*C
         grads = [(2.*a)*C]
@@ -241,10 +244,6 @@ class GpRegressor(object):
                     self.sig[i,i] = y_err[i]**2
             else:
                 raise ValueError('y_err must be the same length as y')
-        else:
-            err = ((self.y.max()-self.y.min()) * 1e-6)**2
-            for i in range(len(self.y)):
-                self.sig[i,i] = err
 
         # create an instance of the covariance function class
         self.cov = kernel(self.x, self.y)
@@ -413,6 +412,7 @@ class GpRegressor(object):
             var = 1. / diag(iK)
             return -0.5*(var*alpha**2 + log(var)).sum()
         except:
+            warn('Cholesky decomposition failure in loo_likelihood')
             return -1e50
 
     def loo_likelihood_gradient(self, theta):
@@ -454,6 +454,7 @@ class GpRegressor(object):
             alpha = solve_triangular(L.T, solve_triangular(L, self.y, lower = True))
             return -0.5*dot( self.y.T, alpha ) - log(diagonal(L)).sum()
         except:
+            warn('Cholesky decomposition failure in marginal_likelihood')
             return -1e50
 
     def marginal_likelihood_gradient(self, theta):
