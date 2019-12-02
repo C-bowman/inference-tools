@@ -488,9 +488,9 @@ class GpRegressor(object):
         y, grad_y = self.model_selector_gradient(theta)
         return -y, -grad_y
 
-    def multistart_bfgs(self):
+    def multistart_bfgs(self, starts = None):
         bnds = self.cov.get_bounds()
-        starts = int(2*sqrt(len(bnds)))+1
+        if starts is None: starts = int(2*sqrt(len(bnds)))+1
         # starting positions guesses by random sampling + one in the centre of the hypercube
         lwr, upr = [array([k[i] for k in bnds]) for i in [0,1]]
         starting_positions = [ lwr + (upr-lwr)*random(size = len(bnds)) for _ in range(starts-1) ]
