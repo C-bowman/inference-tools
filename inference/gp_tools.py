@@ -733,6 +733,93 @@ class GpInverter(object):
 
 
 
+class ExpectedImprovement(object):
+    def __init__(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+        self.ir2pi = 1 / sqrt(2 * pi)
+        self.ir2 = 1. / sqrt(2.)
+
+    def update_gp(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def __call__(self, x):
+        mu, sig = self.gp([x])
+        Z = (mu - self.mu_max) / sig
+        pdf = self.normal_pdf(Z)
+        cdf = self.normal_cdf(Z)
+        return -sig * (Z * cdf + pdf)
+
+    def gradient(self, x):
+        mu, sig = self.gp(x)
+        dmu, dvar = self.gp.spatial_derivatives(x)
+
+        Z = (mu - self.mu_max) / sig
+        pdf = self.normal_pdf(Z)
+        cdf = self.normal_cdf(Z)
+        EI = -sig*(Z*cdf + pdf)
+        dEI = -0.5*pdf*dvar[0]/sig - dmu[0]*cdf
+        return EI, dEI
+
+    def normal_pdf(self, z):
+        return exp(-0.5*z**2)*self.ir2pi
+
+    def normal_cdf(self, z):
+        return 0.5*(1. + erf(z*self.ir2))
+
+
+
+
+
+
+class MaxPredicition(object):
+    def __init__(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def update_gp(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def __call__(self, x):
+        mu, _ = self.gp([x])
+        return -mu[0]
+
+    def gradient(self, x):
+        mu, _ = self.gp(x)
+        dmu, _ = self.gp.spatial_derivatives(x)
+        return -mu[0], -dmu[0]
+
+
+
+
+
+
+class MaxVariance(object):
+    def __init__(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def update_gp(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def __call__(self, x):
+        _, sig = self.gp([x])
+        return -sig[0]**2
+
+    def gradient(self, x):
+        _, sig = self.gp(x)
+        _, dvar = self.gp.spatial_derivatives(x)
+        return -sig[0]**2, -dvar[0]
+
+
+
+
+
+
 class GpOptimiser(object):
     """
     A class for performing Gaussian-process optimisation in one or more dimensions.
@@ -781,7 +868,8 @@ class GpOptimiser(object):
         If set to `True`, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
     """
-    def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
+    def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential,
+                 cross_val = False, acquisition = ExpectedImprovement):
         self.x = list(x)
         self.y = list(y)
         self.y_err = y_err
@@ -795,11 +883,8 @@ class GpOptimiser(object):
         self.kernel = kernel
         self.cross_val = cross_val
         self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel = kernel, cross_val = cross_val)
-
-        self.ir2pi = 1 / sqrt(2*pi)
-        self.ir2 = 1. / sqrt(2.)
-        self.mu_max = max(self.y)
-        self.expected_fractional_improvement_history = []
+        self.acquisition = acquisition(self.gp)
+        self.acquisition_max_history = []
 
     def __call__(self, x):
         return self.gp(x)
@@ -826,16 +911,11 @@ class GpOptimiser(object):
         self.gp = GpRegressor(self.x, self.y, y_err=self.y_err, kernel = self.kernel, cross_val = self.cross_val)
         self.mu_max = max(self.y)
 
-    def variance_aq(self,x):
-        _, sig = self.gp([x])
-        return -sig[0]**2
+        # update the acquisition function info
+        self.acquisition.update_gp(self.gp)
 
-    def max_prediction(self,x):
-        mu, _ = self.gp([x])
-        return -mu[0]
-
-    def maximise_acquisition(self, aq_func):
-        opt_result = differential_evolution(aq_func, self.bounds, popsize = 30)
+    def maximise_acquisition(self):
+        opt_result = differential_evolution(self.acquisition, self.bounds, popsize = 30)
         solution = opt_result.x
         funcval = opt_result.fun
         if hasattr(funcval, '__len__'): funcval = funcval[0]
@@ -852,9 +932,6 @@ class GpOptimiser(object):
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def learn_function(self):
-        return self.maximise_acquisition(self.variance_aq)[0]
-
     def search_for_maximum(self):
         """
         Request a proposed location for the next evaluation. This proposal is \
@@ -864,24 +941,11 @@ class GpOptimiser(object):
         :return: location of the next proposed evaluation.
         """
         # find the evaluation point which maximises the acquisition function
-        proposed_ev, max_EI = self.maximise_acquisition(self.expected_improvement)
-        # store the expected fractional improvement to track convergence
-        self.expected_fractional_improvement_history.append( abs(max_EI / self.mu_max) )
+        proposed_ev, max_acq = self.maximise_acquisition()
+        # store the acquisition function maximum
+        self.acquisition_max_history.append( -max_acq )
         # if the problem is 1D, but the result is returned as a length-1 array,
         # extract the result from the array
         if hasattr(proposed_ev, '__len__') and len(proposed_ev) == 1:
             proposed_ev = proposed_ev[0]
         return proposed_ev
-
-    def expected_improvement(self,x):
-        mu, sig = self.gp([x])
-        Z  = (mu - self.mu_max) / sig
-        pdf = self.normal_pdf(Z)
-        cdf = self.normal_cdf(Z)
-        return -(mu-self.mu_max)*cdf - sig*pdf
-
-    def normal_pdf(self,z):
-       return exp(-0.5*z**2)*self.ir2pi
-
-    def normal_cdf(self,z):
-        return 0.5*(1. + erf(z*self.ir2))
