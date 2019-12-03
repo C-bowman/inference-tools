@@ -39,7 +39,7 @@ class SquaredExponential(object):
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
         self.distances = -0.5*dx**2 # distributed outer subtraction using broadcasting
-        self.epsilon = 1e-10 * eye(dx.shape[0])  # small values added to the diagonal for stability
+        self.epsilon = 1e-12 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
         s = log(y.std())
@@ -117,7 +117,7 @@ class RationalQuadratic(object):
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
         self.distances = 0.5*dx**2 # distributed outer subtraction using broadcasting
-        self.epsilon = 1e-10 * eye(dx.shape[0])  # small values added to the diagonal for stability
+        self.epsilon = 1e-12 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
         s = log(y.std())
@@ -356,6 +356,43 @@ class GpRegressor(object):
             mu_q.append(mean)
             vars.append(covariance)
         return array(mu_q), vars
+
+    def spatial_derivatives(self, points):
+        """
+        Calculate the spatial derivatives (i.e. the gradient) of the predictive mean
+        and variance of the GP estimate. These quantities are useful in the analytic
+        calculation of the spatial derivatives of acquisition functions like the expected
+        improvement.
+
+        :param list points: \
+            A list containing the spatial locations where the gradient of the mean and
+            variance are to be calculated. In the 1D case this would be a list of floats,
+            or a list of coordinate tuples in the multi-dimensional case.
+
+        :return mean_gradients, variance_gradients: \
+            A list of mean gradient vectors and a list of variance gradient vectors at each
+            given spatial point.
+        """
+        mu_gradients = []
+        var_gradients = []
+        p = self.process_points(points)
+        for v in p:
+            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
+            A, _ = self.cov.gradient_terms(v, self.x, self.hyperpars)
+            B = (K_qx * self.alpha).T
+            Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True) )
+
+            # calculate the mean and covariance
+            dmu_dx = dot(A,B)
+            dV_dx = - 2*(A*K_qx[None,:]).dot(Q)
+
+            # if there's only one spatial dimension, convert mean/covariance to floats
+            if dV_dx.shape == (1,1): dV_dx = dV_dx[0,0]
+            if dmu_dx.shape == (1,1): dmu_dx = dmu_dx[0,0]
+            # store the results for the current point
+            mu_gradients.append(dmu_dx)
+            var_gradients.append(dV_dx)
+        return mu_gradients, var_gradients
 
     def build_posterior(self, points):
         """
