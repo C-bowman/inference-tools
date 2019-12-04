@@ -746,7 +746,7 @@ class ExpectedImprovement(object):
         self.mu_max = gp.y.max()
 
     def __call__(self, x):
-        mu, sig = self.gp([x])
+        mu, sig = self.gp(x)
         Z = (mu - self.mu_max) / sig
         pdf = self.normal_pdf(Z)
         cdf = self.normal_cdf(Z)
@@ -761,7 +761,7 @@ class ExpectedImprovement(object):
         cdf = self.normal_cdf(Z)
         EI = -sig*(Z*cdf + pdf)
         dEI = -0.5*pdf*dvar[0]/sig - dmu[0]*cdf
-        return EI, dEI
+        return EI, dEI.squeeze()
 
     def normal_pdf(self, z):
         return exp(-0.5*z**2)*self.ir2pi
@@ -784,13 +784,13 @@ class MaxPredicition(object):
         self.mu_max = gp.y.max()
 
     def __call__(self, x):
-        mu, _ = self.gp([x])
+        mu, _ = self.gp(x)
         return -mu[0]
 
     def gradient(self, x):
         mu, _ = self.gp(x)
         dmu, _ = self.gp.spatial_derivatives(x)
-        return -mu[0], -dmu[0]
+        return -mu[0], -dmu[0].squeeze()
 
 
 
@@ -807,13 +807,13 @@ class MaxVariance(object):
         self.mu_max = gp.y.max()
 
     def __call__(self, x):
-        _, sig = self.gp([x])
+        _, sig = self.gp(x)
         return -sig[0]**2
 
     def gradient(self, x):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
-        return -sig[0]**2, -dvar[0]
+        return -sig[0]**2, -dvar[0].squeeze()
 
 
 
@@ -914,34 +914,42 @@ class GpOptimiser(object):
         # update the acquisition function info
         self.acquisition.update_gp(self.gp)
 
-    def maximise_acquisition(self):
+    def diff_evo(self):
         opt_result = differential_evolution(self.acquisition, self.bounds, popsize = 30)
         solution = opt_result.x
         funcval = opt_result.fun
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def multistart_bfgs(self, aq_func, starts = 10):
+    def multistart_bfgs(self, starts = 10):
         # starting positions guesses by random sampling
         lwr, upr = [array([k[i] for k in self.bounds]) for i in [0,1]]
         starting_positions = [ lwr + (upr-lwr)*random(size = len(self.bounds)) for _ in range(starts) ]
         # run BFGS for each starting position
-        results = [ fmin_l_bfgs_b(aq_func, x0, approx_grad = True, bounds = self.bounds) for x0 in starting_positions ]
+        results = [ fmin_l_bfgs_b(self.acquisition.gradient, x0, approx_grad = False, bounds = self.bounds) for x0 in starting_positions ]
         # extract best solution
         solution, funcval = sorted(results, key = lambda x : x[1])[0][:2]
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def search_for_maximum(self):
+    def propose_evaluation(self, bfgs_runs = None):
         """
-        Request a proposed location for the next evaluation. This proposal is \
-        selected in order to maximise the "expected improvement" criteria which \
-        searches for the global maximum value of the function.
+        Request a proposed location for the next evaluation. This proposal is
+        selected by maximising the chosen acquisition function.
+
+        :param int bfgs_runs: \
+            The number of separate BFGS runs used to maximise the acquisition
+            function. If not specified, `scipy.optimize.differential_evolution`
+            is used to maximise the acquisition function in place of multi-start
+            BFGS.
 
         :return: location of the next proposed evaluation.
         """
-        # find the evaluation point which maximises the acquisition function
-        proposed_ev, max_acq = self.maximise_acquisition()
+        if bfgs_runs is None:
+            # find the evaluation point which maximises the acquisition function
+            proposed_ev, max_acq = self.diff_evo()
+        else:
+            proposed_ev, max_acq = self.multistart_bfgs(starts = bfgs_runs)
         # store the acquisition function maximum
         self.acquisition_max_history.append( -max_acq )
         # if the problem is 1D, but the result is returned as a length-1 array,

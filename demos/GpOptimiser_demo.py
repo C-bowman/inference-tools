@@ -107,7 +107,7 @@ for i in range(11):
     example_plot_1d()
 
     # request the proposed evaluation
-    new_x = GP.search_for_maximum()
+    new_x = GP.propose_evaluation()
 
     # evaluate the new point
     new_y = search_function(new_x)
@@ -164,7 +164,7 @@ max_values = [max(GP.y)]
 evaluations = [len(GP.y)]
 
 for i in range(25):
-    new_x = GP.search_for_maximum()
+    new_x = GP.propose_evaluation()
     new_y = search_function(new_x)
     GP.add_evaluation(new_x, new_y)
 
