@@ -734,6 +734,27 @@ class GpInverter(object):
 
 
 class ExpectedImprovement(object):
+    r"""
+    ``ExpectedImprovement`` is a acquisition-function class which can be passed to
+    ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
+    expected-improvement acquisition function given by
+
+    .. math::
+
+       EI(\underline{x}) = \sigma(\underline{x}) \left( z F(z) + P(z) \right)
+
+    where
+
+    .. math::
+
+       z = \frac{\mu(\underline{x}) - y_{\mathrm{max}}}{\sigma(\underline{x})},
+       \quad P(z) = \frac{1}{\sqrt{2\pi}}\exp{\left(-\frac{1}{2}z^2 \right)},
+       \quad F(z) = \frac{1}{2}\left[ 1 + \erf{\left(\frac{z}{\sqrt{2}}\right)} \right]
+
+    :math:`\mu(\underline{x},\,\sigma(\underline{x}` are the predictive mean and standard
+    deviation of the Gaussian-process regression model, and :math:`y_{\mathrm{max}}` is
+    the current maximum observed value of the objective function.
+    """
     def __init__(self, gp):
         self.gp = gp
         self.mu_max = gp.y.max()
@@ -774,7 +795,7 @@ class ExpectedImprovement(object):
 
 
 
-class MaxPredicition(object):
+class MaxPrediction(object):
     def __init__(self, gp):
         self.gp = gp
         self.mu_max = gp.y.max()
@@ -860,13 +881,20 @@ class GpOptimiser(object):
         selected automatically.
 
     :param class kernel: \
-        The covariance function class which will be used to model the data. The
-        covariance function classes can be imported from the gp_tools module and
+        The covariance-function class which will be used to model the data. The
+        covariance-function classes can be imported from the gp_tools module and
         then passed to ``GpOptimiser`` using this keyword argument.
 
     :param bool cross_val: \
         If set to `True`, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
+
+    :param class acquisition: \
+        The acquisition-function class which is used to select new points at which
+        the objective function is evaluated. The acquisition-function classes can be
+        imported from the gp_tools module and then passed as arguments - see their
+        documentation for the list of available acquisition functions. If left unspecified,
+        the ExpectedImprovement acquisition function is used by default.
     """
     def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential,
                  cross_val = False, acquisition = ExpectedImprovement):
@@ -938,10 +966,10 @@ class GpOptimiser(object):
         selected by maximising the chosen acquisition function.
 
         :param int bfgs_runs: \
-            The number of separate BFGS runs used to maximise the acquisition
-            function. If not specified, `scipy.optimize.differential_evolution`
-            is used to maximise the acquisition function in place of multi-start
-            BFGS.
+            The number of separate BFGS runs, started from randomly sampled locations,
+            which are used to maximise the acquisition function. If not specified,
+            ``scipy.optimize.differential_evolution`` is used to maximise the acquisition
+            function in place of multi-start BFGS.
 
         :return: location of the next proposed evaluation.
         """
