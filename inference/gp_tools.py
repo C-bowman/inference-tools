@@ -3,7 +3,7 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray
+from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray, arange
 from numpy import zeros, ones, array, where, pi, diag, eye, maximum
 from numpy import sum as npsum
 from numpy.random import random
@@ -741,19 +741,19 @@ class ExpectedImprovement(object):
 
     .. math::
 
-       EI(\underline{x}) = \sigma(\underline{x}) \left( z F(z) + P(z) \right)
+       EI(\underline{x}) = \left( z F(z) + P(z) \right) \sigma(\underline{x})
 
     where
 
     .. math::
 
        z = \frac{\mu(\underline{x}) - y_{\mathrm{max}}}{\sigma(\underline{x})},
-       \quad P(z) = \frac{1}{\sqrt{2\pi}}\exp{\left(-\frac{1}{2}z^2 \right)},
-       \quad F(z) = \frac{1}{2}\left[ 1 + \erf{\left(\frac{z}{\sqrt{2}}\right)} \right]
+       \qquad P(z) = \frac{1}{\sqrt{2\pi}}\exp{\left(-\frac{1}{2}z^2 \right)},
+       \qquad F(z) = \frac{1}{2}\left[ 1 + \mathrm{erf}\left(\frac{z}{\sqrt{2}}\right) \right],
 
-    :math:`\mu(\underline{x},\,\sigma(\underline{x}` are the predictive mean and standard
-    deviation of the Gaussian-process regression model, and :math:`y_{\mathrm{max}}` is
-    the current maximum observed value of the objective function.
+    :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and standard
+    deviation of the Gaussian-process regression model at position :math:`\underline{x}`,
+    and :math:`y_{\mathrm{max}}` is the current maximum observed value of the objective function.
     """
     def __init__(self, gp):
         self.gp = gp
@@ -825,6 +825,17 @@ class PredictedImprovement(object):
 
 
 class MaxVariance(object):
+    r"""
+    ``MaxVariance`` is a acquisition-function class which can be passed to
+    ``GpOptimiser`` via the ``acquisition`` keyword argument. It selects new
+    evaluations of the objective function by finding the spatial position
+    :math:`\underline{x}` with the largest variance :math:`\sigma^2(\underline{x})`
+    as predicted by the Gaussian-process regression model.
+
+    This is a `pure learning' acquisition function which does not seek to find the
+    maxima of the objective function, but only to minimize uncertainty in the
+    prediction of the function.
+    """
     def __init__(self, gp):
         self.gp = gp
         self.mu_max = gp.y.max()
@@ -922,6 +933,7 @@ class GpOptimiser(object):
         self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel=kernel, cross_val=cross_val)
         self.acquisition = acquisition(self.gp)
         self.acquisition_max_history = []
+        self.iteration_history = []
 
     def __call__(self, x):
         return self.gp(x)
@@ -937,6 +949,7 @@ class GpOptimiser(object):
         """
         # store the acquisition function value of the new point
         self.acquisition_max_history.append(-self.acquisition(new_x) )
+        self.iteration_history.append( len(self.y)+1 )
 
         # update the data arrays
         self.x.append(new_x)
@@ -1001,8 +1014,9 @@ class GpOptimiser(object):
         ax1 = fig.add_subplot(121)
         maxvals = maximum.accumulate(self.y)
         pad = maxvals.ptp()*0.1
-        ax1.plot( maxvals, c = 'red', alpha = 0.6, label = 'max observed value')
-        ax1.plot(self.y, '.', label='function evaluations', markersize=10)
+        iterations = arange(len(self.y))+1
+        ax1.plot( iterations, maxvals, c = 'red', alpha = 0.6, label = 'max observed value')
+        ax1.plot( iterations, self.y, '.', label='function evaluations', markersize=10)
         ax1.set_xlabel('iteration')
         ax1.set_ylabel('function value')
         ax1.set_ylim([maxvals.min()-pad, maxvals.max()+pad])
@@ -1010,11 +1024,12 @@ class GpOptimiser(object):
         ax1.grid()
 
         ax2 = fig.add_subplot(122)
-        ax2.plot(self.acquisition_max_history, c = 'C0', alpha = 0.35)
-        ax2.plot(self.acquisition_max_history, '.', c = 'C0', label = self.acquisition.get_name(), markersize = 10)
+        ax2.plot(self.iteration_history, self.acquisition_max_history, c = 'C0', alpha = 0.35)
+        ax2.plot(self.iteration_history, self.acquisition_max_history, '.', c = 'C0', label = self.acquisition.get_name(), markersize = 10)
         ax2.set_yscale('log')
         ax2.set_xlabel('iteration')
         ax2.set_ylabel('acquisition function value')
+        ax2.set_xlim([0,None])
         ax2.legend()
         ax2.grid()
 
