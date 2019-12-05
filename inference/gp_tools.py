@@ -4,7 +4,7 @@
 """
 
 from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray
-from numpy import zeros, ones, array, where, pi, diag, eye
+from numpy import zeros, ones, array, where, pi, diag, eye, maximum
 from numpy import sum as npsum
 from numpy.random import random
 from scipy.special import erf
@@ -14,7 +14,7 @@ from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from itertools import product
 from warnings import warn
 
-
+import matplotlib.pyplot as plt
 
 
 class SquaredExponential(object):
@@ -790,12 +790,15 @@ class ExpectedImprovement(object):
     def normal_cdf(self, z):
         return 0.5*(1. + erf(z*self.ir2))
 
+    def get_name(self):
+        return 'Expected improvement'
 
 
 
 
 
-class MaxPrediction(object):
+
+class PredictedImprovement(object):
     def __init__(self, gp):
         self.gp = gp
         self.mu_max = gp.y.max()
@@ -806,12 +809,15 @@ class MaxPrediction(object):
 
     def __call__(self, x):
         mu, _ = self.gp(x)
-        return -mu[0]
+        return -(mu[0]-self.mu_max)
 
     def gradient(self, x):
         mu, _ = self.gp(x)
         dmu, _ = self.gp.spatial_derivatives(x)
-        return -mu[0], -dmu[0].squeeze()
+        return -(mu[0]-self.mu_max), -dmu[0].squeeze()
+
+    def get_name(self):
+        return 'Predicted improvement'
 
 
 
@@ -835,6 +841,9 @@ class MaxVariance(object):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
         return -sig[0]**2, -dvar[0].squeeze()
+
+    def get_name(self):
+        return 'Max variance'
 
 
 
@@ -910,7 +919,7 @@ class GpOptimiser(object):
 
         self.kernel = kernel
         self.cross_val = cross_val
-        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel = kernel, cross_val = cross_val)
+        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel=kernel, cross_val=cross_val)
         self.acquisition = acquisition(self.gp)
         self.acquisition_max_history = []
 
@@ -926,6 +935,9 @@ class GpOptimiser(object):
         :param new_y: function value of the new evaluation
         :param new_y_err: Error of the new evaluation.
         """
+        # store the acquisition function value of the new point
+        self.acquisition_max_history.append(-self.acquisition(new_x) )
+
         # update the data arrays
         self.x.append(new_x)
         self.y.append(new_y)
@@ -978,10 +990,38 @@ class GpOptimiser(object):
             proposed_ev, max_acq = self.diff_evo()
         else:
             proposed_ev, max_acq = self.multistart_bfgs(starts = bfgs_runs)
-        # store the acquisition function maximum
-        self.acquisition_max_history.append( -max_acq )
         # if the problem is 1D, but the result is returned as a length-1 array,
         # extract the result from the array
         if hasattr(proposed_ev, '__len__') and len(proposed_ev) == 1:
             proposed_ev = proposed_ev[0]
         return proposed_ev
+
+    def plot_results(self, filename = None, show_plot = True):
+        fig = plt.figure( figsize=(10,4) )
+        ax1 = fig.add_subplot(121)
+        maxvals = maximum.accumulate(self.y)
+        pad = maxvals.ptp()*0.1
+        ax1.plot( maxvals, c = 'red', alpha = 0.6, label = 'max observed value')
+        ax1.plot(self.y, '.', label='function evaluations', markersize=10)
+        ax1.set_xlabel('iteration')
+        ax1.set_ylabel('function value')
+        ax1.set_ylim([maxvals.min()-pad, maxvals.max()+pad])
+        ax1.legend(loc=4)
+        ax1.grid()
+
+        ax2 = fig.add_subplot(122)
+        ax2.plot(self.acquisition_max_history, c = 'C0', alpha = 0.35)
+        ax2.plot(self.acquisition_max_history, '.', c = 'C0', label = self.acquisition.get_name(), markersize = 10)
+        ax2.set_yscale('log')
+        ax2.set_xlabel('iteration')
+        ax2.set_ylabel('acquisition function value')
+        ax2.legend()
+        ax2.grid()
+
+        fig.tight_layout()
+
+        if filename is not None: plt.savefig(filename)
+        if show_plot:
+            plt.show()
+        else:
+            plt.close()
