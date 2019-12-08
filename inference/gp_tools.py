@@ -7,12 +7,13 @@ from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray, arange
 from numpy import zeros, ones, array, where, pi, diag, eye, maximum
 from numpy import sum as npsum
 from numpy.random import random
-from scipy.special import erf
+from scipy.special import erf, erfcx
 from numpy.linalg import inv, slogdet, solve, cholesky
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from itertools import product
 from warnings import warn
+from copy import copy
 
 import matplotlib.pyplot as plt
 
@@ -759,8 +760,10 @@ class ExpectedImprovement(object):
         self.gp = gp
         self.mu_max = gp.y.max()
 
-        self.ir2pi = 1 / sqrt(2 * pi)
+        self.ir2pi = 1 / sqrt(2*pi)
         self.ir2 = 1. / sqrt(2.)
+        self.rpi2 = sqrt(0.5*pi)
+        self.ln2pi = log(2*pi)
 
     def update_gp(self, gp):
         self.gp = gp
@@ -768,27 +771,73 @@ class ExpectedImprovement(object):
 
     def __call__(self, x):
         mu, sig = self.gp(x)
-        Z = (mu - self.mu_max) / sig
+        Z = (mu[0] - self.mu_max) / sig[0]
         pdf = self.normal_pdf(Z)
         cdf = self.normal_cdf(Z)
-        return -sig * (Z * cdf + pdf)
+        return sig[0] * (Z * cdf + pdf)
 
-    def gradient(self, x):
+    def opt_func(self, x):
+        mu, sig = self.gp(x)
+        Z = (mu[0] - self.mu_max) / sig[0]
+        if Z < -3:
+            ln_EI = log(1+Z*self.cdf_pdf_ratio(Z)) + self.ln_pdf(Z) + log(sig[0])
+        else:
+            pdf = self.normal_pdf(Z)
+            cdf = self.normal_cdf(Z)
+            ln_EI = log(sig[0] * (Z*cdf + pdf))
+        return -ln_EI
+
+    def opt_func_gradient(self, x):
         mu, sig = self.gp(x)
         dmu, dvar = self.gp.spatial_derivatives(x)
+        Z = (mu[0] - self.mu_max) / sig[0]
 
-        Z = (mu - self.mu_max) / sig
-        pdf = self.normal_pdf(Z)
-        cdf = self.normal_cdf(Z)
-        EI = -sig*(Z*cdf + pdf)
-        dEI = -0.5*pdf*dvar[0]/sig - dmu[0]*cdf
-        return EI, dEI.squeeze()
+        if Z < -3:
+            R = self.cdf_pdf_ratio(Z)
+            H = 1+Z*R
+            ln_EI = log(H) + self.ln_pdf(Z) + log(sig[0])
+            grad_ln_EI = (0.5*dvar[0]/sig[0] + R*dmu[0]) / (H*sig[0])
+        else:
+            pdf = self.normal_pdf(Z)
+            cdf = self.normal_cdf(Z)
+            EI = sig[0]*(Z*cdf + pdf)
+            ln_EI = log(EI)
+            grad_ln_EI = (0.5*pdf*dvar[0]/sig[0] + dmu[0]*cdf) / EI
+
+        return -ln_EI, -grad_ln_EI.squeeze()
 
     def normal_pdf(self, z):
         return exp(-0.5*z**2)*self.ir2pi
 
     def normal_cdf(self, z):
         return 0.5*(1. + erf(z*self.ir2))
+
+    def cdf_pdf_ratio(self, z):
+        return self.rpi2*erfcx(-z*self.ir2)
+
+    def ln_pdf(self,z):
+        return -0.5*(z**2 + self.ln2pi)
+
+    def starting_positions(self, bounds):
+        lwr, upr = [array([k[i] for k in bounds]) for i in [0,1]]
+        widths = upr-lwr
+        starts = []
+        for x0 in self.gp.x:
+            # get the gradient at the current point
+            y0, g0 = self.opt_func_gradient(x0)
+            for i in range(20):
+                step = 2e-3 / (abs(g0) / widths).max()
+
+                x1 = x0-step*g0
+                y1, g1 = self.opt_func_gradient(x1)
+                if (y1 < y0) and ((x1 >= lwr)&(x1 <= upr)).all():
+                    x0 = x1.copy()
+                    g0 = g1.copy()
+                    y0 = copy(y1)
+                else:
+                    break
+            starts.append(x0)
+        return starts
 
     def get_name(self):
         return 'Expected improvement'
@@ -809,12 +858,20 @@ class PredictedImprovement(object):
 
     def __call__(self, x):
         mu, _ = self.gp(x)
+        return (mu[0]-self.mu_max)
+
+    def opt_func(self, x):
+        mu, _ = self.gp(x)
         return -(mu[0]-self.mu_max)
 
-    def gradient(self, x):
+    def opt_func_gradient(self, x):
         mu, _ = self.gp(x)
         dmu, _ = self.gp.spatial_derivatives(x)
         return -(mu[0]-self.mu_max), -dmu[0].squeeze()
+
+    def starting_positions(self, bounds):
+        starting_positions = [v for v in self.gp.x]
+        return starting_positions
 
     def get_name(self):
         return 'Predicted improvement'
@@ -846,12 +903,21 @@ class MaxVariance(object):
 
     def __call__(self, x):
         _, sig = self.gp(x)
+        return sig[0]**2
+
+    def opt_func(self, x):
+        _, sig = self.gp(x)
         return -sig[0]**2
 
-    def gradient(self, x):
+    def opt_func_gradient(self, x):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
         return -sig[0]**2, -dvar[0].squeeze()
+
+    def starting_positions(self, bounds):
+        lwr, upr = [array([k[i] for k in bounds]) for i in [0, 1]]
+        starting_positions = [lwr + (upr - lwr)*random(size=len(bounds)) for _ in range(len(self.gp.y))]
+        return starting_positions
 
     def get_name(self):
         return 'Max variance'
@@ -968,41 +1034,38 @@ class GpOptimiser(object):
         self.acquisition.update_gp(self.gp)
 
     def diff_evo(self):
-        opt_result = differential_evolution(self.acquisition, self.bounds, popsize = 30)
+        opt_result = differential_evolution(self.acquisition.opt_func, self.bounds, popsize = 30)
         solution = opt_result.x
         funcval = opt_result.fun
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def multistart_bfgs(self, starts = 10):
-        # starting positions guesses by random sampling
-        lwr, upr = [array([k[i] for k in self.bounds]) for i in [0,1]]
-        starting_positions = [ lwr + (upr-lwr)*random(size = len(self.bounds)) for _ in range(starts) ]
+    def multistart_bfgs(self):
+        starting_positions = self.acquisition.starting_positions(self.bounds)
         # run BFGS for each starting position
-        results = [ fmin_l_bfgs_b(self.acquisition.gradient, x0, approx_grad = False, bounds = self.bounds) for x0 in starting_positions ]
+        results = [ fmin_l_bfgs_b(self.acquisition.opt_func_gradient, x0, approx_grad = False, bounds = self.bounds, pgtol=1e-10) for x0 in starting_positions ]
         # extract best solution
         solution, funcval = sorted(results, key = lambda x : x[1])[0][:2]
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def propose_evaluation(self, bfgs_runs = None):
+    def propose_evaluation(self, bfgs = False):
         """
         Request a proposed location for the next evaluation. This proposal is
         selected by maximising the chosen acquisition function.
 
-        :param int bfgs_runs: \
-            The number of separate BFGS runs, started from randomly sampled locations,
-            which are used to maximise the acquisition function. If not specified,
-            ``scipy.optimize.differential_evolution`` is used to maximise the acquisition
-            function in place of multi-start BFGS.
+        :param bool bfgs: \
+            If set as ``True``, multi-start BFGS is used to maximise used to maximise
+            the acquisition function. Otherwise, ``scipy.optimize.differential_evolution``
+            is used to maximise the acquisition function instead.
 
         :return: location of the next proposed evaluation.
         """
-        if bfgs_runs is None:
+        if bfgs:
             # find the evaluation point which maximises the acquisition function
-            proposed_ev, max_acq = self.diff_evo()
+            proposed_ev, max_acq = self.multistart_bfgs()
         else:
-            proposed_ev, max_acq = self.multistart_bfgs(starts = bfgs_runs)
+            proposed_ev, max_acq = self.diff_evo()
         # if the problem is 1D, but the result is returned as a length-1 array,
         # extract the result from the array
         if hasattr(proposed_ev, '__len__') and len(proposed_ev) == 1:
