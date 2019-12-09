@@ -1292,19 +1292,19 @@ class HamiltonianChain(MarkovChain):
     def bounded_leapfrog(self, t, r, g):
         r2 = r + (0.5*self.ES.epsilon)*g
         t2 = t + self.ES.epsilon * r2 * self.variance
-
         # check for values outside bounds
-        lwr_bools = t2 < self.lwr_bounds
-        upr_bools = t2 > self.upr_bounds
-
+        lwr_diff = self.lwr_bounds-t2
+        upr_diff = t2-self.upr_bounds
+        lwr_bools = lwr_diff > 0
+        upr_bools = upr_diff > 0
         # calculate necessary adjustment
-        lwr_adjust = ( lwr_bools*(self.lwr_bounds-t2) ) % self.widths
-        upr_adjust = ( upr_bools*(t2-self.upr_bounds) ) % self.widths
-        t2 += 2*lwr_adjust
-        t2 -= 2*upr_adjust
+        lwr_adjust = lwr_bools*(lwr_diff + lwr_diff % (0.1*self.widths))
+        upr_adjust = upr_bools*(upr_diff + upr_diff % (0.1*self.widths))
+        t2 += lwr_adjust
+        t2 -= upr_adjust
 
         # reverse momenta where necessary
-        reflect = 1 - 2 * (lwr_bools | upr_bools)
+        reflect = 1 - 2*(lwr_bools | upr_bools)
         r2 *= reflect
 
         g = self.grad(t2) * self.inv_temp
