@@ -847,6 +847,56 @@ class ExpectedImprovement(object):
 
 
 
+class UpperConfidenceBound(object):
+    r"""
+    ``UpperConfidenceBound`` is a acquisition-function class which can be passed to
+    ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
+    upper-confidence-bound acquisition function given by
+
+    .. math::
+
+       UCB(\underline{x}) = \mu(\underline{x}) + \kappa \sigma(\underline{x})
+
+    where :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and
+    standard deviation of the Gaussian-process regression model at position :math:`\underline{x}`.
+    """
+    def __init__(self, gp):
+        self.gp = gp
+        self.kappa = 1.96
+
+    def update_gp(self, gp):
+        self.gp = gp
+        self.mu_max = gp.y.max()
+
+    def __call__(self, x):
+        mu, sig = self.gp(x)
+        return mu[0] + self.kappa*sig[0]
+
+    def opt_func(self, x):
+        mu, sig = self.gp(x)
+        return -mu[0] - self.kappa*sig[0]
+
+    def opt_func_gradient(self, x):
+        mu, sig = self.gp(x)
+        dmu, dvar = self.gp.spatial_derivatives(x)
+        ucb = mu[0] + self.kappa*sig[0]
+        grad_ucb = dmu[0] + 0.5*self.kappa*dvar[0]/sig[0]
+        return -ucb, -grad_ucb.squeeze()
+
+    def starting_positions(self, bounds):
+        starts = [v for v in self.gp.x]
+        return starts
+
+    def get_name(self):
+        return 'Upper confidence bound'
+
+
+
+
+
+
+
+
 class PredictedImprovement(object):
     def __init__(self, gp):
         self.gp = gp
@@ -870,8 +920,8 @@ class PredictedImprovement(object):
         return -(mu[0]-self.mu_max), -dmu[0].squeeze()
 
     def starting_positions(self, bounds):
-        starting_positions = [v for v in self.gp.x]
-        return starting_positions
+        starts = [v for v in self.gp.x]
+        return starts
 
     def get_name(self):
         return 'Predicted improvement'
@@ -915,9 +965,9 @@ class MaxVariance(object):
         return -sig[0]**2, -dvar[0].squeeze()
 
     def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds]) for i in [0, 1]]
-        starting_positions = [lwr + (upr - lwr)*random(size=len(bounds)) for _ in range(len(self.gp.y))]
-        return starting_positions
+        lwr, upr = [array([k[i] for k in bounds]) for i in [0,1]]
+        starts = [lwr + (upr - lwr)*random(size=len(bounds)) for _ in range(len(self.gp.y))]
+        return starts
 
     def get_name(self):
         return 'Max variance'
