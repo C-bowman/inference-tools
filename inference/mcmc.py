@@ -1439,7 +1439,7 @@ class HamiltonianChain(MarkovChain):
         epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.)
         chks = array(self.ES.epsilon_checks)[::-1]
         epsl_estimate = chks[ argmax(epsl > 0.15) ] * self.ES.accept_rate
-        return int(max(prob_estimate, epsl_estimate))
+        return int(min(max(prob_estimate, epsl_estimate), 0.9*self.n))
 
     def save(self, filename, compressed = False):
         items = [
@@ -2005,7 +2005,7 @@ class EnsembleSampler(object):
         ax1 = fig.add_subplot(221)
         alpha = max(0.01, min(1, 20. / float(self.N_walkers)))
         for i in range(self.N_walkers):
-            ax1.plot(x, rates[i, :], lw = 0.5, c = 'C0', alpha = alpha)
+            ax1.plot(x, rates[i,:], lw = 0.5, c = 'C0', alpha = alpha)
         ax1.plot(x, avg_rate, lw = 2, c = 'red', label = 'mean rate of all walkers')
         ax1.set_ylim([0, 1])
         ax1.grid()
@@ -2050,13 +2050,13 @@ class EnsembleSampler(object):
         plt.tight_layout()
         plt.show()
 
-    def matrix_plot(self):
+    def matrix_plot(self, **kwargs):
         params = [k for k in self.theta.T]
-        matrix_plot(samples = params)
+        matrix_plot(samples = params, **kwargs)
 
-    def trace_plot(self):
+    def trace_plot(self, **kwargs):
         params = [k for k in self.theta.T]
-        trace_plot(samples = params)
+        trace_plot(samples = params, **kwargs)
 
     def save(self, filename):
         D = {
