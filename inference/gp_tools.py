@@ -212,16 +212,20 @@ class GpRegressor(object):
         should be left unspecified, in which case the hyper-parameters will be
         selected automatically.
 
+    :param hyperpar_bounds: \
+        A iterable containing tuples which specify lower and upper bounds on the
+        allowed values of each hyperparameter in the format (lower_bound, upper_bound).
+
     :param class kernel: \
         The covariance function class which will be used to model the data. The
-        covariance function classes can be imported from the gp_tools module and
+        covariance function classes can be imported from the ``gp_tools`` module and
         then passed to ``GpRegressor`` using this keyword argument.
 
     :param bool cross_val: \
-        If set to `True`, leave-one-out cross-validation is used to select the
+        If set to ``True``, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
+    def __init__(self, x, y, y_err = None, hyperpars = None, hyperpar_bounds = None, kernel = SquaredExponential, cross_val = False):
 
         self.N_points = len(x)
         # identify the number of spatial dimensions
@@ -255,6 +259,11 @@ class GpRegressor(object):
         else:
             self.model_selector = self.marginal_likelihood
             self.model_selector_gradient = self.marginal_likelihood_gradient
+
+        if hyperpar_bounds is None:
+            self.hp_bounds = self.cov.get_bounds()
+        else:
+            self.hp_bounds = hyperpar_bounds
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
@@ -517,9 +526,8 @@ class GpRegressor(object):
         return LML, grad
 
     def optimize_hyperparameters(self):
-        bnds = self.cov.get_bounds()
         # optimise the hyperparameters
-        opt_result = differential_evolution(lambda x : -self.model_selector(x), bnds)
+        opt_result = differential_evolution(lambda x : -self.model_selector(x), self.hp_bounds)
         return opt_result.x
 
     def bfgs_func(self, theta):
@@ -527,14 +535,13 @@ class GpRegressor(object):
         return -y, -grad_y
 
     def multistart_bfgs(self, starts = None):
-        bnds = self.cov.get_bounds()
-        if starts is None: starts = int(2*sqrt(len(bnds)))+1
+        if starts is None: starts = int(2*sqrt(len(self.hp_bounds)))+1
         # starting positions guesses by random sampling + one in the centre of the hypercube
-        lwr, upr = [array([k[i] for k in bnds]) for i in [0,1]]
-        starting_positions = [ lwr + (upr-lwr)*random(size = len(bnds)) for _ in range(starts-1) ]
+        lwr, upr = [array([k[i] for k in self.hp_bounds]) for i in [0,1]]
+        starting_positions = [ lwr + (upr-lwr)*random(size = len(self.hp_bounds)) for _ in range(starts-1) ]
         starting_positions.append(0.5*(lwr+upr))
         # run BFGS for each starting position
-        results = [ fmin_l_bfgs_b(self.bfgs_func, x0, approx_grad = False, bounds = bnds) for x0 in starting_positions ]
+        results = [ fmin_l_bfgs_b(self.bfgs_func, x0, approx_grad = False, bounds = self.hp_bounds) for x0 in starting_positions ]
         # extract best solution
         solution = sorted(results, key = lambda x : x[1])[0][0]
         return solution
