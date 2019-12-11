@@ -292,9 +292,10 @@ class GpRegressor(object):
         mu_q = []
         errs = []
         p = self.process_points(points)
-        for v in p:
-            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
-            K_qq = self.cov(v.reshape([1,self.N_dimensions]), v.reshape([1,self.N_dimensions]), self.hyperpars)
+
+        for q in p[:,None,:]:
+            K_qx = self.cov(q, self.x, self.hyperpars)
+            K_qq = self.cov(q, q, self.hyperpars)
             mu_q.append(dot(K_qx, self.alpha)[0])
             v = solve_triangular(self.L, K_qx.T, lower = True)
             errs.append( K_qq[0,0] - npsum(v**2) )
@@ -348,9 +349,9 @@ class GpRegressor(object):
         mu_q = []
         vars = []
         p = self.process_points(points)
-        for v in p:
-            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
-            A, R = self.cov.gradient_terms(v, self.x, self.hyperpars)
+        for q in p[:,None,:]:
+            K_qx = self.cov(q, self.x, self.hyperpars)
+            A, R = self.cov.gradient_terms(q[0,:], self.x, self.hyperpars)
 
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A*K_qx).T, lower = True)
@@ -359,13 +360,10 @@ class GpRegressor(object):
             mean = dot(A,B)
             covariance = R - Q.T.dot(Q)
 
-            # if there's only one spatial dimension, convert mean/covariance to floats
-            if covariance.shape == (1,1): covariance = covariance[0,0]
-            if mean.shape == (1,1): mean = mean[0,0]
             # store the results for the current point
             mu_q.append(mean)
             vars.append(covariance)
-        return array(mu_q), vars
+        return array(mu_q).squeeze(), array(vars).squeeze()
 
     def spatial_derivatives(self, points):
         """
@@ -386,23 +384,20 @@ class GpRegressor(object):
         mu_gradients = []
         var_gradients = []
         p = self.process_points(points)
-        for v in p:
-            K_qx = self.cov(v.reshape([1,self.N_dimensions]), self.x, self.hyperpars)
-            A, _ = self.cov.gradient_terms(v, self.x, self.hyperpars)
+        for q in p[:,None,:]:
+            K_qx = self.cov(q, self.x, self.hyperpars)
+            A, _ = self.cov.gradient_terms(q[0,:], self.x, self.hyperpars)
             B = (K_qx * self.alpha).T
-            Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True) )
+            Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True))
 
             # calculate the mean and covariance
             dmu_dx = dot(A,B)
-            dV_dx = - 2*(A*K_qx[None,:]).dot(Q)
+            dV_dx = -2*(A*K_qx[None,:]).dot(Q)
 
-            # if there's only one spatial dimension, convert mean/covariance to floats
-            if dV_dx.shape == (1,1): dV_dx = dV_dx[0,0]
-            if dmu_dx.shape == (1,1): dmu_dx = dmu_dx[0,0]
             # store the results for the current point
             mu_gradients.append(dmu_dx)
             var_gradients.append(dV_dx)
-        return mu_gradients, var_gradients
+        return array(mu_gradients).squeeze(), array(var_gradients).squeeze()
 
     def build_posterior(self, points):
         """
@@ -420,7 +415,7 @@ class GpRegressor(object):
         K_qx = self.cov(v, self.x, self.hyperpars)
         K_qq = self.cov(v, v, self.hyperpars)
         mu = dot(K_qx, self.alpha)
-        sigma = K_qq - dot( K_qx, solve( self.K_xx, K_qx.T ) )
+        sigma = K_qq - dot(K_qx, solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True)))
         return mu, sigma
 
     def loo_predictions(self):
@@ -545,6 +540,31 @@ class GpRegressor(object):
         # extract best solution
         solution = sorted(results, key = lambda x : x[1])[0][0]
         return solution
+
+
+
+
+
+
+class MarginalisedGpRegressor(object):
+    def __init__(self, x, y, y_err = None, hyperparameter_samples = None, kernel = SquaredExponential, cross_val = False):
+        self.gps = [ GpRegressor(x,y,y_err=y_err, kernel=kernel, cross_val=cross_val, hyperpars=theta) for theta in hyperparameter_samples]
+        self.n = len(self.gps)
+
+    def __call__(self, points):
+        results = [ gp(points) for gp in self.gps ]
+        means, sigmas = [array([v[i] for v in results]) for i in [0,1]]
+        return means.mean(axis=0), sigmas.mean(axis=0)
+
+    def spatial_derivatives(self, points):
+        results = [ gp.spatial_derivatives(points) for gp in self.gps ]
+        grad_mu, grad_var = [array([v[i] for v in results]) for i in [0,1]]
+        return grad_mu.mean(axis=0), grad_var.mean(axis=0)
+
+    def gradient(self, points):
+        results = [ gp.gradient(points) for gp in self.gps ]
+        grad_mu, grad_var = [array([v[i] for v in results]) for i in [0,1]]
+        return grad_mu.mean(axis=0), grad_var.mean(axis=0)
 
 
 
@@ -781,7 +801,7 @@ class ExpectedImprovement(object):
         Z = (mu[0] - self.mu_max) / sig[0]
         pdf = self.normal_pdf(Z)
         cdf = self.normal_cdf(Z)
-        return sig[0] * (Z * cdf + pdf)
+        return sig[0] * (Z*cdf + pdf)
 
     def opt_func(self, x):
         mu, sig = self.gp(x)
@@ -803,13 +823,13 @@ class ExpectedImprovement(object):
             R = self.cdf_pdf_ratio(Z)
             H = 1+Z*R
             ln_EI = log(H) + self.ln_pdf(Z) + log(sig[0])
-            grad_ln_EI = (0.5*dvar[0]/sig[0] + R*dmu[0]) / (H*sig[0])
+            grad_ln_EI = (0.5*dvar/sig[0] + R*dmu) / (H*sig[0])
         else:
             pdf = self.normal_pdf(Z)
             cdf = self.normal_cdf(Z)
             EI = sig[0]*(Z*cdf + pdf)
             ln_EI = log(EI)
-            grad_ln_EI = (0.5*pdf*dvar[0]/sig[0] + dmu[0]*cdf) / EI
+            grad_ln_EI = (0.5*pdf*dvar/sig[0] + dmu*cdf) / EI
 
         return -ln_EI, -grad_ln_EI.squeeze()
 
@@ -887,7 +907,7 @@ class UpperConfidenceBound(object):
         mu, sig = self.gp(x)
         dmu, dvar = self.gp.spatial_derivatives(x)
         ucb = mu[0] + self.kappa*sig[0]
-        grad_ucb = dmu[0] + 0.5*self.kappa*dvar[0]/sig[0]
+        grad_ucb = dmu + 0.5*self.kappa*dvar/sig[0]
         return -ucb, -grad_ucb.squeeze()
 
     def starting_positions(self, bounds):
@@ -896,8 +916,6 @@ class UpperConfidenceBound(object):
 
     def get_name(self):
         return 'Upper confidence bound'
-
-
 
 
 
@@ -924,7 +942,7 @@ class PredictedImprovement(object):
     def opt_func_gradient(self, x):
         mu, _ = self.gp(x)
         dmu, _ = self.gp.spatial_derivatives(x)
-        return -(mu[0]-self.mu_max), -dmu[0].squeeze()
+        return -(mu[0]-self.mu_max), -dmu
 
     def starting_positions(self, bounds):
         starts = [v for v in self.gp.x]
@@ -969,7 +987,7 @@ class MaxVariance(object):
     def opt_func_gradient(self, x):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
-        return -sig[0]**2, -dvar[0].squeeze()
+        return -sig[0]**2, -dvar.squeeze()
 
     def starting_positions(self, bounds):
         lwr, upr = [array([k[i] for k in bounds]) for i in [0,1]]
@@ -1029,7 +1047,7 @@ class GpOptimiser(object):
         then passed to ``GpOptimiser`` using this keyword argument.
 
     :param bool cross_val: \
-        If set to `True`, leave-one-out cross-validation is used to select the
+        If set to ``True``, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
 
     :param class acquisition: \
