@@ -12,7 +12,8 @@ def example_plot_1d(filename):
     mu, sig = GP(x_gp)
     fig, (ax1, ax2, ax3) = plt.subplots(3, 1, gridspec_kw={'height_ratios': [1, 3, 1]}, figsize = (10,8))
 
-    ax1.plot(evaluations, max_values, marker = 'o', ls = 'solid', c = 'orange', label = 'highest observed value', zorder = 5)
+    line, = ax1.plot(evaluations, max_values, c = 'purple', alpha = 0.3, zorder = 5)
+    mark, = ax1.plot(evaluations, max_values, marker = 'o', ls = 'none', c = 'purple', zorder = 5)
     ax1.plot([2,12], [max(y_func), max(y_func)], ls = 'dashed', label = 'actual max', c = 'black')
     ax1.set_xlabel('function evaluations', fontsize = 12)
     ax1.set_xlim([2,12])
@@ -21,7 +22,7 @@ def example_plot_1d(filename):
     ax1.yaxis.set_label_position('right')
     ax1.xaxis.tick_top()
     ax1.set_yticks([])
-    ax1.legend(loc=4)
+    ax1.legend([(line, mark)], ['best observed value'], loc=4)
 
     ax2.plot(GP.x, GP.y, 'o', c = 'red', label = 'observations', zorder = 5)
     ax2.plot(x_gp, y_func, lw = 1.5, c = 'red', ls = 'dashed', label = 'actual function')
@@ -31,12 +32,13 @@ def example_plot_1d(filename):
     ax2.set_ylabel('function value', fontsize = 12)
     ax2.set_xticks([])
 
-    aq = array([abs(GP.expected_improvement(array([k]))) for k in x_gp])
+    aq = array([abs(GP.acquisition(k)) for k in x_gp])
     proposal = x_gp[aq.argmax()]
+    ax3.fill_between(x_gp, 0.9*aq/aq.max(), color='green', alpha=0.15)
     ax3.plot(x_gp, 0.9*aq/aq.max(), c = 'green', label = 'acquisition function')
     ax3.plot([proposal]*2, [0.,1.], c = 'green', ls = 'dashed', label = 'acquisition maximum')
     ax2.plot([proposal]*2, [-1.5,search_function(proposal)], c = 'green', ls = 'dashed')
-    ax2.plot(proposal, search_function(proposal), 'o', c = 'green', label = 'proposed observation')
+    ax2.plot(proposal, search_function(proposal), 'D', c = 'green', label = 'proposed observation')
     ax3.set_ylim([0,1])
     ax3.set_yticks([])
     ax3.set_xlabel('spatial coordinate', fontsize = 12)
@@ -75,7 +77,7 @@ GP = GpOptimiser(x,y,bounds=bounds)
 
 
 # here we evaluate the search function for plotting purposes
-M = 500
+M = 1000
 x_gp = linspace(*bounds[0],M)
 y_func = search_function(x_gp)
 max_values = [max(GP.y)]
@@ -88,8 +90,8 @@ for filename in files:
     example_plot_1d(filename)
 
     # request the proposed evaluation
-    new_x = GP.search_for_maximum()
-
+    aq = array([abs(GP.acquisition(k)) for k in x_gp])
+    new_x = x_gp[aq.argmax()]
     # evaluate the new point
     new_y = search_function(new_x)
 
