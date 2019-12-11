@@ -14,6 +14,7 @@ from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from itertools import product
 from warnings import warn
 from copy import copy
+from inspect import isclass
 
 import matplotlib.pyplot as plt
 
@@ -783,10 +784,7 @@ class ExpectedImprovement(object):
     deviation of the Gaussian-process regression model at position :math:`\underline{x}`,
     and :math:`y_{\mathrm{max}}` is the current maximum observed value of the objective function.
     """
-    def __init__(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
+    def __init__(self):
         self.ir2pi = 1 / sqrt(2*pi)
         self.ir2 = 1. / sqrt(2.)
         self.rpi2 = sqrt(0.5*pi)
@@ -886,14 +884,17 @@ class UpperConfidenceBound(object):
 
     where :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and
     standard deviation of the Gaussian-process regression model at position :math:`\underline{x}`.
+
+    :param float kappa: \
+        Value of the coefficient :math:`\kappa` which scales the contribution of the predictive
+        standard deviation to the acquisition function. ``kappa`` should be set so that
+        :math:`\kappa \ge 0`.
     """
-    def __init__(self, gp):
-        self.gp = gp
-        self.kappa = 1.96
+    def __init__(self, kappa = 2):
+        self.kappa = kappa
 
     def update_gp(self, gp):
         self.gp = gp
-        self.mu_max = gp.y.max()
 
     def __call__(self, x):
         mu, sig = self.gp(x)
@@ -922,40 +923,6 @@ class UpperConfidenceBound(object):
 
 
 
-class PredictedImprovement(object):
-    def __init__(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
-        mu, _ = self.gp(x)
-        return (mu[0]-self.mu_max)
-
-    def opt_func(self, x):
-        mu, _ = self.gp(x)
-        return -(mu[0]-self.mu_max)
-
-    def opt_func_gradient(self, x):
-        mu, _ = self.gp(x)
-        dmu, _ = self.gp.spatial_derivatives(x)
-        return -(mu[0]-self.mu_max), -dmu
-
-    def starting_positions(self, bounds):
-        starts = [v for v in self.gp.x]
-        return starts
-
-    def get_name(self):
-        return 'Predicted improvement'
-
-
-
-
-
-
 class MaxVariance(object):
     r"""
     ``MaxVariance`` is a acquisition-function class which can be passed to
@@ -968,9 +935,8 @@ class MaxVariance(object):
     maxima of the objective function, but only to minimize uncertainty in the
     prediction of the function.
     """
-    def __init__(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
+    def __init__(self):
+        pass
 
     def update_gp(self, gp):
         self.gp = gp
@@ -1072,7 +1038,15 @@ class GpOptimiser(object):
         self.kernel = kernel
         self.cross_val = cross_val
         self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel=kernel, cross_val=cross_val)
-        self.acquisition = acquisition(self.gp)
+
+        # if the class has been passed instead of an instance, create an instance
+        if isclass(acquisition):
+            self.acquisition = acquisition()
+        else:
+            self.acquisition = acquisition
+        self.acquisition.update_gp(self.gp)
+
+        # create storage for tracking
         self.acquisition_max_history = []
         self.iteration_history = []
 
