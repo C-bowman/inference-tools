@@ -2,10 +2,10 @@
 Acquisition functions
 ~~~~~~~~~~~~~~~~~~~~~
 Acquisition functions are used to select new points in the search-space to evaluate in
-gaussian-process optimisation.
+Gaussian-process optimisation.
 
 The available acquisition functions are implemented as classes within ``inference.gp_tools``,
-and can be passed to ``GpOptimiser`` via the ``kernel`` keyword argument as follows:
+and can be passed to ``GpOptimiser`` via the ``acquisition`` keyword argument as follows:
 
 .. code-block:: python
 
