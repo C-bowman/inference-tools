@@ -788,9 +788,12 @@ class ExpectedImprovement(object):
     """
     def __init__(self):
         self.ir2pi = 1 / sqrt(2*pi)
-        self.ir2 = 1. / sqrt(2.)
+        self.ir2 = 1. / sqrt(2)
         self.rpi2 = sqrt(0.5*pi)
         self.ln2pi = log(2*pi)
+
+        self.name = 'Expected improvement'
+        self.convergence_description = '$\mathrm{EI}_{\mathrm{max}} \; / \; (y_{\mathrm{max}} - y_{\mathrm{min}})$'
 
     def update_gp(self, gp):
         self.gp = gp
@@ -799,9 +802,14 @@ class ExpectedImprovement(object):
     def __call__(self, x):
         mu, sig = self.gp(x)
         Z = (mu[0] - self.mu_max) / sig[0]
-        pdf = self.normal_pdf(Z)
-        cdf = self.normal_cdf(Z)
-        return sig[0] * (Z*cdf + pdf)
+        if Z < -3:
+            ln_EI = log(1+Z*self.cdf_pdf_ratio(Z)) + self.ln_pdf(Z) + log(sig[0])
+            EI = exp(ln_EI)
+        else:
+            pdf = self.normal_pdf(Z)
+            cdf = self.normal_cdf(Z)
+            EI = sig[0] * (Z*cdf + pdf)
+        return EI
 
     def opt_func(self, x):
         mu, sig = self.gp(x)
@@ -866,8 +874,8 @@ class ExpectedImprovement(object):
             starts.append(x0)
         return starts
 
-    def get_name(self):
-        return 'Expected improvement'
+    def convergence_metric(self, x):
+        return self.__call__(x) / (self.mu_max - self.gp.y.min())
 
 
 
@@ -893,9 +901,12 @@ class UpperConfidenceBound(object):
     """
     def __init__(self, kappa = 2):
         self.kappa = kappa
+        self.name = 'Upper confidence bound'
+        self.convergence_description = '$\mathrm{UCB}_{\mathrm{max}} - y_{\mathrm{max}}$'
 
     def update_gp(self, gp):
         self.gp = gp
+        self.mu_max = gp.y.max()
 
     def __call__(self, x):
         mu, sig = self.gp(x)
@@ -916,8 +927,8 @@ class UpperConfidenceBound(object):
         starts = [v for v in self.gp.x]
         return starts
 
-    def get_name(self):
-        return 'Upper confidence bound'
+    def convergence_metric(self, x):
+        return self.__call__(x) - self.mu_max
 
 
 
@@ -1049,6 +1060,7 @@ class GpOptimiser(object):
 
         # create storage for tracking
         self.acquisition_max_history = []
+        self.convergence_metric_history = []
         self.iteration_history = []
 
     def __call__(self, x):
@@ -1064,7 +1076,8 @@ class GpOptimiser(object):
         :param new_y_err: Error of the new evaluation.
         """
         # store the acquisition function value of the new point
-        self.acquisition_max_history.append(-self.acquisition(new_x) )
+        self.acquisition_max_history.append( self.acquisition(new_x) )
+        self.convergence_metric_history.append( self.acquisition.convergence_metric(new_x) )
         self.iteration_history.append( len(self.y)+1 )
 
         # update the data arrays
@@ -1137,12 +1150,13 @@ class GpOptimiser(object):
         ax1.grid()
 
         ax2 = fig.add_subplot(122)
-        ax2.plot(self.iteration_history, self.acquisition_max_history, c = 'C0', alpha = 0.35)
-        ax2.plot(self.iteration_history, self.acquisition_max_history, '.', c = 'C0', label = self.acquisition.get_name(), markersize = 10)
+        ax2.plot(self.iteration_history, self.convergence_metric_history, c = 'C0', alpha = 0.35)
+        ax2.plot(self.iteration_history, self.convergence_metric_history, '.', c = 'C0', label = self.acquisition.convergence_description, markersize = 10)
         ax2.set_yscale('log')
         ax2.set_xlabel('iteration')
         ax2.set_ylabel('acquisition function value')
         ax2.set_xlim([0,None])
+        ax2.set_title('Convergence summary')
         ax2.legend()
         ax2.grid()
 
