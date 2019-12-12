@@ -344,8 +344,10 @@ class GpRegressor(object):
             multi-dimensional case.
 
         :return means, covariances: \
-            A list of mean vectors and a list of covariance matrices for the gradient distribution
-            at each given spatial point.
+            Two arrays containing the means and covariances of each given spatial point. If the
+            number of spatial dimensions ``N`` is greater than 1, then the covariances array is
+            a set of 2D covariance matrices, having shape ``(M,N,N)`` where ``M`` is the given
+            number of spatial points.
         """
         mu_q = []
         vars = []
@@ -379,8 +381,8 @@ class GpRegressor(object):
             or a list of coordinate tuples in the multi-dimensional case.
 
         :return mean_gradients, variance_gradients: \
-            A list of mean gradient vectors and a list of variance gradient vectors at each
-            given spatial point.
+            Two arrays containing the gradient vectors of the mean and variance at each given
+            spatial point.
         """
         mu_gradients = []
         var_gradients = []
@@ -764,13 +766,13 @@ class GpInverter(object):
 
 class ExpectedImprovement(object):
     r"""
-    ``ExpectedImprovement`` is a acquisition-function class which can be passed to
+    ``ExpectedImprovement`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
     expected-improvement acquisition function given by
 
     .. math::
 
-       EI(\underline{x}) = \left( z F(z) + P(z) \right) \sigma(\underline{x})
+       \mathrm{EI}(\underline{x}) = \left( z F(z) + P(z) \right) \sigma(\underline{x})
 
     where
 
@@ -874,21 +876,20 @@ class ExpectedImprovement(object):
 
 class UpperConfidenceBound(object):
     r"""
-    ``UpperConfidenceBound`` is a acquisition-function class which can be passed to
+    ``UpperConfidenceBound`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
     upper-confidence-bound acquisition function given by
 
     .. math::
 
-       UCB(\underline{x}) = \mu(\underline{x}) + \kappa \sigma(\underline{x})
+       \mathrm{UCB}(\underline{x}) = \mu(\underline{x}) + \kappa \sigma(\underline{x})
 
     where :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and
     standard deviation of the Gaussian-process regression model at position :math:`\underline{x}`.
 
-    :param float kappa: \
-        Value of the coefficient :math:`\kappa` which scales the contribution of the predictive
-        standard deviation to the acquisition function. ``kappa`` should be set so that
-        :math:`\kappa \ge 0`.
+    :param float kappa: Value of the coefficient :math:`\kappa` which scales the contribution
+        of the predictive standard deviation to the acquisition function. ``kappa`` should be
+        set so that :math:`\kappa \ge 0`.
     """
     def __init__(self, kappa = 2):
         self.kappa = kappa
@@ -978,7 +979,7 @@ class GpOptimiser(object):
     is expensive, such that the total number of function evaluations must be made as
     small as possible.
 
-    In order to construct the gaussian-process regression estimate which is used to
+    In order to construct the Gaussian-process regression estimate which is used to
     search for the global maximum, on initialisation GpOptimiser must be provided with
     at least two evaluations of the function which is to be maximised.
 
@@ -1019,9 +1020,9 @@ class GpOptimiser(object):
     :param class acquisition: \
         The acquisition-function class which is used to select new points at which
         the objective function is evaluated. The acquisition-function classes can be
-        imported from the gp_tools module and then passed as arguments - see their
+        imported from the ``gp_tools`` module and then passed as arguments - see their
         documentation for the list of available acquisition functions. If left unspecified,
-        the ExpectedImprovement acquisition function is used by default.
+        the ``ExpectedImprovement`` acquisition function is used by default.
     """
     def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential,
                  cross_val = False, acquisition = ExpectedImprovement):
@@ -1055,7 +1056,7 @@ class GpOptimiser(object):
 
     def add_evaluation(self, new_x, new_y, new_y_err=None):
         """
-        Add the latest evaluation to the data set and re-build the \
+        Add the latest evaluation to the data set and re-build the
         Gaussian process so a new proposed evaluation can be made.
 
         :param new_x: location of the new evaluation
