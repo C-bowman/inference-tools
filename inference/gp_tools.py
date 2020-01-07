@@ -35,8 +35,19 @@ class SquaredExponential(object):
     .. math::
 
        \underline{\theta} = [ \ln{A}, \ln{l_1}, \ldots, \ln{l_n}]
+
+    :param hyperpar_bounds: \
+        By default, ``SquaredExponential`` will automatically set sensible lower and upper bounds on the value of
+        the hyperparameters based on the available data. However, this keyword allows the bounds to be specified
+        manually as a list of length-2 tuples giving the lower/upper bounds for each parameter.
     """
-    def __init__(self, x, y):
+    def __init__(self, hyperpar_bounds = None):
+        if hyperpar_bounds is None:
+            self.bounds = None
+        else:
+            self.bounds = hyperpar_bounds
+
+    def pass_data(self, x, y):
         # pre-calculates hyperparameter-independent part of the
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
@@ -44,12 +55,13 @@ class SquaredExponential(object):
         self.epsilon = 1e-12 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
-        s = log(y.std())
-        self.bounds = [(s-4,s+4)]
-        for i in range(x.shape[1]):
-            lwr = log(abs(dx[:,:,i]).mean())-4
-            upr = log(dx[:,:,i].max())+2
-            self.bounds.append((lwr,upr))
+        if self.bounds is None:
+            s = log(y.std())
+            self.bounds = [(s-4,s+4)]
+            for i in range(x.shape[1]):
+                lwr = log(abs(dx[:,:,i]).mean())-4
+                upr = log(dx[:,:,i].max())+2
+                self.bounds.append((lwr,upr))
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -113,8 +125,19 @@ class RationalQuadratic(object):
     .. math::
 
        \underline{\theta} = [ \ln{A}, \ln{\alpha}, \ln{l_1}, \ldots, \ln{l_n}]
+
+    :param hyperpar_bounds: \
+        By default, ``RationalQuadratic`` will automatically set sensible lower and upper bounds on the value of
+        the hyperparameters based on the available data. However, this keyword allows the bounds to be specified
+        manually as a list of length-2 tuples giving the lower/upper bounds for each parameter.
     """
-    def __init__(self, x, y):
+    def __init__(self, hyperpar_bounds = None):
+        if hyperpar_bounds is None:
+            self.bounds = None
+        else:
+            self.bounds = hyperpar_bounds
+
+    def pass_data(self, x, y):
         # pre-calculates hyperparameter-independent part of the
         # data covariance matrix as an optimisation
         dx = x[:,None,:] - x[None,:,:]
@@ -122,12 +145,13 @@ class RationalQuadratic(object):
         self.epsilon = 1e-12 * eye(dx.shape[0])  # small values added to the diagonal for stability
 
         # construct sensible bounds on the hyperparameter values
-        s = log(y.std())
-        self.bounds = [(s-4,s+4), (-2,6)]
-        for i in range(x.shape[1]):
-            lwr = log(abs(dx[:,:,i]).mean())-4
-            upr = log(dx[:,:,i].max())+2
-            self.bounds.append((lwr,upr))
+        if self.bounds is None:
+            s = log(y.std())
+            self.bounds = [(s-4,s+4), (-2,6)]
+            for i in range(x.shape[1]):
+                lwr = log(abs(dx[:,:,i]).mean())-4
+                upr = log(dx[:,:,i].max())+2
+                self.bounds.append((lwr,upr))
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -213,10 +237,6 @@ class GpRegressor(object):
         should be left unspecified, in which case the hyper-parameters will be
         selected automatically.
 
-    :param hyperpar_bounds: \
-        A iterable containing tuples which specify lower and upper bounds on the
-        allowed values of each hyperparameter in the format (lower_bound, upper_bound).
-
     :param class kernel: \
         The covariance function class which will be used to model the data. The
         covariance function classes can be imported from the ``gp_tools`` module and
@@ -226,7 +246,7 @@ class GpRegressor(object):
         If set to ``True``, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None, hyperpar_bounds = None, kernel = SquaredExponential, cross_val = False):
+    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, cross_val = False):
 
         self.N_points = len(x)
         # identify the number of spatial dimensions
@@ -251,8 +271,14 @@ class GpRegressor(object):
             else:
                 raise ValueError('y_err must be the same length as y')
 
-        # create an instance of the covariance function class
-        self.cov = kernel(self.x, self.y)
+        # create an instance of the covariance function if only the class was passed
+        if isclass(kernel):
+            self.cov = kernel()
+        else:
+            self.cov = kernel
+
+        # pass the data to the kernel for pre-calculations
+        self.cov.pass_data(self.x, self.y)
 
         if cross_val:
             self.model_selector = self.loo_likelihood
@@ -261,10 +287,7 @@ class GpRegressor(object):
             self.model_selector = self.marginal_likelihood
             self.model_selector_gradient = self.marginal_likelihood_gradient
 
-        if hyperpar_bounds is None:
-            self.hp_bounds = self.cov.get_bounds()
-        else:
-            self.hp_bounds = hyperpar_bounds
+        self.hp_bounds = self.cov.get_bounds()
 
         # if hyper-parameters are specified manually, allocate them
         if hyperpars is None:
