@@ -784,8 +784,12 @@ class MarkovChain(object):
         width_estimate = mean(width_estimates)
         return int(max(prob_estimate, width_estimate))
 
-    def autoselect_burn_and_thin(self):
+    def autoselect_burn(self):
         self.burn = self.estimate_burn_in()
+        msg = '[ burn-in set to {} | {:.1%} of total samples ]'.format(self.burn, self.burn/self.n)
+        print(msg)
+
+    def autoselect_thin(self):
         param_ESS = [ ESS(array(self.get_parameter(i, thin = 1))) for i in range(self.L) ]
         self.thin = int( (self.n-self.burn) / min(param_ESS) )
         if self.thin < 1:
@@ -795,14 +799,7 @@ class MarkovChain(object):
             warn('Thinning not performed as lowest ESS is below 1')
         elif (self.n-self.burn)/self.thin < 100:
             warn('Sample size after thinning is less than 100')
-
-        msg = """
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                  burn-in set to {}    
-                 thinning set to {}    
-          thinned sample size is {}    
-        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~\n
-        """.format(self.burn, self.thin, len(self.probs[self.burn::self.thin]))
+        msg = '[ thinning factor set to {} | thinned sample size is {} ]'.format(self.thin, len(self.probs[self.burn::self.thin]))
         print(msg)
 
 
