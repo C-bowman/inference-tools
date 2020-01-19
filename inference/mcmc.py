@@ -330,7 +330,11 @@ class MarkovChain(object):
 
         if self.print_status:
             # this is a little ugly...
-            sys.stdout.write('\r  advancing chain:   [ complete ]                         ')
+            t_elapsed = time() - t_start
+            mins, secs = divmod(t_elapsed, 60)
+            hrs, mins = divmod(mins, 60)
+            time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
+            sys.stdout.write('\r  advancing chain:   [ complete - {} steps taken in {} ]      '.format(m,time_taken))
             sys.stdout.flush()
             sys.stdout.write('\n')
 
@@ -375,7 +379,10 @@ class MarkovChain(object):
             sys.stdout.flush()
 
         # this is a little ugly...
-        sys.stdout.write('\r  advancing chain:   [ complete ]                         ')
+        mins, secs = divmod(run_time, 60)
+        hrs, mins = divmod(mins, 60)
+        time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
+        sys.stdout.write('\r  advancing chain:   [ complete - {} steps taken in {} ]      '.format(self.n - start_length, time_taken))
         sys.stdout.flush()
         sys.stdout.write('\n')
 
@@ -1831,7 +1838,7 @@ class ParallelTempering(object):
             sys.stdout.flush()
 
         # this is a little ugly...
-        sys.stdout.write('\r  [ Running ParallelTempering - complete! ]            ')
+        sys.stdout.write('\r  [ Running ParallelTempering - complete! ]                    ')
         sys.stdout.flush()
         sys.stdout.write('\n')
 
