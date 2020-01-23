@@ -123,7 +123,8 @@ chain.advance(50000)
 chain.plot_diagnostics()
 
 # We can automatically set sensible burn and thin values for the sample
-chain.autoselect_burn_and_thin()
+chain.autoselect_burn()
+chain.autoselect_thin()
 
 # we can get a quick overview of the posterior using the matrix_plot
 # functionality of chain objects, which plots all possible 1D & 2D

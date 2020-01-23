@@ -72,7 +72,8 @@ chain.burn = 2000
 chain.thin = 5
 
 # the burn-in and thinning can also be set automatically as follows:
-chain.autoselect_burn_and_thin()
+chain.autoselect_burn()
+chain.autoselect_thin()
 
 # After discarding burn-in, what we have left should be a representative
 # sample drawn from the posterior. Repeating the previous plot as a
