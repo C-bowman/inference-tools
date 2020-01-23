@@ -809,7 +809,9 @@ class MarkovChain(object):
         msg = '[ thinning factor set to {} | thinned sample size is {} ]'.format(self.thin, len(self.probs[self.burn::self.thin]))
         print(msg)
 
-
+    def autoselect_burn_and_thin(self):
+        self.autoselect_burn()
+        self.autoselect_thin()
 
 
 
