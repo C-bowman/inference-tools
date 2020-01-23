@@ -230,8 +230,8 @@ class MarkovChain(object):
     Implementation of the metropolis-hastings algorithm using a multivariate-normal proposal distribution.
 
     :param func posterior: \
-        a function which returns the log-posterior probability density for a given set of model parameters
-        theta, which should be the only argument so that: ln(P) = posterior(theta)
+        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        and returns the posterior log-probability.
 
     :param start: \
         vector of model parameters which correspond to the parameter-space coordinates at which the chain
@@ -286,7 +286,7 @@ class MarkovChain(object):
         found which satisfies the metropolis-hastings criteria.
         """
         while True:
-            proposal = [p.proposal() for p in self.params]
+            proposal = array([p.proposal() for p in self.params])
             pval = self.posterior(proposal) * self.inv_temp
 
             if pval > self.probs[-1]:
@@ -821,8 +821,8 @@ class GibbsChain(MarkovChain):
     thereby allowing the proposal width of each parameter to be tuned individually.
 
     :param func posterior: \
-        a function which returns the log-posterior probability density for a given set of model
-        parameters theta, which should be the only argument so that: ln(P) = posterior(theta).
+        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        and returns the posterior log-probability.
 
     :param start: \
         vector of model parameters which correspond to the parameter-space coordinates at which
@@ -846,7 +846,7 @@ class GibbsChain(MarkovChain):
         Take a 1D metropolis-hastings step for each parameter
         """
         p_old = self.probs[-1]
-        prop = [p.samples[-1] for p in self.params]
+        prop = array([p.samples[-1] for p in self.params])
 
         for i, p in enumerate(self.params):
 
@@ -895,9 +895,8 @@ class PcaChain(MarkovChain):
     derived from the sample itself, and the eigenvectors are re-calculated.
 
     :param func posterior: \
-        a function which returns the log-posterior probability density for a
-        given set of model parameters theta, which should be the only argument
-        so that: ln(P) = posterior(theta)
+        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        and returns the posterior log-probability.
 
     :param start: \
         vector of model parameters which correspond to the parameter-space coordinates
@@ -1142,9 +1141,8 @@ class HamiltonianChain(MarkovChain):
     this functionality in the future, for example by implementing the NUTS algorithm.
 
     :param func posterior: \
-        A function which returns the log-posterior probability density for a
-        given set of model parameters theta, which should be the only argument
-        so that: ln(P) = posterior(theta)
+        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        and returns the posterior log-probability.
 
     :param func grad: \
         A function which returns the gradient of the log-posterior probability density
