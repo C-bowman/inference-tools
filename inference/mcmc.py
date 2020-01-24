@@ -816,15 +816,17 @@ class MarkovChain(object):
 
 
 
+
+
 class GibbsChain(MarkovChain):
     """
-    A Gibbs sampling class implemented as a child of the MarkovChain class.
+    A class for sampling from distributions using Gibbs-sampling.
 
     In Gibbs sampling, each "step" in the chain consists of a series of 1D Metropolis-Hastings
-    steps, one for each parameter, such that each step all parameters have been adjusted.
+    updates, one for each parameter, such that after each step all parameters have been adjusted.
 
-    This allows 1D step acceptance rate data to be collected independently for each parameter,
-    thereby allowing the proposal width of each parameter to be tuned individually.
+    This allows Metropolis-Hastings update acceptance rate data to be collected independently for
+    each parameter, thereby allowing the proposal width of each parameter to be tuned individually.
 
     :param func posterior: \
         a function which takes the vector of model parameters as a ``numpy.ndarray``,
