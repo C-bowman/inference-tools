@@ -86,7 +86,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     axis_arrays = []
     for sample in samples:
         # get the 98% HDI to calculate plot limits
-        lwr, upr = sample_hdi(sample, fraction = 0.98, force_single = True)
+        lwr, upr = sample_hdi(sample, fraction = 0.98)
         # store the limits and axis array
         axis_limits.append([lwr-(upr-lwr)*0.3, upr+(upr-lwr)*0.3])
         axis_arrays.append(linspace(lwr-(upr-lwr)*0.35, upr+(upr-lwr)*0.35, L))
@@ -238,8 +238,8 @@ def trace_plot(samples, labels = None, show = True, filename = None):
         axes[(i,j)].plot(s, '.', markersize = 4, alpha = 0.15, c = col)
         axes[(i,j)].set_ylabel(label)
         # get the 98% HDI to calculate plot limits, and 10% HDI to estimate the mode
-        lwr, upr = sample_hdi(s, fraction = 0.99, force_single = True)
-        mid = 0.5 * sum(sample_hdi(s, fraction=0.10, force_single=True))
+        lwr, upr = sample_hdi(s, fraction = 0.99)
+        mid = 0.5 * sum(sample_hdi(s, fraction=0.10))
         axes[(i,j)].set_ylim([lwr-(mid-lwr)*0.7, upr+(upr-mid)*0.7])
         # get the 10% HDI to estimate the mode
         axes[(i,j)].set_yticks([lwr-(mid-lwr)*0.5, mid, upr+(upr-mid)*0.5])

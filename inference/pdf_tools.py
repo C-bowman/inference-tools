@@ -11,7 +11,6 @@ from scipy.optimize import minimize, minimize_scalar, differential_evolution
 from warnings import warn
 from itertools import product
 from functools import reduce
-from copy import copy
 import matplotlib.pyplot as plt
 
 
@@ -513,7 +512,7 @@ class GaussianKDE(DensityEstimator):
         return reduce(logaddexp, generator) - log(len(samples) * sqrt(2*pi))
 
     def locate_mode(self):
-        lwr, upr = sample_hdi(self.s, 0.1, force_single=True) # use the 10% HDI to get close to the mode
+        lwr, upr = sample_hdi(self.s, 0.1) # use the 10% HDI to get close to the mode
         result = minimize_scalar(lambda x : -self.__call__(x), bounds = [lwr, upr], method = 'bounded')
         return result.x
 
@@ -543,7 +542,7 @@ class GaussianKDE(DensityEstimator):
         :param float frac: Fraction of total probability contained by the desired interval(s).
         :return: A list of tuples which specify the intervals.
         """
-        return sample_hdi(self.s, frac)
+        return sample_hdi(self.s, frac, allow_double=True)
 
 
 
@@ -601,17 +600,12 @@ class BinaryTree:
 
 
 
-def sample_hdi(sample, fraction, force_single = False):
+def sample_hdi(sample, fraction, allow_double = False):
     """
     Estimate the highest-density interval(s) for a given sample.
 
-    This function computes the shortest possible single interval and double
-    interval which contain a chosen fraction of the elements in the given
-    sample.
-
-    The double-interval solution is returned in place of the single-interval
-    solution only if it's total length is at least 1% less than that of the
-    single-interval.
+    This function computes the shortest possible interval which contains a chosen
+    fraction of the elements in the given sample.
 
     :param sample: \
         A sample for which the interval will be determined
@@ -619,9 +613,9 @@ def sample_hdi(sample, fraction, force_single = False):
     :param float fraction: \
         The fraction of the total probability to be contained by the interval.
 
-    :param bool force_single: \
-        When set to True, only the shortest single interval is computed and
-        returned, ignoring the possibility of a shorter double interval.
+    :param bool allow_double: \
+        When set to True, a double-interval is returned instead if one exists whose total length
+        is meaningfully shorter than the optimal single interval.
 
     :return: tuple(s) specifying the lower and upper bounds of the highest-density interval(s)
     """
@@ -648,7 +642,7 @@ def sample_hdi(sample, fraction, force_single = False):
     i = widths.argmin()
     r1, w1 = (s[i], s[i+L]), s[i+L]-s[i]
 
-    if not force_single:
+    if allow_double:
         # now get the best 2-interval solution
         minfunc = dbl_interval_length(sample, fraction)
         bounds = minfunc.get_bounds()
@@ -657,7 +651,7 @@ def sample_hdi(sample, fraction, force_single = False):
         w2 = (I2[1]-I2[0]) + (I1[1]-I1[0])
 
     # return the split interval if the width reduction is non-trivial:
-    if not force_single and w2 < w1*0.99:
+    if allow_double and w2 < w1*0.99:
         return I1, I2
     else:
         return r1

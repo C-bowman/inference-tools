@@ -183,8 +183,8 @@ curves = array([ posterior.forward_model(x_fits, theta) for theta in sample])
 # we can use the sample_hdi function from the pdf_tools module to produce highest-density
 # intervals for each point where the model is evaluated:
 from inference.pdf_tools import sample_hdi
-hdi_1sigma = array([sample_hdi(c, 0.68, force_single = True) for c in curves.T])
-hdi_2sigma = array([sample_hdi(c, 0.95, force_single = True) for c in curves.T])
+hdi_1sigma = array([sample_hdi(c, 0.68) for c in curves.T])
+hdi_2sigma = array([sample_hdi(c, 0.95) for c in curves.T])
 
 # construct the plot
 plt.figure(figsize = (8,5))
