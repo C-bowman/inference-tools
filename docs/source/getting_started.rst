@@ -16,6 +16,13 @@ be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
 If pip is not available, you can clone from the GitHub `source repository <https://github.com/C-bowman/inference-tools>`_
 or download the files from `PyPI <https://pypi.org/project/inference-tools/>`_ directly.
 
+Jupyter notebook demos
+----------------------
+
+In addition to the example code present in the online documentation for each class/function in the
+package, there is also a set of Jupyter notebook demos which can be found in the
+`/demos/ <https://github.com/C-bowman/inference-tools/tree/PyPI-release/demos>`_ directory of the source
+code.
 
 Example - spectroscopy data fitting
 -----------------------------------
@@ -186,10 +193,3 @@ We can use ``inference.pdf_tools.sample_hdi`` to derive highest-density interval
    plt.show()
 
 .. image:: ./images/getting_started_images/prediction_uncertainty_example.png
-
-Further examples
-----------------
-
-For additional code examples, including a demonstration code for every class in each module, see the
-`/demos/ <https://github.com/C-bowman/inference_tools/tree/master/demos>`_ directory of the source
-code.
