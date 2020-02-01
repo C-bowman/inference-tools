@@ -3,7 +3,7 @@ GpOptimiser
 ~~~~~~~~~~~
 
 .. autoclass:: inference.gp_tools.GpOptimiser
-   :members: search_for_maximum, add_evaluation
+   :members: propose_evaluation, add_evaluation
 
 Example code
 ^^^^^^^^^^^^
