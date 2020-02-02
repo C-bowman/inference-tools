@@ -2,8 +2,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
-
-from numpy import array, meshgrid, linspace, sqrt, ceil
+from numpy import array, meshgrid, linspace, sqrt, ceil, take_along_axis, expand_dims
 from itertools import product, cycle
 from warnings import warn
 import matplotlib.pyplot as plt
@@ -254,3 +253,79 @@ def trace_plot(samples, labels = None, show = True, filename = None):
     else:
         fig.clear()
         plt.close(fig)
+
+
+
+
+def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=None, label_intervals=True):
+    """
+    Plot highest-density intervals for a given sample of model realisations.
+
+    :param x: \
+        The x-axis locations of the sample data.
+
+    :param samples: \
+        A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))`` where
+        ``n`` is the number of samples.
+
+    :keyword intervals: \
+        A tuple containing the fractions of the total probability for each interval.
+
+    :keyword colormap: \
+        The colormap to be used for plotting the intervals. Must be a vaild argument
+        of the ``matplotlib.cm.get_cmap`` function.
+
+    :keyword axis: \
+        A ``matplotlib.pyplot`` axis object which will be used to plot the intervals.
+
+    :keyword bool label_intervals: \
+        If ``True``, then labels will be assigned to each interval plot such that they appear
+        in the legend when using ``matplotlib.pyplot.legend``.
+    """
+    # order the intervals from highest to lowest
+    intervals = array(intervals)
+    intervals.sort()
+    intervals = intervals[::-1]
+
+    # check that all the intervals are valid:
+    if not all( (intervals > 0.) & (intervals < 1.) ):
+        raise ValueError('All intervals must be greater than 0 and less than 1')
+
+    # check the sample data has compatible dimensions
+    s = array(sample)
+    if s.shape[1] != len(x):
+        if s.shape[0] == len(x):
+            s = s.T
+        else:
+            raise ValueError('"x" and "sample" have incompatible dimensions')
+
+    # sort the sample data
+    s.sort(axis=0)
+    n = s.shape[0]
+
+    # construct the colors for each interval
+    cmap = get_cmap(colormap)
+    colors = [cmap(k*255 // (len(intervals)+1)) for k in range(1, len(intervals)+1)]
+
+    # if not plotting axis is given, then use default pyplot
+    if axis is None: axis = plt
+
+    # iterate over the intervals and plot each
+    for frac, col in zip(intervals, colors):
+        L = int(frac * n)
+
+        # check that we have enough samples to estimate the HDI for the chosen fraction
+        if n > L:
+            # find the optimal single HDI
+            widths = s[L:,:] - s[:n-L,:]
+            i = expand_dims(widths.argmin(axis=0), axis=0)
+            lwr = take_along_axis(s,i,0).squeeze()
+            upr = take_along_axis(s,i+L,0).squeeze()
+        else:
+            lwr = s[0,:]
+            upr = s[-1,:]
+
+        if label_intervals:
+            axis.fill_between(x, lwr, upr, color=col, label = '{}% HDI'.format(int(100*frac)))
+        else:
+            axis.fill_between(x, lwr, upr, color=col)
