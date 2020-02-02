@@ -19,7 +19,7 @@ which are simple to use, allowing them to applied quickly and easily.
 
 ## Installation
 
-inference-tools is available from the python package index [PyPI](https://pypi.org/project/inference-tools/), 
+inference-tools is available from [PyPI](https://pypi.org/project/inference-tools/), 
 so can be easily installed using [pip](https://pip.pypa.io/en/stable/) as follows:
 ```
 pip install inference-tools
@@ -27,4 +27,4 @@ pip install inference-tools
 
 ## Documentation
 
-Full documentation is available at [inference-tools.readthedocs.io](https://inference-tools.readthedocs.io/en/latest/).
+Full documentation is available at [inference-tools.readthedocs.io](https://inference-tools.readthedocs.io/en/stable/).
