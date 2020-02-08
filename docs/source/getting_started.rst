@@ -6,7 +6,7 @@ Getting started
 Installation
 ------------
 
-inference-tools is available from the python package index `PyPI <https://pypi.org/project/inference-tools/>`_, so can
+inference-tools is available from `PyPI <https://pypi.org/project/inference-tools/>`_, so can
 be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
 
 .. code-block:: bash
@@ -182,8 +182,6 @@ We can use ``inference.plotting.hdi_plot`` to plot highest-density intervals for
    plt.legend()
    plt.grid()
    plt.tight_layout()
-   plt.savefig('prediction_uncertainty_example.png')
-   plt.close()
-   print(' # model prediction plot finished')
+   plt.show()
 
 .. image:: ./images/getting_started_images/prediction_uncertainty_example.png
