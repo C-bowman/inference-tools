@@ -40,3 +40,8 @@ trace_plot
 ----------
 
 .. autofunction:: inference.plotting.trace_plot
+
+hdi_plot
+----------
+
+.. autofunction:: inference.plotting.hdi_plot
