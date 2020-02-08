@@ -2,7 +2,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
-from numpy import array, meshgrid, linspace, sqrt, ceil, take_along_axis, expand_dims
+from numpy import array, meshgrid, linspace, sqrt, ceil
 from itertools import product, cycle
 from warnings import warn
 import matplotlib.pyplot as plt
@@ -305,10 +305,17 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
 
     # construct the colors for each interval
     cmap = get_cmap(colormap)
-    colors = [cmap(k*255 // (len(intervals)+1)) for k in range(1, len(intervals)+1)]
+    lwr = 0.2
+    upr = 0.8
+    colors = 1 - intervals
+    colors += lwr - colors.min()
+    colors *= upr/colors.max()
+    colors = [cmap(int(255*c)) for c in colors]
 
     # if not plotting axis is given, then use default pyplot
     if axis is None: axis = plt
+
+    from numpy import take_along_axis, expand_dims
 
     # iterate over the intervals and plot each
     for frac, col in zip(intervals, colors):
