@@ -319,7 +319,7 @@ class MarkovChain(object):
             if self.print_status:
                 pct = int(100*(j+1)/k)
                 eta = int(dt*((k/(j+1)-1)))
-                msg = '\r  advancing chain:   [ {}% complete   ETA: {} sec ]'.format(pct,eta)
+                msg = '\r  advancing chain:   [ {}% complete   ETA: {} sec ]    '.format(pct,eta)
                 sys.stdout.write(msg)
                 sys.stdout.flush()
 
@@ -374,7 +374,7 @@ class MarkovChain(object):
             h, m = divmod(m, 60)
             time_left = "%d:%02d:%02d" % (h, m, s)
             steps_taken = self.n - start_length
-            msg = '\r  advancing chain:   [ {} steps taken, time remaining: {} ]'.format(steps_taken, time_left)
+            msg = '\r  advancing chain:   [ {} steps taken, time remaining: {} ]    '.format(steps_taken, time_left)
             sys.stdout.write(msg)
             sys.stdout.flush()
 
@@ -1783,7 +1783,7 @@ class ParallelTempering(object):
             # display the progress status message
             pct = str(int(100*(j+1)/k))
             eta = str(int(dt*((k/(j+1)-1))))
-            msg = '\r  [ Running ParallelTempering - {}% complete   ETA: {} sec ]'.format(pct, eta)
+            msg = '\r  [ Running ParallelTempering - {}% complete   ETA: {} sec ]    '.format(pct, eta)
             sys.stdout.write(msg)
             sys.stdout.flush()
 
@@ -1835,7 +1835,7 @@ class ParallelTempering(object):
             m, s = divmod(seconds_remaining, 60)
             h, m = divmod(m, 60)
             time_left = "%d:%02d:%02d" % (h, m, s)
-            msg = '\r  [ Running ParallelTempering - time remaining: {} ]'.format(time_left)
+            msg = '\r  [ Running ParallelTempering - time remaining: {} ]    '.format(time_left)
             sys.stdout.write(msg)
             sys.stdout.flush()
 
