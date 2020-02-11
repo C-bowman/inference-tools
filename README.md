@@ -5,8 +5,12 @@
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/inference-tools?color=purple)](https://pypi.org/project/inference-tools/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/inference-tools)
 
-This package aims to provide a set of python-based tools for Bayesian data analysis
+This package provides a set of Python-based tools for Bayesian data analysis
 which are simple to use, allowing them to applied quickly and easily.
+
+Inference-tools is not a framework for Bayesian modelling (e.g. like [PyMC](https://docs.pymc.io/)),
+but instead provides tools to sample from user-defined models using MCMC, and to analyse and visualise
+the sampling results.
 
 ## Features
 
