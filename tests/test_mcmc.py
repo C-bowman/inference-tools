@@ -2,7 +2,6 @@
 import pytest
 import unittest
 
-import matplotlib.pyplot as plt
 from numpy import array, sqrt
 from inference.mcmc import GibbsChain, HamiltonianChain
 
@@ -37,7 +36,7 @@ class ToroidalGaussian(object):
 
 
 
-class test_object_properties(unittest.TestCase):
+class test_mcmc_samplers(unittest.TestCase):
 
     def test_gibbs_chain(self):
         start_location = array([2., -4.])
