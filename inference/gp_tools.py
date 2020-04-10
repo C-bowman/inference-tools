@@ -414,8 +414,8 @@ class GpRegressor(object):
         vars = []
         p = self.process_points(points)
         for q in p[:,None,:]:
-            K_qx = self.cov(q, self.x, self.hyperpars)
-            A, R = self.cov.gradient_terms(q[0,:], self.x, self.hyperpars)
+            K_qx = self.cov(q, self.x, self.cov_hyperpars)
+            A, R = self.cov.gradient_terms(q[0,:], self.x, self.cov_hyperpars)
 
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A*K_qx).T, lower = True)
@@ -449,8 +449,8 @@ class GpRegressor(object):
         var_gradients = []
         p = self.process_points(points)
         for q in p[:,None,:]:
-            K_qx = self.cov(q, self.x, self.hyperpars)
-            A, _ = self.cov.gradient_terms(q[0,:], self.x, self.hyperpars)
+            K_qx = self.cov(q, self.x, self.cov_hyperpars)
+            A, _ = self.cov.gradient_terms(q[0,:], self.x, self.cov_hyperpars)
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True))
 
@@ -476,9 +476,9 @@ class GpRegressor(object):
         :return: The mean vector as a 1D array, followed by covariance matrix as a 2D array.
         """
         v = self.process_points(points)
-        K_qx = self.cov(v, self.x, self.hyperpars)
-        K_qq = self.cov(v, v, self.hyperpars)
-        mu = dot(K_qx, self.alpha)
+        K_qx = self.cov(v, self.x, self.cov_hyperpars)
+        K_qq = self.cov(v, v, self.cov_hyperpars)
+        mu = dot(K_qx, self.alpha) + array([self.mean(p,self.mean_hyperpars) for p in v])
         sigma = K_qq - dot(K_qx, solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower = True)))
         return mu, sigma
 
