@@ -228,6 +228,33 @@ class ConstantMean(object):
 
 
 
+class LinearMean(object):
+    def __init__(self):
+        pass
+
+    def pass_data(self, x, y):
+        self.x = x
+        self.n_data = len(y)
+        self.n_params = 1 + self.x.shape[1]
+        w = y.max() - y.min()
+        self.bounds = [(y.min()-w, y.max()+w)]
+
+    def __call__(self, q, theta):
+        return theta[0] + theta[1:]*q
+
+    def build_mean(self, theta):
+        return theta[0] + dot(theta[1:], self.x)
+
+    def mean_and_gradients(self, theta):
+        grads = [ones(self.n_data)]
+        grads.extend( [v for v in self.x.T] )
+        return theta[0] + dot(theta[1:], self.x), grads
+
+
+
+
+
+
 class GpRegressor(object):
     """
     A class for performing Gaussian-process regression in one or more dimensions.
