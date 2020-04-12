@@ -620,7 +620,7 @@ class GpRegressor(object):
         LML = -0.5*dot( (self.y-mu).T, alpha ) - log(diagonal(L)).sum()
         # calculate the mean parameter gradients
         grad = zeros(self.n_hyperpars)
-        grad[self.mean_slice] = -array([(alpha * dmu).sum() for dmu in grad_mu])
+        grad[self.mean_slice] = array([(alpha * dmu).sum() for dmu in grad_mu])
         # calculate the covariance parameter gradients
         iK = solve_triangular(L.T, solve_triangular(L, eye(L.shape[0]), lower = True))
         Q = alpha[:,None]*alpha[None,:] - iK
