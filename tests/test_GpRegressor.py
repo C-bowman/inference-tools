@@ -89,6 +89,53 @@ class test_GpRegressor(unittest.TestCase):
         assert A_fractional_error < 1e-6
         assert L_fractional_error < 1e-6
 
+    def test_gradient(self):
+        seed(4)
+        N = 10
+        S = 1.1
+        x = linspace(0, 10, N)
+        y = 0.3 * x + 0.02*x**3 + 5.0 + normal(size=N)*S
+        err = zeros(N) + S
+
+        gp = GpRegressor(x, y, y_err=err)
+
+        sample_x = linspace(0, 10, 120)
+        delta = 1e-4
+        grad, grad_sigma = gp.gradient(sample_x)
+
+        mu_pos, sig_pos = gp(sample_x + delta)
+        mu_neg, sig_neg = gp(sample_x - delta)
+
+        fd_grad = (mu_pos - mu_neg) / (2 * delta)
+        grad_max_frac_error = (grad / fd_grad - 1.).max()
+
+        assert grad_max_frac_error < 1e-6
+
+    def test_spatial_derivatives(self):
+        seed(4)
+        N = 10
+        S = 1.1
+        x = linspace(0, 10, N)
+        y = 0.3 * x + 0.02*x**3 + 5.0 + normal(size=N)*S
+        err = zeros(N) + S
+
+        gp = GpRegressor(x, y, y_err=err)
+
+        sample_x = linspace(0, 10, 120)
+        delta = 1e-4
+        grad_mu, grad_var = gp.spatial_derivatives(sample_x)
+
+        mu_pos, sig_pos = gp(sample_x + delta)
+        mu_neg, sig_neg = gp(sample_x - delta)
+
+        fd_grad_mu = (mu_pos - mu_neg) / (2 * delta)
+        fd_grad_var = (sig_pos**2 - sig_neg**2) / (2 * delta)
+
+        mu_max_frac_error = (grad_mu / fd_grad_mu - 1.).max()
+        var_max_frac_error = (grad_var / fd_grad_var - 1.).max()
+
+        assert mu_max_frac_error < 1e-6
+        assert var_max_frac_error < 1e-6
 
 if __name__ == '__main__':
 
