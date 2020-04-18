@@ -298,21 +298,22 @@ class GpRegressor(object):
     """
     def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, mean = ConstantMean, cross_val = False):
 
-        self.N_points = len(x)
-        # identify the number of spatial dimensions
-        if hasattr(x[0], '__len__'):  # multi-dimensional case
-            self.N_dimensions = len(x[0])
-        else:  # 1D case
+        # store the data
+        self.x = array(x)
+        self.y = array(y).squeeze()
+
+        # determine the number of data points and spatial dimensions
+        self.N_points = self.y.shape[0]
+        if len(self.x.shape) == 1:
             self.N_dimensions = 1
+            self.x = self.x.reshape([self.x.shape[0], self.N_dimensions])
+        else:
+            self.N_dimensions = self.x.shape[1]
 
-        # load the spatial data into a 2D array
-        self.x = zeros([self.N_points,self.N_dimensions])
-        for i,v in enumerate(x): self.x[i,:] = v
+        if self.x.shape[0] != self.N_points:
+            raise ValueError('The given number of x-data points does not match the number of y-data values')
 
-        # data to fit
-        self.y = array(y)
-
-        # data errors covariance matrix
+        # build data errors covariance matrix
         self.sig = zeros([self.N_points, self.N_points])
         if y_err is not None:
             if len(y) == len(y_err):
