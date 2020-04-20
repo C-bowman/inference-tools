@@ -10,7 +10,7 @@ and can be passed to ``GpOptimiser`` via the ``acquisition`` keyword argument as
 .. code-block:: python
 
    from inference.gp_tools import GpOptimiser, ExpectedImprovement
-   GP = GpRegressor(x, y, bounds=bounds, acquisition=ExpectedImprovement)
+   GP = GpOptimiser(x, y, bounds=bounds, acquisition=ExpectedImprovement)
 
 The acquisition function classes can also be passed as instances, allowing settings of the
 acquisition function to be altered:
@@ -19,7 +19,7 @@ acquisition function to be altered:
 
    from inference.gp_tools import GpOptimiser, UpperConfidenceBound
    UCB = UpperConfidenceBound(kappa = 2.)
-   GP = GpRegressor(x, y, bounds=bounds, acquisition=UCB)
+   GP = GpOptimiser(x, y, bounds=bounds, acquisition=UCB)
 
 ExpectedImprovement
 ^^^^^^^^^^^^^^^^^^^
