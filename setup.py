@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setup(
     name="inference-tools",
-    version="0.5.2",
+    version="0.5.3",
     author="Chris Bowman",
     author_email="chris.bowman.physics@gmail.com",
     description="A collection of python tools for Bayesian data analysis",
