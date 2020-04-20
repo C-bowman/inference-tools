@@ -1,7 +1,8 @@
 Sample analysis with inference.pdf_tools
 ========================================
 This module provides tools for analysing sample data, including density estimation and
-highest-density interval calculation.
+highest-density interval calculation. Example code for ``GaussianKDE`` and ``UnimodalPdf``
+can be found in the `density estimation jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/density_estimation_demo.ipynb>`_.
 
 .. _GaussianKDE:
 
