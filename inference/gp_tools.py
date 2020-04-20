@@ -267,9 +267,9 @@ class GpRegressor(object):
     normal distribution.
 
     :param x: \
-        The spatial coordinates of the y-data values. For the 1-dimensional case,
-        this should be a list or array of floats. For greater than 1 dimension,
-        a list of coordinate arrays or tuples should be given.
+        The x-data points as a 2D ``numpy.ndarray`` with shape (number of points,
+        number of dimensions). Alternatively, a list of array-like objects can be
+        given, which will be converted to a ``ndarray`` internally.
 
     :param y: The y-data values as a list or array of floats.
 
@@ -364,10 +364,11 @@ class GpRegressor(object):
         Calculate the mean and standard deviation of the regression estimate at a series
         of specified spatial points.
 
-        :param list points: \
-            A list containing the spatial locations where the mean and standard deviation
-            of the estimate is to be calculated. In the 1D case this would be a list of
-            floats, or a list of coordinate tuples in the multi-dimensional case.
+        :param points: \
+            The points at which the mean and standard deviation of the regression estimate is to be
+            calculated, given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
+            Alternatively, a list of array-like objects can be given, which will be converted
+            to a ``ndarray`` internally.
 
         :return: \
             Two 1D arrays, the first containing the means and the second containing the
@@ -426,11 +427,11 @@ class GpRegressor(object):
         Calculate the mean and covariance of the gradient of the regression estimate
         with respect to the spatial coordinates at a series of specified points.
 
-        :param list points: \
-            A list containing the spatial locations where the mean vector and and covariance
-            matrix of the gradient of the regression estimate are to be calculated. In the 1D
-            case this would be a list of floats, or a list of coordinate tuples in the
-            multi-dimensional case.
+        :param points: \
+            The points at which the mean vector and and covariance matrix of the gradient of the
+            regression estimate are to be calculated, given as a 2D ``numpy.ndarray`` with shape
+            (number of points, number of dimensions).  Alternatively, a list of array-like objects
+            can be given, which will be converted to a ``ndarray`` internally.
 
         :return means, covariances: \
             Two arrays containing the means and covariances of each given spatial point. If the
@@ -464,10 +465,11 @@ class GpRegressor(object):
         calculation of the spatial derivatives of acquisition functions like the expected
         improvement.
 
-        :param list points: \
-            A list containing the spatial locations where the gradient of the mean and
-            variance are to be calculated. In the 1D case this would be a list of floats,
-            or a list of coordinate tuples in the multi-dimensional case.
+        :param points: \
+            The points at which gradient of the predictive mean and variance are to be calculated,
+            given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
+            Alternatively, a list of array-like objects can be given, which will be converted to a
+            ``ndarray`` internally.
 
         :return mean_gradients, variance_gradients: \
             Two arrays containing the gradient vectors of the mean and variance at each given
@@ -493,15 +495,16 @@ class GpRegressor(object):
 
     def build_posterior(self, points):
         """
-        Generates the full mean vector and covariance matrix for the GP fit at
-        a set of specified points.
+        Generates the full mean vector and covariance matrix for the Gaussian-process
+        posterior distribution at a set of specified points.
 
         :param points: \
-            A list containing the spatial locations which will be used to construct
-            the Gaussian process. In the 1D case this would be a list of floats, or
-            a list of coordinate tuples in the multi-dimensional case.
+            The points for which the mean vector and covariance matrix are to be calculated,
+            given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
+            Alternatively, a list of array-like objects can be given, which will be converted to a
+            ``ndarray`` internally.
 
-        :return: The mean vector as a 1D array, followed by covariance matrix as a 2D array.
+        :return: The mean vector as a 1D array, followed by the covariance matrix as a 2D array.
         """
         v = self.process_points(points)
         K_qx = self.cov(v, self.x, self.cov_hyperpars)
