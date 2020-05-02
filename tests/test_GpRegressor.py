@@ -137,6 +137,18 @@ class test_GpRegressor(unittest.TestCase):
         assert mu_max_frac_error < 1e-6
         assert var_max_frac_error < 1e-6
 
+    def test_optimizers(self):
+        seed(1)
+        N = 20
+        S = 0.1
+        x = linspace(0, 10, N)
+        y = sin(x) + 3.0 + normal(size=N) * S
+        errors = zeros(N) + S
+
+        gpr = GpRegressor(x, y, y_err=errors, optimizer='bfgs')
+        gpr = GpRegressor(x, y, y_err=errors, optimizer='bfgs', n_processes=2)
+        gpr = GpRegressor(x, y, y_err=errors, optimizer='diffev')
+
 if __name__ == '__main__':
 
     unittest.main()

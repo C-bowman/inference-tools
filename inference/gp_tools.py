@@ -11,6 +11,7 @@ from scipy.special import erf, erfcx
 from numpy.linalg import inv, slogdet, solve, cholesky
 from scipy.linalg import solve_triangular
 from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
+from multiprocessing import Pool
 from itertools import product
 from warnings import warn
 from copy import copy
@@ -295,8 +296,18 @@ class GpRegressor(object):
     :param bool cross_val: \
         If set to ``True``, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.
+
+    :param str optimizer: \
+        Selects the method used to optimize the hyper-parameter values. The available
+        options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or "diffev" for
+        ``scipy.optimize.differential_evolution``.
+
+    :param int n_processes: \
+        Sets the number of processes used in optimizing the hyper-parameter values.
+        Multiple processes are only used when the optimizer keyword is set to "bfgs".
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, mean = ConstantMean, cross_val = False):
+    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, mean = ConstantMean,
+                 cross_val = False, optimizer = 'bfgs', n_processes = 1):
 
         # store the data
         self.x = array(x)
@@ -352,9 +363,20 @@ class GpRegressor(object):
             self.model_selector = self.marginal_likelihood
             self.model_selector_gradient = self.marginal_likelihood_gradient
 
-        # if hyper-parameters are specified manually, allocate them
+        # if hyper-parameters are not specified, run an optimizer to select them
         if hyperpars is None:
-            hyperpars = self.optimize_hyperparameters()
+            if optimizer not in ['bfgs', 'diffev']:
+                optimizer = 'bfgs'
+                warn("""
+                     An invalid option was passed to the 'optimizer' keyword argument.
+                     The default option 'bfgs' was used instead.
+                     Valid options are 'bfgs' and 'diffev'.
+                     """)
+
+            if optimizer == 'diffev':
+                hyperpars = self.differential_evo()
+            else:
+                hyperpars = self.multistart_bfgs(n_processes=n_processes)
 
         # build the covariance matrix
         self.set_hyperparameters(hyperpars)
@@ -631,23 +653,32 @@ class GpRegressor(object):
         grad[self.cov_slice] = array([0.5 * (Q * dK.T).sum() for dK in grad_K])
         return LML, grad
 
-    def optimize_hyperparameters(self):
+    def differential_evo(self):
         # optimise the hyperparameters
         opt_result = differential_evolution(lambda x : -self.model_selector(x), self.hp_bounds)
         return opt_result.x
 
-    def bfgs_func(self, theta):
+    def bfgs_cost_func(self, theta):
         y, grad_y = self.model_selector_gradient(theta)
         return -y, -grad_y
 
-    def multistart_bfgs(self, starts = None):
+    def launch_bfgs(self, x0):
+        return fmin_l_bfgs_b(self.bfgs_cost_func, x0, approx_grad = False, bounds = self.hp_bounds)
+
+    def multistart_bfgs(self, starts = None, n_processes = 1):
         if starts is None: starts = int(2*sqrt(len(self.hp_bounds)))+1
         # starting positions guesses by random sampling + one in the centre of the hypercube
         lwr, upr = [array([k[i] for k in self.hp_bounds]) for i in [0,1]]
         starting_positions = [ lwr + (upr-lwr)*random(size = len(self.hp_bounds)) for _ in range(starts-1) ]
         starting_positions.append(0.5*(lwr+upr))
+
         # run BFGS for each starting position
-        results = [ fmin_l_bfgs_b(self.bfgs_func, x0, approx_grad = False, bounds = self.hp_bounds) for x0 in starting_positions ]
+        if n_processes == 1:
+            results = [self.launch_bfgs(x0) for x0 in starting_positions]
+        else:
+            workers = Pool(n_processes)
+            results = workers.map(self.launch_bfgs, starting_positions)
+
         # extract best solution
         solution = sorted(results, key = lambda x : x[1])[0][0]
         return solution
@@ -901,7 +932,7 @@ class ExpectedImprovement(object):
         self.ln2pi = log(2*pi)
 
         self.name = 'Expected improvement'
-        self.convergence_description = '$\mathrm{EI}_{\mathrm{max}} \; / \; (y_{\mathrm{max}} - y_{\mathrm{min}})$'
+        self.convergence_description = r'$\mathrm{EI}_{\mathrm{max}} \; / \; (y_{\mathrm{max}} - y_{\mathrm{min}})$'
 
     def update_gp(self, gp):
         self.gp = gp
@@ -1010,7 +1041,7 @@ class UpperConfidenceBound(object):
     def __init__(self, kappa = 2):
         self.kappa = kappa
         self.name = 'Upper confidence bound'
-        self.convergence_description = '$\mathrm{UCB}_{\mathrm{max}} - y_{\mathrm{max}}$'
+        self.convergence_description = r'$\mathrm{UCB}_{\mathrm{max}} - y_{\mathrm{max}}$'
 
     def update_gp(self, gp):
         self.gp = gp
