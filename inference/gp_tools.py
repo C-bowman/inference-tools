@@ -1133,12 +1133,12 @@ class GpOptimiser(object):
     search for the global maximum, on initialisation GpOptimiser must be provided with
     at least two evaluations of the function which is to be maximised.
 
-    :param x: \
+    :param list x: \
         The spatial coordinates of the y-data values. For the 1-dimensional case,
         this should be a list or array of floats. For greater than 1 dimension,
         a list of coordinate arrays or tuples should be given.
 
-    :param y: The y-data values as a list or array of floats.
+    :param list y: The y-data values as a list or array of floats.
 
     :keyword y_err: \
         The error on the y-data values supplied as a list or array of floats.
@@ -1173,9 +1173,18 @@ class GpOptimiser(object):
         imported from the ``gp_tools`` module and then passed as arguments - see their
         documentation for the list of available acquisition functions. If left unspecified,
         the ``ExpectedImprovement`` acquisition function is used by default.
+
+    :param str optimizer: \
+        Selects the optimization method used for selecting hyper-parameter values proposed
+        evaluations. Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
+        "diffev" for ``scipy.optimize.differential_evolution``.
+
+    :param int n_processes: \
+        Sets the number of processes used when selecting hyper-parameters or proposed evaluations.
+        Multiple processes are only used when the optimizer keyword is set to "bfgs".
     """
     def __init__(self, x, y, y_err = None, bounds = None, hyperpars = None, kernel = SquaredExponential,
-                 cross_val = False, acquisition = ExpectedImprovement):
+                 cross_val = False, acquisition = ExpectedImprovement, optimizer = 'bfgs', n_processes = 1):
         self.x = list(x)
         self.y = list(y)
         self.y_err = y_err
@@ -1188,7 +1197,10 @@ class GpOptimiser(object):
 
         self.kernel = kernel
         self.cross_val = cross_val
-        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel=kernel, cross_val=cross_val)
+        self.n_processes = n_processes
+        self.optimizer = optimizer
+        self.gp = GpRegressor(x, y, y_err=y_err, hyperpars=hyperpars, kernel=kernel, cross_val=cross_val,
+                              optimizer=self.optimizer, n_processes=self.n_processes)
 
         # if the class has been passed instead of an instance, create an instance
         if isclass(acquisition):
@@ -1229,7 +1241,8 @@ class GpOptimiser(object):
                 raise ValueError('y_err must be specified for new evaluations if y_err was specified during __init__')
 
         # re-train the GP
-        self.gp = GpRegressor(self.x, self.y, y_err=self.y_err, kernel = self.kernel, cross_val = self.cross_val)
+        self.gp = GpRegressor(self.x, self.y, y_err=self.y_err, kernel = self.kernel, cross_val = self.cross_val,
+                              optimizer=self.optimizer, n_processes=self.n_processes)
         self.mu_max = max(self.y)
 
         # update the acquisition function info
@@ -1242,16 +1255,23 @@ class GpOptimiser(object):
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
+    def launch_bfgs(self, x0):
+        return fmin_l_bfgs_b(self.acquisition.opt_func_gradient, x0, approx_grad = False, bounds = self.bounds, pgtol=1e-10)
+
     def multistart_bfgs(self):
         starting_positions = self.acquisition.starting_positions(self.bounds)
         # run BFGS for each starting position
-        results = [ fmin_l_bfgs_b(self.acquisition.opt_func_gradient, x0, approx_grad = False, bounds = self.bounds, pgtol=1e-10) for x0 in starting_positions ]
+        if self.n_processes == 1:
+            results = [ self.launch_bfgs(x0) for x0 in starting_positions ]
+        else:
+            workers = Pool(self.n_processes)
+            results = workers.map(self.launch_bfgs, starting_positions)
         # extract best solution
         solution, funcval = sorted(results, key = lambda x : x[1])[0][:2]
         if hasattr(funcval, '__len__'): funcval = funcval[0]
         return solution, funcval
 
-    def propose_evaluation(self, bfgs = False):
+    def propose_evaluation(self):
         """
         Request a proposed location for the next evaluation. This proposal is
         selected by maximising the chosen acquisition function.
@@ -1263,7 +1283,7 @@ class GpOptimiser(object):
 
         :return: location of the next proposed evaluation.
         """
-        if bfgs:
+        if self.optimizer == 'bfgs':
             # find the evaluation point which maximises the acquisition function
             proposed_ev, max_acq = self.multistart_bfgs()
         else:
