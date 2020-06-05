@@ -4,7 +4,7 @@
 """
 
 from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray, arange
-from numpy import zeros, ones, array, where, pi, diag, eye, maximum
+from numpy import zeros, ones, array, where, pi, diag, eye, maximum, minimum
 from numpy import sum as npsum
 from numpy.random import random
 from scipy.special import erf, erfcx
@@ -978,7 +978,14 @@ class ExpectedImprovement(object):
             ln_EI = log(EI)
             grad_ln_EI = (0.5*pdf*dvar/sig[0] + dmu*cdf) / EI
 
-        return -ln_EI, -grad_ln_EI.squeeze()
+        # flip sign on the value and gradient since we're using a minimizer
+        ln_EI = -ln_EI
+        grad_ln_EI = -grad_ln_EI
+        # make sure outputs are ndarray in the 1D case
+        if type(ln_EI) is not ndarray: ln_EI = array(ln_EI)
+        if type(grad_ln_EI) is not ndarray: grad_ln_EI = array(grad_ln_EI)
+
+        return ln_EI, grad_ln_EI.squeeze()
 
     def normal_pdf(self, z):
         return exp(-0.5*z**2)*self.ir2pi
@@ -993,24 +1000,19 @@ class ExpectedImprovement(object):
         return -0.5*(z**2 + self.ln2pi)
 
     def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds]) for i in [0,1]]
+        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0,1]]
         widths = upr-lwr
-        starts = []
-        for x0 in self.gp.x:
-            # get the gradient at the current point
-            y0, g0 = self.opt_func_gradient(x0)
-            for i in range(20):
-                step = 2e-3 / (abs(g0) / widths).max()
 
-                x1 = x0-step*g0
-                y1, g1 = self.opt_func_gradient(x1)
-                if (y1 < y0) and ((x1 >= lwr)&(x1 <= upr)).all():
-                    x0 = x1.copy()
-                    g0 = g1.copy()
-                    y0 = copy(y1)
-                else:
-                    break
-            starts.append(x0)
+        lwr += widths*0.01
+        upr -= widths*0.01
+        starts = []
+        L = len(widths)
+        for x0 in self.gp.x:
+            samples = [ x0 + 0.02*widths*(2*random(size=L)-1) for i in range(20) ]
+            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
+            samples = sorted(samples, key=self.opt_func)
+            starts.append(samples[0])
+
         return starts
 
     def convergence_metric(self, x):
@@ -1267,8 +1269,9 @@ class GpOptimiser(object):
             workers = Pool(self.n_processes)
             results = workers.map(self.launch_bfgs, starting_positions)
         # extract best solution
-        solution, funcval = sorted(results, key = lambda x : x[1])[0][:2]
-        if hasattr(funcval, '__len__'): funcval = funcval[0]
+        best_result = sorted(results, key = lambda x : float(x[1]))[0]
+        solution = best_result[0]
+        funcval = float(best_result[1])
         return solution, funcval
 
     def propose_evaluation(self):

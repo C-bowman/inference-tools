@@ -84,7 +84,7 @@ def search_function(x):
     return sin(0.5*x) + 3 / (1 + (x-1)**2)
 
 # define bounds for the optimisation
-bounds = [(-8,8)]
+bounds = [(-8.,8.)]
 
 # create some initialisation data
 x = array([-8,8])
