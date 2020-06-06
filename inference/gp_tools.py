@@ -1062,10 +1062,28 @@ class UpperConfidenceBound(object):
         dmu, dvar = self.gp.spatial_derivatives(x)
         ucb = mu[0] + self.kappa*sig[0]
         grad_ucb = dmu + 0.5*self.kappa*dvar/sig[0]
-        return -ucb, -grad_ucb.squeeze()
+        # flip sign on the value and gradient since we're using a minimizer
+        ucb = -ucb
+        grad_ucb = -grad_ucb
+        # make sure outputs are ndarray in the 1D case
+        if type(ucb) is not ndarray: ucb = array(ucb)
+        if type(grad_ucb) is not ndarray: grad_ucb = array(grad_ucb)
+        return ucb, grad_ucb.squeeze()
 
     def starting_positions(self, bounds):
-        starts = [v for v in self.gp.x]
+        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0,1]]
+        widths = upr-lwr
+
+        lwr += widths*0.01
+        upr -= widths*0.01
+        starts = []
+        L = len(widths)
+        for x0 in self.gp.x:
+            samples = [ x0 + 0.02*widths*(2*random(size=L)-1) for i in range(20) ]
+            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
+            samples = sorted(samples, key=self.opt_func)
+            starts.append(samples[0])
+
         return starts
 
     def convergence_metric(self, x):
@@ -1089,7 +1107,8 @@ class MaxVariance(object):
     prediction of the function.
     """
     def __init__(self):
-        pass
+        self.name = 'Max variance'
+        self.convergence_description = r'$\sqrt{\mathrm{Var}\left[x\right]}$'
 
     def update_gp(self, gp):
         self.gp = gp
@@ -1106,17 +1125,19 @@ class MaxVariance(object):
     def opt_func_gradient(self, x):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
-        return -sig[0]**2, -dvar.squeeze()
+        aq = -sig**2
+        aq_grad = -dvar
+        if type(aq) is not ndarray: aq = array(aq)
+        if type(aq_grad) is not ndarray: aq_grad = array(aq_grad)
+        return aq.squeeze(), aq_grad.squeeze()
 
     def starting_positions(self, bounds):
         lwr, upr = [array([k[i] for k in bounds]) for i in [0,1]]
         starts = [lwr + (upr - lwr)*random(size=len(bounds)) for _ in range(len(self.gp.y))]
         return starts
 
-    def get_name(self):
-        return 'Max variance'
-
-
+    def convergence_metric(self, x):
+        return sqrt(self.__call__(x))
 
 
 
