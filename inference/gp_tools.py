@@ -234,22 +234,25 @@ class LinearMean(object):
         pass
 
     def pass_data(self, x, y):
-        self.x = x
+        self.x_mean = x.mean(axis=0)
+        self.dx = x - self.x_mean[None,:]
         self.n_data = len(y)
-        self.n_params = 1 + self.x.shape[1]
+        self.n_params = 1 + x.shape[1]
         w = y.max() - y.min()
-        self.bounds = [(y.min()-w, y.max()+w)]
+        grad_bounds = 10*w / (x.max(axis=0) - x.min(axis=0))
+        self.bounds = [(y.min()-2*w, y.max()+2*w)]
+        self.bounds.extend( [(-b,b) for b in grad_bounds] )
 
     def __call__(self, q, theta):
-        return theta[0] + theta[1:]*q
+        return theta[0] + dot(q-self.x_mean, theta[1:]).squeeze()
 
     def build_mean(self, theta):
-        return theta[0] + dot(theta[1:], self.x)
+        return theta[0] + dot(self.dx, theta[1:])
 
     def mean_and_gradients(self, theta):
         grads = [ones(self.n_data)]
-        grads.extend( [v for v in self.x.T] )
-        return theta[0] + dot(theta[1:], self.x), grads
+        grads.extend( [v for v in self.dx.T] )
+        return theta[0] + dot(self.dx, theta[1:]), grads
 
 
 
@@ -406,6 +409,7 @@ class GpRegressor(object):
         for q in p[:,None,:]:
             K_qx = self.cov(q, self.x, self.cov_hyperpars)
             K_qq = self.cov(q, q, self.cov_hyperpars)
+
             mu_q.append(dot(K_qx, self.alpha)[0] + self.mean(q,self.mean_hyperpars))
             v = solve_triangular(self.L, K_qx.T, lower = True)
             errs.append( K_qq[0,0] - npsum(v**2) )
@@ -680,6 +684,7 @@ class GpRegressor(object):
             results = workers.map(self.launch_bfgs, starting_positions)
 
         # extract best solution
+        # print(results[0])
         solution = sorted(results, key = lambda x : x[1])[0][0]
         return solution
 
