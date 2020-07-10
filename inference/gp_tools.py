@@ -384,7 +384,7 @@ class GpRegressor(object):
         # build the covariance matrix
         self.set_hyperparameters(hyperpars)
 
-    def __call__(self, points, theta = None):
+    def __call__(self, points):
         """
         Calculate the mean and standard deviation of the regression estimate at a series
         of specified spatial points.
@@ -399,8 +399,6 @@ class GpRegressor(object):
             Two 1D arrays, the first containing the means and the second containing the
             standard deviations.
         """
-        if theta is not None:
-            self.set_hyperparameters(theta)
 
         mu_q = []
         errs = []
