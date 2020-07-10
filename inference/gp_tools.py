@@ -416,8 +416,24 @@ class GpRegressor(object):
 
         return array(mu_q), sqrt( abs(array(errs)) )
 
-    def set_hyperparameters(self, theta):
-        self.hyperpars = theta
+    def set_hyperparameters(self, hyperpars):
+        """
+        Update the hyper-parameter values of the model.
+
+        :param hyperpars: \
+            An array containing the hyper-parameter values to be used.
+        """
+        # check to make sure the right number of hyper-parameters were given
+        if len(hyperpars) != self.n_hyperpars:
+            raise ValueError(
+                """
+                [ GpRegressor error ]
+                An incorrect number of hyper-parameters were passed via the 'hyperpars' keyword argument:
+                There are {} hyper-parameters but {} were given.
+                """.format(self.n_hyperpars, len(hyperpars))
+            )
+
+        self.hyperpars = hyperpars
         self.mean_hyperpars = self.hyperpars[self.mean_slice]
         self.cov_hyperpars = self.hyperpars[self.cov_slice]
         self.K_xx = self.cov.build_covariance(self.cov_hyperpars) + self.sig
