@@ -369,6 +369,11 @@ class GaussianKDE(DensityEstimator):
         self.s = sort(array(sample).flatten()) # sorted array of the samples
         self.max_cvs = max_cv_samples # maximum number of samples to be used for cross-validation
 
+        if self.s.size < 3:
+            raise ValueError(
+                """\n GaussianKDE error \n Not enough samples were given to estimate the PDF - at least 3 samples are required."""
+            )
+
         if bandwidth is None:
             self.h = self.simple_bandwidth_estimator()  # very simple bandwidth estimate
             if cross_validation:
