@@ -512,7 +512,12 @@ class GaussianKDE(DensityEstimator):
         return reduce(logaddexp, generator) - log(len(samples) * sqrt(2*pi))
 
     def locate_mode(self):
-        lwr, upr = sample_hdi(self.s, 0.1) # use the 10% HDI to get close to the mode
+        # if there are enough samples, use the 20% HDI to bound the search for the mode
+        if self.s.size > 50:
+            lwr, upr = sample_hdi(self.s, 0.2)
+        else: # else just use the entire range of the samples
+            lwr, upr = self.s[0], self.s[-1]
+
         result = minimize_scalar(lambda x : -self.__call__(x), bounds = [lwr, upr], method = 'bounded')
         return result.x
 
