@@ -266,7 +266,7 @@ class MarkovChain(object):
             self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
-            if len(self.params) is not 0:
+            if len(self.params) != 0:
                 self.probs.append(self.posterior([p.samples[-1] for p in self.params])*self.inv_temp)
 
                 # check posterior value of chain starting point is finite

@@ -58,7 +58,7 @@ class DensityEstimator(object):
         sigma_3 = self.interval(frac = 0.9973)
         mu, var, skw, kur = self.moments()
 
-        if type(self).__name__ is 'GaussianKDE':
+        if type(self) is GaussianKDE:
             lwr = sigma_3[0] - 5*self.h
             upr = sigma_3[1] + 5*self.h
         else:
@@ -219,9 +219,7 @@ class UnimodalPdf(DensityEstimator):
 
         # first minimise based on a slice of the sample, if it's large enough
         self.cutoff = 2000
-        self.skip = self.n_samps // self.cutoff
-        if self.skip is 0:
-            self.skip = 1
+        self.skip = max(self.n_samps // self.cutoff, 1)
 
         self.x = self.sample[::self.skip]
         self.n = len(self.x)

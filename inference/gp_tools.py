@@ -801,7 +801,7 @@ class GpInverter(object):
         if type(self.G) is not ndarray: self.G = array(self.G)
 
         # now check shapes / sizes are compatible
-        if len(self.y.shape) is not 2: self.y = self.y.reshape([self.y.size,1])
+        if len(self.y.shape) != 2: self.y = self.y.reshape([self.y.size,1])
         if self.S_y.shape[0] != self.S_y.shape[0]:
             raise ValueError('Data covariance matrix must be square')
         if self.S_y.shape[0] != self.y.shape[0]:
@@ -847,9 +847,9 @@ class GpInverter(object):
 
     def optimize_hyperparameters(self):
         # choose the selection criterion for the hyperparameters
-        if self.selector is 'evidence':
+        if self.selector == 'evidence':
             criterion = self.log_ev
-        elif self.selector is 'NNML':
+        elif self.selector == 'NNML':
             criterion = self.nn_maximum_likelihood
         else:
             raise ValueError('The selector keyword must be given as either `evidence` or `NNML`')
