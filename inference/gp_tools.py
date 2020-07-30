@@ -3,16 +3,15 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import abs, exp, log, dot, sqrt, argmin, diagonal, ndarray, arange
-from numpy import zeros, ones, array, where, pi, diag, eye, maximum, minimum
+from numpy import abs, exp, log, dot, sqrt, diagonal, ndarray, arange
+from numpy import zeros, ones, array, pi, diag, eye, maximum, minimum
 from numpy import sum as npsum
 from numpy.random import random
 from scipy.special import erf, erfcx
-from numpy.linalg import inv, slogdet, solve, cholesky
+from numpy.linalg import cholesky
 from scipy.linalg import solve_triangular
-from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
+from scipy.optimize import differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
-from itertools import product
 from warnings import warn
 from copy import copy
 from inspect import isclass
@@ -726,196 +725,6 @@ class MarginalisedGpRegressor(object):
         results = [ gp.gradient(points) for gp in self.gps ]
         grad_mu, grad_var = [array([v[i] for v in results]) for i in [0,1]]
         return grad_mu.mean(axis=0), grad_var.mean(axis=0)
-
-
-
-
-
-
-class GpInverter(object):
-    """
-    Solves linear inverse problems of the form y = Gb, using a Gaussian-process
-    prior which imposes spatial regularity on the solution.
-
-    The solution vector 'b' must describe the value of a quantity everywhere
-    on a grid, as the GP prior imposes covariance between these grid-points
-    based on the 'distance' between them. The grid need not be a spatial one,
-    only one over which regularity is desired, e.g. time, wavelength ect.
-
-    > arguments
-
-        x 	- array of position values/vectors for the model parameters
-
-        y 	- array of data values
-
-        cov	- covariance matrix for the data
-
-        G	- the linearisation matrix
-    """
-    def __init__(self, x, y, cov, G, scale_length = None, mean = None, amplitude = None, selector = 'evidence'):
-        self.x = x  # spatial location of the parameters, *not* the y data
-        self.y = y  # data values
-        self.S_y = cov  # data covariance matrix
-        self.G = G  # geometry matrix
-
-        self.selector = selector
-        self.hyperpar_settings = (amplitude, scale_length, mean)
-
-        # check inputs for compatability
-        self.parse_inputs()
-
-        self.I = ones([G.shape[1],1])
-        self.f = dot( self.G, self.I )
-        self.iS_y = inv(self.S_y)
-
-        # generate square-distance matrix from self.x
-        if hasattr(self.x[0], '__iter__'): # multi-dimensional case
-            self.D = [ [ self.dist(i,j) for j in self.x] for i in self.x ]
-        else: # 1D case
-            self.D = [ [ (i-j)**2 for j in self.x] for i in self.x ]
-        self.D = -0.5*array(self.D)
-
-        self.A, self.L, self.mu_val = self.optimize_hyperparameters()
-
-        # now we have determined the hyperparameters, generate the prior
-        # mean and covariance matrices
-        self.mu_p = self.mu_val * ones([len(x), 1])
-        self.S_p = (self.A**2)*exp(self.D/(self.L**2))
-
-        # we may now also generate the posterior mean and covariance.
-        # To improve the numerical stability of calculating the posterior
-        # covariance, we use the woodbury matrix identity:
-        K = dot(self.G, self.S_p)
-
-        V = self.S_y + dot(K, self.G.T)
-        iVK = solve(V,K)
-        self.S_b = self.S_p - dot( K.T, iVK )
-
-        # posterior mean involves no further inversions so is stable
-        self.mu_b = self.mu_p + dot( self.S_b, dot( self.G.T, dot( self.iS_y, (self.y - self.mu_val*self.f) ) ) )
-
-    def parse_inputs(self):
-        # first check input types
-        if type(self.y) is not ndarray: self.y = array(self.y)
-        if type(self.S_y) is not ndarray: self.S_y = array(self.S_y)
-        if type(self.G) is not ndarray: self.G = array(self.G)
-
-        # now check shapes / sizes are compatible
-        if len(self.y.shape) != 2: self.y = self.y.reshape([self.y.size,1])
-        if self.S_y.shape[0] != self.S_y.shape[0]:
-            raise ValueError('Data covariance matrix must be square')
-        if self.S_y.shape[0] != self.y.shape[0]:
-            raise ValueError('Dimensions of the data covariance matrix must equal the number of data points')
-        if (self.G.shape[0] != self.y.shape[0]) or  (self.G.shape[1] != len(self.x)):
-            raise ValueError('The operator matrix must have dimensions [# data points, # spatial points]')
-
-    def dist(self, a, b):
-        return sum( (i-j)**2 for i, j in zip(a, b) )
-
-    def log_ev(self, h):
-        # extract hyperparameters
-        A, L, mu_p = [exp(v) for v in h]
-        # first make the prior covariance
-        S_p = (A**2)*exp(self.D/(L**2))
-        # now the marginal likelihood covariance
-        S_m = dot( self.G, dot(S_p, self.G.T) ) + self.S_y
-        # and the marginal likelihood mean
-        mu_m = mu_p * self.f
-        # now calculate negative log marginal likelihood
-        u = self.y - mu_m
-        iSu = solve(S_m, u)
-        L = dot( u.T, iSu ) + slogdet(S_m)[1]
-        return L[0][0]
-
-    def nn_maximum_likelihood(self, h):
-        A, L, mu_p = [exp(v) for v in h]
-
-        S_p = (A**2)*exp(self.D/(L**2))
-
-        K = dot(self.G, S_p)
-        V = self.S_y + dot(K, self.G.T)
-        iVK = solve(V,K)
-        S_b = S_p - dot( K.T, iVK )
-
-        # posterior mean involves no further inversions so is stable
-        mu_b = mu_p + dot( S_b, dot( self.G.T, dot( self.iS_y, (self.y - mu_p*self.f) ) ) )
-        mu_b[where(mu_b < 0)] = 0.
-        # find the residual
-        res = self.y - self.G.dot(mu_b)
-        LL = dot(res.T, self.iS_y.dot(res))
-        return LL[0,0]
-
-    def optimize_hyperparameters(self):
-        # choose the selection criterion for the hyperparameters
-        if self.selector == 'evidence':
-            criterion = self.log_ev
-        elif self.selector == 'NNML':
-            criterion = self.nn_maximum_likelihood
-        else:
-            raise ValueError('The selector keyword must be given as either `evidence` or `NNML`')
-
-        # Choose the correct inputs for the criterion based on which
-        # hyperparameters have been given fixed values
-        code = tuple([ x is None for x in self.hyperpar_settings ])
-        log_vals = []
-        for x in self.hyperpar_settings:
-            if x is None:
-                log_vals.append(None)
-            else:
-                log_vals.append(log(x))
-
-        selection_functions = {
-            (1,1,1) : lambda x : criterion(x),
-            (1,1,0) : lambda x : criterion([x[0],x[1],log_vals[2]]),
-            (1,0,1) : lambda x : criterion([x[0],log_vals[1],x[1]]),
-            (0,1,1) : lambda x : criterion([log_vals[0],x[0],x[1]]),
-            (1,0,0) : lambda x : criterion([x[0],log_vals[1],log_vals[2]]),
-            (0,1,0) : lambda x : criterion([log_vals[0],x[0],log_vals[2]]),
-            (0,0,1) : lambda x : criterion([log_vals[0],log_vals[1],x[0]]),
-            (0,0,0) : None
-        }
-
-        minfunc = selection_functions[code]
-
-        # if all the hyperparameters have been fixed, just return the fixed values
-        if minfunc is None: return self.hyperpar_settings
-
-
-        # make some guesses for the hyperparameters
-        A_guess  = [-6,-4,-2, 0]
-        L_guess  = [-6,-5,-4,-3,-2] # NOTE - should be data-determined in future
-        mu_guess = [-8,-6,-4,-2, 0]
-
-        # build a list of initial guesses again depending on what parameters are fixed
-        guess_components = []
-        if code[0]: guess_components.append(A_guess)
-        if code[1]: guess_components.append(L_guess)
-        if code[2]: guess_components.append(mu_guess)
-        guesses = [ g for g in product(*guess_components) ]
-
-        # sort the guesses by best score
-        guesses = sorted(guesses, key = minfunc)
-
-        LML_list   = []
-        theta_list = []
-
-        for g in guesses[:3]: # minimize the LML for the best guesses
-            min_obj = minimize( minfunc, g, method = 'L-BFGS-B' )
-            LML_list.append( min_obj['fun'] )
-            theta_list.append( min_obj['x'] )
-
-        # pick the solution the best score
-        opt_params = theta_list[ argmin(array(LML_list)) ]
-        paras = []
-        k = 0
-        for i in range(3):
-            if code[i]:
-                paras.append(opt_params[k])
-                k += 1
-            else:
-                paras.append(log_vals[i])
-
-        return [exp(v) for v in paras]
 
 
 
