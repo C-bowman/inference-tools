@@ -267,7 +267,7 @@ class MarkovChain(object):
 
             # add starting point as first step in chain
             if len(self.params) != 0:
-                self.probs.append(self.posterior([p.samples[-1] for p in self.params])*self.inv_temp)
+                self.probs.append(self.posterior(array([p.samples[-1] for p in self.params]))*self.inv_temp)
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
@@ -964,7 +964,8 @@ class PcaChain(MarkovChain):
         # re-estimate the covariance and find its eigenvectors
         data = array( [ self.get_parameter(i)[self.last_update:] for i in range(self.L)] )
         if hasattr(self, 'covar'):
-            self.covar = 0.5*(self.covar + cov(data))
+            nu = min(2*self.dir_update_interval/self.last_update, 0.5)
+            self.covar = self.covar*(1-nu) + nu*cov(data)
         else:
             self.covar = cov(data)
 
@@ -1845,14 +1846,10 @@ class ParallelTempering(object):
         sys.stdout.write('\n')
 
     def swap_diagnostics(self):
-        from numpy import convolve
-        N = 1000
-        w = zeros(N)+ 1./float(N)
-        # plt.plot(self.successful_swaps, '.')
-        plt.hist(self.successful_swaps, bins = arange(2 + self.N_chains//2)-0.5, normed=True)
+        plt.hist(self.successful_swaps, bins = arange(2 + self.N_chains//2)-0.5)
         plt.xticks(arange(1 + self.N_chains//2))
-        plt.ylabel('probability')
-        plt.xlabel('number of successful swaps')
+        plt.ylabel('frequency')
+        plt.xlabel('number of successful swaps per attempt')
         plt.grid()
         plt.tight_layout()
         plt.show()
@@ -1893,7 +1890,7 @@ class EnsembleSampler(object):
             self.N_params = len(starting_positions[0])
             self.N_walkers = len(starting_positions)
             self.theta = zeros([self.N_walkers, self.N_params])
-            for i, v in enumerate(starting_positions): self.theta[i, :] = array(v)
+            for i, v in enumerate(starting_positions): self.theta[i,:] = array(v)
             self.probs = array([self.posterior(t) for t in self.theta])
 
             # storage for diagnostic information
@@ -1931,28 +1928,28 @@ class EnsembleSampler(object):
 
     def update_summary_stats(self):
         mu = mean(self.theta, axis = 0)
-        devs = sqrt(mean(self.theta ** 2, axis = 0) - mu ** 2)
+        devs = sqrt(mean(self.theta**2, axis=0) - mu**2)
 
         self.means.append(mu)
         self.std_devs.append(devs)
         p_mu = mean(self.probs)
         self.prob_means.append(p_mu)
-        self.prob_devs.append(sqrt(mean(self.probs ** 2) - p_mu ** 2))
+        self.prob_devs.append(sqrt(mean(self.probs**2) - p_mu**2))
 
     def proposal(self, i):
         j = i  # randomly select walker
         while i == j: j = randint(self.N_walkers)
-        z = self.z_lwr + self.z_upr * random()  # sample the stretch distance
-        prop = self.process_proposal(self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :]))
+        z = self.z_lwr + self.z_upr*random()  # sample the stretch distance
+        prop = self.process_proposal(self.theta[i,:] + z*(self.theta[j,:] - self.theta[i,:]))
         return prop, z
 
     def advance_walker(self, i):
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.proposal(i)
             p = self.posterior(Y)
-            q = exp((self.N_params - 1) * log(z) + p - self.probs[i])
+            q = exp((self.N_params - 1)*log(z) + p - self.probs[i])
             if random() <= q:
-                self.theta[i, :] = Y
+                self.theta[i,:] = Y
                 self.probs[i] = p
                 self.total_proposals[i].append(attempts)
                 break
@@ -1979,7 +1976,7 @@ class EnsembleSampler(object):
             # display the progress status message
             dt = time() - t_start
             eta = int(dt * ((n/(k+1) - 1)))
-            msg = '\r  EnsembleSampler:   [ {} / {} iterations completed  |  ETA: {} sec ]'.format(k+1,n, eta)
+            msg = '\r  EnsembleSampler:   [ {} / {} iterations completed  |  ETA: {} sec ]'.format(k+1,n,eta)
             sys.stdout.write(msg)
             sys.stdout.flush()
 
@@ -1991,13 +1988,13 @@ class EnsembleSampler(object):
     def impose_boundaries(self, prop):
         d = prop - self.lower
         n = (d // self.width) % 2
-        return self.lower + (1 - 2 * n) * (d % self.width) + n * self.width
+        return self.lower + (1 - 2*n)*(d % self.width) + n*self.width
 
     def pass_through(self, prop):
         return prop
 
     def mode(self):
-        return self.theta[self.probs.argmax(), :]
+        return self.theta[self.probs.argmax(),:]
 
     def plot_diagnostics(self):
         x = linspace(1, self.L, self.L)
@@ -2006,7 +2003,7 @@ class EnsembleSampler(object):
 
         avg_rate = rates.mean(axis = 0)
 
-        fig = plt.figure(figsize = (12, 7))
+        fig = plt.figure(figsize = (12,7))
 
         ax1 = fig.add_subplot(221)
         alpha = max(0.01, min(1, 20. / float(self.N_walkers)))
@@ -2035,7 +2032,7 @@ class EnsembleSampler(object):
         ax3 = fig.add_subplot(223)
         alpha = max(0.02, min(1, 20. / float(self.N_params)))
         for i in range(self.N_params):
-            ax3.plot(x, (devs[i, :] / devs[i, -1]) - 1., lw = 0.5, c = 'C0', alpha = alpha)
+            ax3.plot(x, (devs[i,:] / devs[i,-1]) - 1., lw = 0.5, c = 'C0', alpha = alpha)
         ax3.set_ylim([-0.6, 0.6])
         ax3.grid()
         ax3.set_title('parameter standard-dev difference')
@@ -2046,7 +2043,7 @@ class EnsembleSampler(object):
         ax4 = fig.add_subplot(224)
         alpha = max(0.02, min(1, 20. / float(self.N_params)))
         for i in range(self.N_params):
-            ax4.plot(x, (means[i, :] - means[i, -1]) / devs[i, -1], lw = 0.5, c = 'C0', alpha = alpha)
+            ax4.plot(x, (means[i,:] - means[i,-1]) / devs[i,-1], lw = 0.5, c = 'C0', alpha = alpha)
         ax4.set_ylim([-0.6, 0.6])
         ax4.grid()
         ax4.set_title('parameters normalised mean difference')
