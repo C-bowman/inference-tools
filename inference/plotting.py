@@ -2,12 +2,17 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
-from numpy import array, meshgrid, linspace, sqrt, ceil
+from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray
 from itertools import product, cycle
 from warnings import warn
-import matplotlib.pyplot as plt
-from matplotlib.cm import get_cmap
 from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
+from matplotlib.collections import PatchCollection
+from matplotlib.cm import get_cmap, ScalarMappable
+from matplotlib.colors import Normalize
+import matplotlib.patheffects as path_effects
 
 
 def matrix_plot(samples, labels = None, show = True, reference = None, filename = None, plot_style = 'contour',
@@ -190,6 +195,8 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
 
 
 
+
+
 def trace_plot(samples, labels = None, show = True, filename = None):
     """
     Construct a 'trace plot' for a set of variables which displays the
@@ -253,6 +260,8 @@ def trace_plot(samples, labels = None, show = True, filename = None):
     else:
         fig.clear()
         plt.close(fig)
+
+
 
 
 
@@ -336,3 +345,70 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
             axis.fill_between(x, lwr, upr, color=col, label = '{}% HDI'.format(int(100*frac)))
         else:
             axis.fill_between(x, lwr, upr, color=col)
+
+
+
+
+
+
+def transition_matrix_plot(matrix=None, colormap='viridis', exclude_diagonal=False):
+    """
+    Plot the transition matrix of a Markov chain
+
+    :param matrix: \
+        A 2D ``numpy.ndarray`` containing the transition probabilities, which should be
+        in the range [0,1].
+
+    :keyword colormap: \
+        The colormap to be used for plotting the intervals. Must be a vaild argument
+        of the ``matplotlib.cm.get_cmap`` function.
+
+    :keyword bool exclude_diagonal: \
+        If ``True`` the diagonal of the matrix will not be plotted.
+    """
+    if type(matrix) is not ndarray:
+        raise TypeError('given matrix must be a numpy.ndarray')
+
+    if len(matrix.shape) != 2:
+        raise ValueError('given matrix must have exactly two dimensions')
+
+    if matrix.shape[0] != matrix.shape[1]:
+        raise ValueError('given matrix must be square (i.e. both dimensions are of the same length)')
+
+    if matrix.shape[0] == 1:
+        raise ValueError('given matrix must be at least of size 2x2')
+
+    N = matrix.shape[0]
+
+    if exclude_diagonal:
+        inds = [(i,j) for i in range(N) for j in range(N) if i != j]
+    else:
+        inds = [(i,j) for i in range(N) for j in range(N)]
+
+    rectangles = [Rectangle((i + 0.5, j + 0.5), 1, 1) for i, j in inds]
+
+    # get a color for each of the rectangles
+    cmap = get_cmap(colormap)
+    rectangle_colors = [cmap(matrix[i,j] / matrix.max()) for i, j in inds]
+
+    pc = PatchCollection(rectangles, facecolors=rectangle_colors, edgecolors=['black']*N)
+
+    fig, ax = plt.subplots(1)
+    ax.add_collection(pc)
+    cbar = fig.colorbar(ScalarMappable(norm=Normalize(vmin=0.0, vmax=matrix.max()), cmap=cmap), ax=ax)
+    cbar.set_label('swap acceptance rate')
+    ax.set_xlim([0.5, N + 0.5])
+    ax.set_ylim([0.5, N + 0.5])
+    ax.set_xlabel('chain number')
+    ax.set_ylabel('chain number')
+    ax.set_title('acceptance rate of chain position swaps')
+
+    # only plot the rate values as text if the matrix is of size 10 or less
+    if N < 11:
+        fsize = 20 - N
+        text_artists = [ax.text(i+1, j+1, '{}%'.format(int(matrix[i,j]*100)), horizontalalignment='center',
+                                verticalalignment='center', color='white', fontsize=fsize) for i, j in inds]
+        # here we draw a black outline around the white text we've added to improve visibility
+        [t.set_path_effects([path_effects.Stroke(linewidth=1.5, foreground='black'), path_effects.Normal()]) for t in text_artists]
+
+    plt.show()

@@ -12,14 +12,14 @@ from time import time
 import matplotlib.pyplot as plt
 from numpy import array, arange, zeros
 
-from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile, linspace
+from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile, linspace, identity
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
 from scipy.linalg import eigh
 
 from inference.pdf_tools import UnimodalPdf, GaussianKDE
-from inference.plotting import matrix_plot, trace_plot
+from inference.plotting import matrix_plot, trace_plot, transition_matrix_plot
 
 
 
@@ -1691,7 +1691,9 @@ class ParallelTempering(object):
         self.temperatures = [1./chain.inv_temp for chain in chains]
         self.inv_temps = [chain.inv_temp for chain in chains]
         self.N_chains = len(chains)
-        self.successful_swaps = []
+
+        self.attempted_swaps = identity(self.N_chains)
+        self.successful_swaps = zeros([self.N_chains,self.N_chains])
 
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
@@ -1735,7 +1737,8 @@ class ParallelTempering(object):
         proposed_swaps = [ (a,b) for a,b in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
 
         # perform MH tests to see if the swaps occur or not
-        self.successful_swaps.append(0)
+        for pair in proposed_swaps:
+            self.attempted_swaps[pair] += 1
 
         for i,j in proposed_swaps:
             dt = self.inv_temps[i] - self.inv_temps[j]
@@ -1754,7 +1757,7 @@ class ParallelTempering(object):
 
                 self.connections[i].send(Dj)
                 self.connections[j].send(Di)
-                self.successful_swaps[-1] += 1
+                self.successful_swaps[i,j] += 1
 
     def advance(self, n, swap_interval = 10):
         """
@@ -1846,13 +1849,13 @@ class ParallelTempering(object):
         sys.stdout.write('\n')
 
     def swap_diagnostics(self):
-        plt.hist(self.successful_swaps, bins = arange(2 + self.N_chains//2)-0.5)
-        plt.xticks(arange(1 + self.N_chains//2))
-        plt.ylabel('frequency')
-        plt.xlabel('number of successful swaps per attempt')
-        plt.grid()
-        plt.tight_layout()
-        plt.show()
+        """
+        Plot the acceptance rates of proposed position swaps between the
+        different chains. This can be useful in selecting appropriate temperatures
+        for the chains.
+        """
+        rate_matrix = self.successful_swaps / self.attempted_swaps
+        transition_matrix_plot(matrix=rate_matrix, exclude_diagonal=True)
 
     def return_chains(self):
         """

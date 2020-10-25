@@ -43,6 +43,10 @@ if __name__ == "__main__":
     # was able to explore all of them due to the swaps.
     chains[0].matrix_plot()
 
+    # We can also visualise the acceptance rates of proposed position swaps between
+    # each chain using the swap_diagnostics method:
+    PT.swap_diagnostics()
+
     # Because each process waits for instructions from the ParallelTempering object,
     # they will not self-terminate. To terminate all the processes we have to trigger
     # a shutdown even using the shutdown method:
