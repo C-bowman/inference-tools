@@ -8,10 +8,10 @@ from warnings import warn
 from copy import copy, deepcopy
 from multiprocessing import Process, Pipe, Event, Pool
 from time import time
+from random import choice
 
 import matplotlib.pyplot as plt
 from numpy import array, arange, zeros
-
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile, linspace, identity
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
@@ -1682,7 +1682,8 @@ class ParallelTempering(object):
 
     :param chains: \
         A list of Markov-Chain objects (such as GibbsChain, PcaChain, HamiltonianChain)
-        covering a range of different temperature levels.
+        covering a range of different temperature levels. The list of chains should be
+        sorted in order of increasing chain temperature.
     """
     def __init__(self, chains):
         self.shutdown_evt = Event()
@@ -1695,6 +1696,13 @@ class ParallelTempering(object):
         self.attempted_swaps = identity(self.N_chains)
         self.successful_swaps = zeros([self.N_chains,self.N_chains])
 
+        if sorted(self.temperatures) != self.temperatures:
+            warn("""
+            The list of Markov-chain objects passed to ParallelTempering
+            should be sorted in order of increasing chain temperature.
+            """)
+
+        # Spawn a separate process for each chain object
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
             self.connections.append(parent_ctn)
@@ -1718,6 +1726,35 @@ class ParallelTempering(object):
         responses = [ pipe.recv() == 'advance_complete' for pipe in self.connections ]
         if not all(responses): raise ValueError('Unexpected data received from pipe')
 
+    def uniform_pairs(self):
+        """
+        Randomly pair up each chain, with uniform sampling across all possible pairings
+        """
+        proposed_swaps = arange(self.N_chains)
+        shuffle(proposed_swaps)
+        return [ p for p in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
+
+    def tight_pairs(self):
+        """
+        Randomly pair up each chain, with almost all paired chains being separated
+        by either 1 or 2 temperature levels.
+        """
+        # first generate all possible pairings with a gap of 2 or less
+        pairs = [(i, i+j) for i in range(self.N_chains-1) for j in [1,2]][:-1]
+        sample = []
+        # randomly sample from these pairings until no valid pairs remain
+        while len(pairs) > 0:
+            p = choice(pairs)
+            pairs = [k for k in pairs if not any(j in k for j in p)]
+            sample.append(p)
+        # if there are still some pairs which haven't been paired, randomly pair the remaining ones
+        remaining = len(sample) - self.N_chains // 2
+        if remaining != 0:
+            leftovers = [i for i in range(self.N_chains) if not any(i in p for p in sample)]
+            shuffle(leftovers)
+            sample.extend([p if p[0]<p[1] else (p[1],p[0]) for p in zip(leftovers[::2], leftovers[1::2])])
+        return sample
+
     def swap(self):
         """
         Randomly group all chains into pairs and propose a position swap between each pair.
@@ -1732,9 +1769,7 @@ class ParallelTempering(object):
         probabilities = [ k[1] for k in data ]
 
         # randomly pair up indices for all the processes
-        proposed_swaps = arange(self.N_chains)
-        shuffle(proposed_swaps)
-        proposed_swaps = [ (a,b) for a,b in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
+        proposed_swaps = self.tight_pairs()
 
         # perform MH tests to see if the swaps occur or not
         for pair in proposed_swaps:
@@ -1854,7 +1889,8 @@ class ParallelTempering(object):
         different chains. This can be useful in selecting appropriate temperatures
         for the chains.
         """
-        rate_matrix = self.successful_swaps / self.attempted_swaps
+        attempts_copy = self.attempted_swaps.copy().clip(min=1)
+        rate_matrix = self.successful_swaps / attempts_copy
         transition_matrix_plot(matrix=rate_matrix, exclude_diagonal=True)
 
     def return_chains(self):
