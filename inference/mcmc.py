@@ -1889,9 +1889,29 @@ class ParallelTempering(object):
         different chains. This can be useful in selecting appropriate temperatures
         for the chains.
         """
-        attempts_copy = self.attempted_swaps.copy().clip(min=1)
-        rate_matrix = self.successful_swaps / attempts_copy
-        transition_matrix_plot(matrix=rate_matrix, exclude_diagonal=True)
+        rate_matrix = self.successful_swaps / self.attempted_swaps.clip(min=1)
+
+        pairs = [(i,i+j) for j in range(1,self.N_chains) for i in range(self.N_chains-j)]
+        total_swaps = zeros(self.N_chains)
+        for i,j in pairs:
+            total_swaps[i] += self.successful_swaps[i,j]
+            total_swaps[j] += self.successful_swaps[i,j]
+
+        fig = plt.figure( figsize=(10,5) )
+        ax1 = fig.add_subplot(121)
+        transition_matrix_plot(ax=ax1, matrix=rate_matrix, exclude_diagonal=True, upper_triangular=True)
+        ax1.set_xlabel('chain number')
+        ax1.set_ylabel('chain number')
+        ax1.set_title('acceptance rate of chain position swaps')
+
+        ax2 = fig.add_subplot(122)
+        ax2.bar([i for i in range(1,self.N_chains+1)], total_swaps)
+        ax2.set_ylim([0,None])
+        ax2.set_xlabel('chain number')
+        ax2.set_ylabel('total successful position swaps')
+
+        plt.tight_layout()
+        plt.show()
 
     def return_chains(self):
         """

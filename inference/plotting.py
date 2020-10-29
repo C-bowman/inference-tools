@@ -351,7 +351,7 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
 
 
 
-def transition_matrix_plot(matrix=None, colormap='viridis', exclude_diagonal=False):
+def transition_matrix_plot(ax=None, matrix=None, colormap='viridis', exclude_diagonal=False, upper_triangular=False):
     """
     Plot the transition matrix of a Markov chain
 
@@ -380,12 +380,21 @@ def transition_matrix_plot(matrix=None, colormap='viridis', exclude_diagonal=Fal
 
     N = matrix.shape[0]
 
-    if exclude_diagonal:
-        inds = [(i,j) for i in range(N) for j in range(N) if i != j]
+    if upper_triangular:
+        inds = [(i,j) for i in range(N) for j in range(N) if i<=j]
     else:
         inds = [(i,j) for i in range(N) for j in range(N)]
 
-    rectangles = [Rectangle((i + 0.5, j + 0.5), 1, 1) for i, j in inds]
+    if exclude_diagonal:
+        inds = [(i,j) for i,j in inds if i!=j]
+
+    rectangles = [Rectangle((i+0.5, j+0.5), 1, 1) for i, j in inds]
+
+    x_sorted = sorted([i[0] for i in inds])
+    y_sorted = sorted([i[1] for i in inds])
+
+    x_limits = [x_sorted[0]+0.5, x_sorted[-1]+1.5]
+    y_limits = [y_sorted[0]+0.5, y_sorted[-1]+1.5]
 
     # get a color for each of the rectangles
     cmap = get_cmap(colormap)
@@ -393,15 +402,9 @@ def transition_matrix_plot(matrix=None, colormap='viridis', exclude_diagonal=Fal
 
     pc = PatchCollection(rectangles, facecolors=rectangle_colors, edgecolors=['black']*N)
 
-    fig, ax = plt.subplots(1)
     ax.add_collection(pc)
-    cbar = fig.colorbar(ScalarMappable(norm=Normalize(vmin=0.0, vmax=matrix.max()), cmap=cmap), ax=ax)
-    cbar.set_label('swap acceptance rate')
-    ax.set_xlim([0.5, N + 0.5])
-    ax.set_ylim([0.5, N + 0.5])
-    ax.set_xlabel('chain number')
-    ax.set_ylabel('chain number')
-    ax.set_title('acceptance rate of chain position swaps')
+    ax.set_xlim(x_limits)
+    ax.set_ylim(y_limits)
 
     # only plot the rate values as text if the matrix is of size 10 or less
     if N < 11:
@@ -410,5 +413,3 @@ def transition_matrix_plot(matrix=None, colormap='viridis', exclude_diagonal=Fal
                                 verticalalignment='center', color='white', fontsize=fsize) for i, j in inds]
         # here we draw a black outline around the white text we've added to improve visibility
         [t.set_path_effects([path_effects.Stroke(linewidth=1.5, foreground='black'), path_effects.Normal()]) for t in text_artists]
-
-    plt.show()
