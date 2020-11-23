@@ -3,7 +3,7 @@ from numpy import array, log, exp, pi, sqrt
 
 
 
-class JointDistribution(object):
+class JointLikelihood(object):
     def __init__(self, components):
         self.components = components
 
@@ -14,9 +14,14 @@ class JointDistribution(object):
         return sum( c.gradient(theta) for c in self.components )
 
     def __add__(self, other):
-        new = JointDistribution(self.components)
-        if type(other) is JointDistribution:
+        if isinstance(other, JointLikelihood):
+            new = JointLikelihood(self.components)
             new.components.extend(other.components)
+            return new
+        elif isinstance(other, BaseLikelihood):
+            new = JointLikelihood(self.components)
+            new.components.append(other)
+            return new
         else:
             new.components.append(other)
         return new
@@ -134,10 +139,6 @@ class CauchyLikelihood(BaseLikelihood):
 
 
 
-def ln_logistic(x, sigma=2, c=0):
-    s = sigma*sqrt(3)/pi
-    z = (x-c)/s
-    return z - 2*log(1 + exp(z)) - log(s)
 
 
 
