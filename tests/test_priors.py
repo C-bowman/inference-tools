@@ -2,7 +2,7 @@
 import pytest
 import unittest
 from numpy import array, zeros, allclose
-from inference.priors import GaussianPrior, ExponentialPrior, JointPrior
+from inference.priors import GaussianPrior, ExponentialPrior, UniformPrior, JointPrior
 
 def finite_difference(func=None, x0=None, delta=1e-5, vectorised_arguments=False):
     grad = zeros(x0.size)
@@ -36,10 +36,10 @@ class test_priors(unittest.TestCase):
         P2 = GaussianPrior(mean=20, sigma=2, variables=['B'])
         P3 = GaussianPrior(mean=[30,40], sigma=[3,4], variables=['C', 'D'])
         combo = GaussianPrior.combine([P1, P2, P3])
-        # check the combine distribution has the right values
-        assert (combo.mean == array([10.,20.,30.,40.])).all()
-        assert (combo.sigma == array([1.,2.,3.,4.])).all()
-        assert all(a==b for a,b in zip(combo.variables, ['A', 'B', 'C', 'D']))
+        # check the combined distribution has the right values
+        assert (combo.mean == array([10., 20., 30., 40.])).all()
+        assert (combo.sigma == array([1., 2., 3., 4.])).all()
+        assert all(a == b for a, b in zip(combo.variables, ['A', 'B', 'C', 'D']))
         # evaluate the prior at a test point
         test_point = array([9.,21.,34.,35.])
         log_prob = combo(test_point)
@@ -49,16 +49,34 @@ class test_priors(unittest.TestCase):
         assert allclose(analytic_gradient, numeric_gradient)
 
     def test_ExponentialPrior(self):
-        # test combining multiple Gaussians
+        # test combining multiple exponentials
         P1 = ExponentialPrior(beta=10, variables=['A'])
         P2 = ExponentialPrior(beta=20, variables=['B'])
         P3 = ExponentialPrior(beta=[30,40], variables=['C', 'D'])
         combo = ExponentialPrior.combine([P1, P2, P3])
-        # check the combine distribution has the right values
-        assert (combo.beta == array([10.,20.,30.,40.])).all()
-        assert all(a==b for a,b in zip(combo.variables, ['A', 'B', 'C', 'D']))
+        # check the combined distribution has the right values
+        assert (combo.beta == array([10., 20., 30., 40.])).all()
+        assert all(a == b for a, b in zip(combo.variables, ['A', 'B', 'C', 'D']))
         # evaluate the prior at a test point
-        test_point = array([9.,21.,34.,35.])
+        test_point = array([9., 21., 34., 35.])
+        test_point_log_prob = combo(test_point)
+        # check the analytic gradient calculation against finite difference
+        analytic_gradient = combo.gradient(test_point)
+        numeric_gradient = finite_difference(func=combo, x0=test_point, vectorised_arguments=True)
+        assert allclose(analytic_gradient, numeric_gradient)
+
+    def test_UniformPrior(self):
+        # test combining multiple uniforms
+        P1 = UniformPrior(lower=2, upper=4, variables=['A'])
+        P2 = UniformPrior(lower=4, upper=8, variables=['B'])
+        P3 = UniformPrior(lower=[8,16], upper=[16,32], variables=['C', 'D'])
+        combo = UniformPrior.combine([P1, P2, P3])
+        # check the combined distribution has the right values
+        assert (combo.lower == array([2., 4., 8., 16.])).all()
+        assert (combo.upper == array([4., 8., 16., 32.])).all()
+        assert all(a == b for a, b in zip(combo.variables, ['A', 'B', 'C', 'D']))
+        # evaluate the prior at a test point
+        test_point = array([3., 5., 15., 19.])
         test_point_log_prob = combo(test_point)
         # check the analytic gradient calculation against finite difference
         analytic_gradient = combo.gradient(test_point)
@@ -68,6 +86,7 @@ class test_priors(unittest.TestCase):
     def test_JointPrior(self):
         P1 = ExponentialPrior(beta=10, variables=['A'])
         P2 = GaussianPrior(mean=20, sigma=2, variables=['B'])
-        JP = JointPrior(['A', 'B'], [P1, P2])
-        test_point = array([4., 23.])
+        P3 = UniformPrior(lower=8, upper=16, variables=['C'])
+        JP = JointPrior(['A', 'B', 'C'], [P1, P2, P3])
+        test_point = array([4., 23., 12.])
         test_point_log_prob = JP(test_point)
