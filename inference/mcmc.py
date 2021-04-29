@@ -35,7 +35,7 @@ class Parameter(object):
     width automatically as the chain advances in order to ensure
     efficient sampling.
     """
-    def __init__(self, value = None, sigma = None):
+    def __init__(self, value=None, sigma=None):
         self.samples = []  # list to store all samples for the parameter
         self.samples.append(value)  # add starting location as first sample
         self.sigma = sigma  # the width parameter for the proposal distribution
@@ -230,19 +230,19 @@ class MarkovChain(object):
     Implementation of the metropolis-hastings algorithm using a multivariate-normal proposal distribution.
 
     :param func posterior: \
-        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
     :param start: \
-        vector of model parameters which correspond to the parameter-space coordinates at which the chain
+        Vector of model parameters which correspond to the parameter-space coordinates at which the chain
         will start.
 
     :param widths: \
-        vector of standard deviations which serve as initial guesses for the widths of the proposal
+        Vector of standard deviations which serve as initial guesses for the widths of the proposal
         distribution for each model parameter. If not specified, the starting widths will be approximated
-        as 1% of the values in 'start'.
+        as 5% of the values in 'start'.
     """
-    def __init__(self, posterior = None, start = None, widths = None, temperature = 1.):
+    def __init__(self, posterior=None, start=None, widths=None, temperature=1.):
 
         if start is None:
             start = []
@@ -254,11 +254,10 @@ class MarkovChain(object):
 
             # if widths are not specified, take 5% of the starting values (unless they're zero)
             if widths is None:
-                widths = [ (s!=0.)*abs(s)*0.05 + (s==0.) for s in start ]
-
+                widths = [v*0.05 if v != 0 else 1.0 for v in start]
 
             # create a list of parameter objects
-            self.params = [Parameter(value = v, sigma = s) for v, s in zip(start, widths)]
+            self.params = [Parameter(value=v, sigma=s) for v, s in zip(start, widths)]
 
             # create storage
             self.n = 1  # tracks total length of the chain
@@ -271,11 +270,11 @@ class MarkovChain(object):
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
-                    ValueError('posterior returns a non-finite value for provided initial guess')
+                    ValueError('posterior returns a non-finite value for provided starting position')
 
             # add default burn and thin values
-            self.burn = 1 # remove the starting position by default
-            self.thin = 1 # no thinning by default
+            self.burn = 1  # remove the starting position by default
+            self.thin = 1  # no thinning by default
 
             # flag for displaying completion of the advance() method
             self.print_status = True
@@ -318,7 +317,7 @@ class MarkovChain(object):
             # display the progress status message
             if self.print_status:
                 pct = int(100*(j+1)/k)
-                eta = int(dt*((k/(j+1)-1)))
+                eta = int(dt*(k/(j+1)-1))
                 msg = '\r  advancing chain:   [ {}% complete   ETA: {} sec ]    '.format(pct,eta)
                 sys.stdout.write(msg)
                 sys.stdout.flush()
@@ -334,11 +333,11 @@ class MarkovChain(object):
             mins, secs = divmod(t_elapsed, 60)
             hrs, mins = divmod(mins, 60)
             time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
-            sys.stdout.write('\r  advancing chain:   [ complete - {} steps taken in {} ]      '.format(m,time_taken))
+            sys.stdout.write('\r  advancing chain:   [ complete - {} steps taken in {} ]      '.format(m, time_taken))
             sys.stdout.flush()
             sys.stdout.write('\n')
 
-    def run_for(self, minutes = 0, hours = 0, days = 0):
+    def run_for(self, minutes=0, hours=0, days=0):
         """
         Advances the chain for a chosen amount of computation time
 
@@ -359,7 +358,7 @@ class MarkovChain(object):
         if step_time <= 0.: step_time = 0.005
 
         # choose an update interval that should take ~2 seconds
-        update_interval = max( int(2. // step_time), 1)
+        update_interval = max(int(2. // step_time), 1)
 
         # store the starting length of the chain
         start_length = copy(self.n)
@@ -387,13 +386,13 @@ class MarkovChain(object):
         sys.stdout.write('\n')
 
     def get_last(self):
-        return [ p.samples[-1] for p in self.params ]
+        return [p.samples[-1] for p in self.params]
 
     def replace_last(self, theta):
         for p,t in zip(self.params, theta):
             p.samples[-1] = t
 
-    def get_parameter(self, n, burn = None, thin = None):
+    def get_parameter(self, n, burn=None, thin=None):
         """
         Return sample values for a chosen parameter.
 
@@ -410,11 +409,11 @@ class MarkovChain(object):
 
         :return: List of samples for parameter *n*'th parameter.
         """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
+        burn = burn if burn is not None else self.burn
+        thin = thin if thin is not None else self.thin
         return self.params[n].samples[burn::thin]
 
-    def get_probabilities(self, burn = None, thin = None):
+    def get_probabilities(self, burn=None, thin=None):
         """
         Return log-probability values for each step in the chain
 
@@ -429,11 +428,11 @@ class MarkovChain(object):
 
         :return: List of log-probability values for each step in the chain.
         """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
+        burn = burn if burn is not None else self.burn
+        thin = thin if thin is not None else self.thin
         return self.probs[burn::thin]
 
-    def get_sample(self, burn = None, thin = None):
+    def get_sample(self, burn=None, thin=None):
         """
         Return the sample generated by the chain as a list of tuples
 
@@ -448,11 +447,11 @@ class MarkovChain(object):
 
         :return: List containing sample points stored as tuples.
         """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
-        return list(zip( *[ p.samples[burn::thin] for p in self.params] ))
+        burn = burn if burn is not None else self.burn
+        thin = thin if thin is not None else self.thin
+        return list(zip(*[p.samples[burn::thin] for p in self.params]))
 
-    def get_interval(self, interval = None, burn = None, thin = None, samples = None):
+    def get_interval(self, interval=0.95, burn=None, thin=None, samples=None):
         """
         Return the samples from the chain which lie inside a chosen highest-density interval.
 
@@ -476,8 +475,7 @@ class MarkovChain(object):
         :return: List containing sample points stored as tuples, and a corresponding list of
                  log-probability values
         """
-        if burn is None: burn = self.burn
-        if interval is None: interval = 0.95
+        burn = burn if burn is not None else self.burn
 
         # get the sorting indices for the probabilities
         probs = array(self.probs[burn:])
@@ -492,7 +490,8 @@ class MarkovChain(object):
         # if a specific number of samples is requested we override the thin value
         if samples is not None:
             thin = max(len(probs) // samples, 1)
-        elif thin is None: thin = self.thin
+        elif thin is None:
+            thin = self.thin
 
         # thin the sample
         arrays = [a[::thin] for a in arrays]
@@ -504,22 +503,22 @@ class MarkovChain(object):
             # elements at random in order not to introduce bias.
             n_trim = len(probs) - samples
             if n_trim > 0:
-                trim = sort( argsort( random(size=len(probs)) )[n_trim:] )
+                trim = sort(argsort(random(size=len(probs)))[n_trim:])
                 arrays = [a[trim] for a in arrays]
                 probs = probs[trim]
 
-        return list(zip( *arrays )), probs
+        return list(zip(*arrays)), probs
 
     def mode(self):
         """
         Return the sample with the current highest posterior probability.
 
-        :return: Tuple containing parameter values.
+        :return: List containing parameter values.
         """
         ind = argmax(self.probs)
         return [p.samples[ind] for p in self.params]
 
-    def set_non_negative(self, parameter, flag = True):
+    def set_non_negative(self, parameter, flag=True):
         """
         Constrain a particular parameter to have non-negative values.
 
@@ -528,7 +527,7 @@ class MarkovChain(object):
         """
         self.params[parameter].non_negative = flag
 
-    def set_boundaries(self, parameter, boundaries, remove = False):
+    def set_boundaries(self, parameter, boundaries, remove=False):
         """
         Constrain the value of a particular parameter to specified boundaries.
 
@@ -542,7 +541,7 @@ class MarkovChain(object):
         else:
             self.params[parameter].set_boundaries(*boundaries)
 
-    def get_marginal(self, n, thin = None, burn = None, unimodal = False):
+    def get_marginal(self, n, thin=None, burn=None, unimodal=False):
         """
         Estimate the 1D marginal distribution of a chosen parameter.
 
@@ -567,15 +566,15 @@ class MarkovChain(object):
         Returns one of two 'density estimator' objects which can be
         called as functions to return the estimated PDF at any point.
         """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
+        burn = burn if burn is not None else self.burn
+        thin = thin if thin is not None else self.thin
 
         if unimodal:
             return UnimodalPdf(self.get_parameter(n, burn=burn, thin=thin))
         else:
             return GaussianKDE(self.get_parameter(n, burn=burn, thin=thin))
 
-    def plot_diagnostics(self, show = True, filename = None):
+    def plot_diagnostics(self, show=True, filename=None):
         """
         Plot diagnostic traces that give information on how the chain is progressing.
 
@@ -593,11 +592,12 @@ class MarkovChain(object):
 
         :param bool show: If set to True, the plot is displayed.
 
-        :param str filename: File path to which the diagnostics plot will be saved. If left \
-                             unspecified the plot won't be saved.
+        :param str filename: \
+            File path to which the diagnostics plot will be saved. If left unspecified the
+            plot won't be saved.
         """
         burn = self.estimate_burn_in()
-        param_ESS = [ ESS(array(self.get_parameter(i,burn=burn))) for i in range(self.L) ]
+        param_ESS = [ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)]
 
 
         fig = plt.figure(figsize = (12,9))
@@ -605,12 +605,12 @@ class MarkovChain(object):
         # probability history plot
         ax1 = fig.add_subplot(221)
         step_ax = [i * 1e-3 for i in range(len(self.probs))]  # TODO - avoid making this axis but preserve figure form
-        ax1.plot(step_ax, self.probs, marker = '.', ls = 'none', markersize = 3)
-        ax1.set_xlabel('chain step number ($10^3$)', fontsize = 12)
-        ax1.set_ylabel('log posterior probability', fontsize = 12)
+        ax1.plot(step_ax, self.probs, marker='.', ls='none', markersize=3)
+        ax1.set_xlabel('chain step number ($10^3$)', fontsize=12)
+        ax1.set_ylabel('log posterior probability', fontsize=12)
         ax1.set_title('Chain log-probability history')
         ylims = [min(self.probs[self.n//2:]), max(self.probs)*1.1 - 0.1*min(self.probs[self.n//2:])]
-        plt.plot([burn*1e-3,burn*1e-3], ylims, c = 'red', ls = 'dashed', lw = 2)
+        plt.plot([burn*1e-3, burn*1e-3], ylims, c='red', ls='dashed', lw=2)
         ax1.set_ylim(ylims)
         ax1.grid()
 
@@ -619,23 +619,24 @@ class MarkovChain(object):
         for p in self.params:
             y = array(p.sigma_values)
             x = array(p.sigma_checks[1:]) * 1e-3
-            ax2.plot(x, 1e2*diff(y)/y[:-1], marker = 'D', markersize = 3)
-        ax2.plot([0, self.n*1e-3], [5, 5], ls = 'dashed', lw = 2, color = 'black')
-        ax2.plot([0, self.n*1e-3], [-5,-5], ls = 'dashed', lw = 2, color = 'black')
-        ax2.set_xlabel('chain step number ($10^3$)', fontsize = 12)
-        ax2.set_ylabel('% change in proposal widths', fontsize = 12)
+            ax2.plot(x, 1e2*diff(y)/y[:-1], marker='D', markersize=3)
+        ax2.plot([0, self.n*1e-3], [5, 5], ls='dashed', lw=2, color='black')
+        ax2.plot([0, self.n*1e-3], [-5, -5], ls='dashed', lw=2, color='black')
+        ax2.set_xlabel('chain step number ($10^3$)', fontsize=12)
+        ax2.set_ylabel('% change in proposal widths', fontsize=12)
         ax2.set_title('Parameter proposal widths adjustment summary')
-        ax2.set_ylim([-50,50])
+        ax2.set_ylim([-50, 50])
         ax2.grid()
 
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
-        ax3.bar(range(self.L), param_ESS, color = ['C0', 'C1', 'C2', 'C3', 'C4'])
-        ax3.set_xlabel('parameter', fontsize = 12)
-        ax3.set_ylabel('effective sample size', fontsize = 12)
+        ax3.bar(range(self.L), param_ESS, color=['C0', 'C1', 'C2', 'C3', 'C4'])
+        ax3.set_xlabel('parameter', fontsize=12)
+        ax3.set_ylabel('effective sample size', fontsize=12)
         ax3.set_title('Parameter effective sample size estimate')
         ax3.set_xticks(range(self.L))
 
+        # summary stats text plot
         ax4 = fig.add_subplot(224)
         gap = 0.1
         h = 0.85
@@ -643,14 +644,14 @@ class MarkovChain(object):
         x2 = 0.55
         fntsiz = 14
 
-        ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize = fntsiz)
-        ax4.text(x2, h, '{:.5G}'.format( burn ), horizontalalignment='left', fontsize = fntsiz)
+        ax4.text(x1, h, 'Estimated burn-in:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(burn), horizontalalignment='left', fontsize=fntsiz)
         h -= gap
-        ax4.text(x1, h, 'Average ESS:', horizontalalignment='right', fontsize = fntsiz)
-        ax4.text(x2, h, '{:.5G}'.format( int(mean(param_ESS)) ), horizontalalignment='left', fontsize = fntsiz)
+        ax4.text(x1, h, 'Average ESS:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(int(mean(param_ESS))), horizontalalignment='left', fontsize=fntsiz)
         h -= gap
-        ax4.text(x1, h, 'Lowest ESS:', horizontalalignment='right', fontsize = fntsiz)
-        ax4.text(x2, h, '{:.5G}'.format( int(min(param_ESS)) ), horizontalalignment='left', fontsize = fntsiz)
+        ax4.text(x1, h, 'Lowest ESS:', horizontalalignment='right', fontsize=fntsiz)
+        ax4.text(x2, h, '{:.5G}'.format(int(min(param_ESS))), horizontalalignment='left', fontsize=fntsiz)
         ax4.axis('off')
 
         plt.tight_layout()
@@ -662,7 +663,7 @@ class MarkovChain(object):
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(self, params = None, thin = None, burn = None, **kwargs):
+    def matrix_plot(self, params=None, thin=None, burn=None, **kwargs):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions. See the documentation of
@@ -683,13 +684,13 @@ class MarkovChain(object):
             not specified, the value of self.thin is used instead, which has
             a default value of 1.
         """
-        if burn is None: burn = self.burn
-        if thin is None: thin = self.thin
-        if params is None: params = range(self.L)
-        samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
+        burn = burn if burn is not None else self.burn
+        thin = thin if thin is not None else self.thin
+        params = params if params is not None else range(self.L)
+        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
-    def trace_plot(self, params = None, thin = None, burn = None, **kwargs):
+    def trace_plot(self, params=None, thin=1, burn=0, **kwargs):
         """
         Construct a 'trace plot' of the parameters (or a subset) which displays
         the value of the parameters as a function of step number in the chain.
@@ -701,18 +702,14 @@ class MarkovChain(object):
             be plotted.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain. If not
-            specified, no samples are discarded.
+            Number of samples to discard from the start of the chain.
 
         :param int thin: \
             Rather than using every sample which is not discarded as part of the
-            burn-in, every *m*'th sample is used for a specified integer *m*. If
-            not specified, no thinning is performed.
+            burn-in, every *m*'th sample is used for a specified integer *m*.
         """
-        if burn is None: burn = 0
-        if thin is None: thin = 1
-        if params is None: params = range(self.L)
-        samples = [ self.get_parameter(i, burn=burn, thin=thin) for i in params ]
+        params = params if params is not None else range(self.L)
+        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)
 
     def save(self, filename):
@@ -729,11 +726,11 @@ class MarkovChain(object):
             ('burn', self.burn),
             ('thin', self.thin),
             ('inv_temp', self.inv_temp),
-            ('print_status', self.print_status) ]
+            ('print_status', self.print_status)]
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
-            items.extend( p.get_items(param_id=i) )
+            items.extend(p.get_items(param_id=i))
 
         # build the dict
         D = {}
@@ -744,13 +741,16 @@ class MarkovChain(object):
         savez(filename, **D)
 
     @classmethod
-    def load(cls, filename, posterior = None):
+    def load(cls, filename, posterior=None):
         """
         Load a chain object which has been previously saved using the save() method.
 
-        :param str filename: file path of the .npz file containing the chain object data.
-        :param posterior: The posterior which was sampled by the chain. This argument need \
-                          only be specified if new samples are to be added to the chain.
+        :param str filename: \
+            file path of the .npz file containing the chain object data.
+
+        :param posterior: \
+            The posterior which was sampled by the chain. This argument need only be
+            specified if new samples are to be added to the chain.
         """
         # load the data and create a chain instance
         D = load(filename)
@@ -777,7 +777,7 @@ class MarkovChain(object):
     def estimate_burn_in(self):
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
-        prob_estimate = argmax(self.probs > percentile(self.probs,99))
+        prob_estimate = argmax(self.probs > percentile(self.probs, 99))
 
         # now we find the point at which the proposal width for each parameter
         # starts to deviate significantly from the current value
@@ -785,7 +785,7 @@ class MarkovChain(object):
         for p in self.params:
             vals = abs((array(p.sigma_values)[::-1] / p.sigma) - 1.)
             chks = array(p.sigma_checks)[::-1]
-            first_true = chks[ argmax(vals > 0.15) ]
+            first_true = chks[argmax(vals > 0.15)]
             width_estimates.append(first_true)
 
         width_estimate = mean(width_estimates)
@@ -797,8 +797,8 @@ class MarkovChain(object):
         print(msg)
 
     def autoselect_thin(self):
-        param_ESS = [ ESS(array(self.get_parameter(i, thin = 1))) for i in range(self.L) ]
-        self.thin = int( (self.n-self.burn) / min(param_ESS) )
+        param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.L)]
+        self.thin = int((self.n-self.burn) / min(param_ESS))
         if self.thin < 1:
             self.thin = 1
         elif (self.n-self.burn)/self.thin < 1:
@@ -862,14 +862,13 @@ class GibbsChain(MarkovChain):
                 prop[i] = p.proposal()
                 p_new = self.posterior(prop) * self.inv_temp
 
-                if p_new > p_old:
+                if p_new > p_old:  # automatically accept step if the probability goes up
                     p.submit_accept_prob(1.)
                     break
-                else:
-                    test = random()
+                else:  # else calculate the acceptance probability and perform the test
                     acceptance_prob = exp(p_new-p_old)
                     p.submit_accept_prob(acceptance_prob)
-                    if test < acceptance_prob:
+                    if random() < acceptance_prob:
                         break
 
             p_old = deepcopy(p_new)  # NOTE - is deepcopy needed?
@@ -919,7 +918,7 @@ class PcaChain(MarkovChain):
         A list of length-2 tuples specifying the lower and upper bounds to be set on each
         parameter, in the form (lower, upper).
     """
-    def __init__(self, *args, parameter_boundaries = None, **kwargs):
+    def __init__(self, *args, parameter_boundaries=None, **kwargs):
         super(PcaChain, self).__init__(*args, **kwargs)
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
@@ -947,8 +946,8 @@ class PcaChain(MarkovChain):
         # Set-up for imposing boundaries if specified
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.L:
-                self.lower = array([ k[0] for k in parameter_boundaries ])
-                self.upper = array([ k[1] for k in parameter_boundaries ])
+                self.lower = array([k[0] for k in parameter_boundaries])
+                self.upper = array([k[1] for k in parameter_boundaries])
                 self.width = self.upper - self.lower
                 self.process_proposal = self.impose_boundaries
             else:
@@ -962,7 +961,7 @@ class PcaChain(MarkovChain):
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
-        data = array( [ self.get_parameter(i)[self.last_update:] for i in range(self.L)] )
+        data = array([self.get_parameter(i)[self.last_update:] for i in range(self.L)])
         if hasattr(self, 'covar'):
             nu = min(2*self.dir_update_interval/self.last_update, 0.5)
             self.covar = self.covar*(1-nu) + nu*cov(data)
@@ -972,7 +971,7 @@ class PcaChain(MarkovChain):
         w, V = eigh(self.covar)
 
         # find the sine of the angle between the old and new eigenvectors to track convergence
-        angles = [ sqrt(1. - dot(V[:,i], self.directions[i])**2) for i in range(self.L)]
+        angles = [sqrt(1. - dot(V[:,i], self.directions[i])**2) for i in range(self.L)]
         self.angles_history.append(angles)
         self.update_history.append(copy(self.n))
 
@@ -984,15 +983,15 @@ class PcaChain(MarkovChain):
 
     def directions_diagnostics(self):
         for i in range(self.L):
-            prods = [ v[i] for v in self.angles_history ]
+            prods = [v[i] for v in self.angles_history]
             plt.plot(self.update_history, prods, '.-')
-        plt.plot([self.update_history[0], self.update_history[-1]], [1e-2, 1e-2], ls = 'dashed', c = 'black', lw = 2)
+        plt.plot([self.update_history[0], self.update_history[-1]], [1e-2, 1e-2], ls='dashed', c='black', lw=2)
         plt.yscale('log')
         plt.ylim([1e-4, 1.])
         plt.xlim([0, self.update_history[-1]])
 
-        plt.ylabel(r'$|\sin{(\Delta \theta)}|$', fontsize = 13)
-        plt.xlabel(r'update step number', fontsize = 13)
+        plt.ylabel(r'$|\sin{(\Delta \theta)}|$', fontsize=13)
+        plt.xlabel(r'update step number', fontsize=13)
 
         plt.grid()
         plt.tight_layout()
@@ -1056,7 +1055,8 @@ class PcaChain(MarkovChain):
             ('angles_history', array(self.angles_history)),
             ('update_history', array(self.update_history)),
             ('directions', array(self.directions)),
-            ('covar', self.covar) ]
+            ('covar', self.covar)
+        ]
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
@@ -1179,7 +1179,7 @@ class HamiltonianChain(MarkovChain):
         the problem more isotropic. Ideally, the inverse-mass for each parameter should
         be set to the variance of the marginal distribution of that parameter.
     """
-    def __init__(self, posterior = None, grad = None, start = None, epsilon = 0.1, temperature = 1, bounds = None, inv_mass = None):
+    def __init__(self, posterior=None, grad=None, start=None, epsilon=0.1, temperature=1, bounds=None, inv_mass=None):
 
         self.posterior = posterior
         # if no gradient function is supplied, default to finite difference
@@ -1187,6 +1187,7 @@ class HamiltonianChain(MarkovChain):
             self.grad = self.finite_diff
         else:
             self.grad = grad
+
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
             self.leapfrog = self.standard_leapfrog
@@ -1235,7 +1236,7 @@ class HamiltonianChain(MarkovChain):
         accept = False
         steps_taken = 0
         while not accept:
-            r0 = normal(size = self.L)/sqrt(self.variance)
+            r0 = normal(size=self.L)/sqrt(self.variance)
             t0 = self.theta[-1]
             H0 = 0.5*dot(r0, r0/self.variance) - self.probs[-1]
 
@@ -1249,35 +1250,35 @@ class HamiltonianChain(MarkovChain):
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
             H = 0.5*dot(r, r / self.variance) - p
-            test = exp( H0 - H )
+            test = exp(H0 - H)
 
             if isfinite(test):
-                self.ES.add_probability(min(test,1))
+                self.ES.add_probability(min(test, 1))
             else:
                 self.ES.add_probability(0.)
 
-            if (test >= 1):
+            if test >= 1:
                 accept = True
             else:
                 q = random()
-                if (q <= test):
+                if q <= test:
                     accept = True
 
-        self.theta.append( t )
-        self.probs.append( p )
-        self.leapfrog_steps.append( steps_taken )
+        self.theta.append(t)
+        self.probs.append(p)
+        self.leapfrog_steps.append(steps_taken)
         self.n += 1
 
     def run_leapfrog(self, t, r, g, L):
         for i in range(L):
-            t, r, g = self.leapfrog(t,r,g)
+            t, r, g = self.leapfrog(t, r, g)
         return t, r, g
 
     def hamiltonian(self, t, r):
         return 0.5*dot(r, r / self.variance) - self.posterior(t) * self.inv_temp
 
-    def estimate_mass(self, burn = 1, thin = 1):
-        self.variance = var( array( self.theta[burn::thin] ), axis = 0)
+    def estimate_mass(self, burn=1, thin=1):
+        self.variance = var(array(self.theta[burn::thin]), axis=0)
 
     def finite_diff(self, t):
         p = self.posterior(t) * self.inv_temp
@@ -1324,7 +1325,7 @@ class HamiltonianChain(MarkovChain):
     def replace_last(self, theta):
         self.theta[-1] = theta
 
-    def get_parameter(self, n, burn = None, thin = None):
+    def get_parameter(self, n, burn=None, thin=None):
         """
         Return sample values for a chosen parameter.
 
@@ -1343,7 +1344,7 @@ class HamiltonianChain(MarkovChain):
         if thin is None: thin = self.thin
         return [v[n] for v in self.theta[burn::thin]]
 
-    def plot_diagnostics(self, show = True, filename = None, burn = None):
+    def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
         Plot diagnostic traces that give information on how the chain is progressing.
 
@@ -1428,10 +1429,10 @@ class HamiltonianChain(MarkovChain):
             fig.clear()
             plt.close(fig)
 
-    def get_sample(self, burn = None, thin = None):
+    def get_sample(self, burn=None, thin=None):
         raise ValueError('This method is not available for HamiltonianChain')
 
-    def get_interval(self, interval = None, burn = None, thin = None, samples = None):
+    def get_interval(self, interval=None, burn=None, thin=None, samples=None):
         raise ValueError('This method is not available for HamiltonianChain')
 
     def mode(self):
@@ -1448,7 +1449,7 @@ class HamiltonianChain(MarkovChain):
         epsl_estimate = chks[ argmax(epsl > 0.15) ] * self.ES.accept_rate
         return int(min(max(prob_estimate, epsl_estimate), 0.9*self.n))
 
-    def save(self, filename, compressed = False):
+    def save(self, filename, compressed=False):
         items = [
             ('bounded', self.bounded),
             ('lwr_bounds', self.lwr_bounds),
@@ -1468,7 +1469,7 @@ class HamiltonianChain(MarkovChain):
             ('n', self.n)
         ]
 
-        items.extend( self.ES.get_items() )
+        items.extend(self.ES.get_items())
 
         # build the dict
         D = {}
@@ -1482,7 +1483,7 @@ class HamiltonianChain(MarkovChain):
             savez(filename, **D)
 
     @classmethod
-    def load(cls, filename, posterior = None, grad = None):
+    def load(cls, filename, posterior=None, grad=None):
         D = load(filename)
         chain = cls(posterior=posterior, grad=grad)
 
@@ -1501,7 +1502,7 @@ class HamiltonianChain(MarkovChain):
         chain.n = int(D['n'])
 
         t = D['theta']
-        chain.theta = [ t[i,:] for i in range(t.shape[0]) ]
+        chain.theta = [t[i, :] for i in range(t.shape[0])]
 
         if chain.bounded:
             chain.lwr_bounds = array(D['lwr_bounds'])
@@ -1555,9 +1556,9 @@ class EpsilonSelector(object):
 
         # now check if the desired success rate is within 2-sigma
         if ~(mu-2*std < self.accept_rate < mu+2*std):
-            adj = (log(self.accept_rate) / log(mu))**(0.15)
-            adj = min(adj,2.)
-            adj = max(adj,0.5)
+            adj = (log(self.accept_rate) / log(mu))**0.15
+            adj = min(adj, 2.)
+            adj = max(adj, 0.5)
             self.adjust_epsilon(adj)
         else: # increase the check interval
             self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
@@ -1571,7 +1572,7 @@ class EpsilonSelector(object):
         self.num = 0
 
     def get_items(self):
-        return [(k,v) for k,v in self.__dict__.items()]
+        return [(k, v) for k, v in self.__dict__.items()]
 
     def load_items(self, dictionary):
         self.epsilon = float(dictionary['epsilon'])
@@ -1596,7 +1597,7 @@ class ChainPool(object):
         self.pool = Pool(self.pool_size)
 
     def advance(self, n):
-        self.chains = self.pool.map(self.adv_func, [(n, chain) for chain in self.chains] )
+        self.chains = self.pool.map(self.adv_func, [(n, chain) for chain in self.chains])
 
     @staticmethod
     def adv_func(arg):
@@ -1616,7 +1617,7 @@ def tempering_process(chain, connection, end, proc_seed):
     while not end.is_set():
         # poll the pipe until there is something to read
         while not end.is_set():
-            if connection.poll(timeout = 0.05):
+            if connection.poll(timeout=0.05):
                 D = connection.recv()
                 break
 
@@ -1706,10 +1707,10 @@ class ParallelTempering(object):
         for chn in chains:
             parent_ctn, child_ctn = Pipe()
             self.connections.append(parent_ctn)
-            p = Process( target = tempering_process, args=(chn, child_ctn, self.shutdown_evt, randint(30000)) )
+            p = Process(target=tempering_process, args=(chn, child_ctn, self.shutdown_evt, randint(30000)))
             self.processes.append(p)
 
-        [ p.start() for p in self.processes ]
+        [p.start() for p in self.processes]
 
     def take_steps(self, n):
         """
@@ -1732,7 +1733,7 @@ class ParallelTempering(object):
         """
         proposed_swaps = arange(self.N_chains)
         shuffle(proposed_swaps)
-        return [ p for p in zip(proposed_swaps[::2], proposed_swaps[1::2]) ]
+        return [p for p in zip(proposed_swaps[::2], proposed_swaps[1::2])]
 
     def tight_pairs(self):
         """
@@ -1761,7 +1762,7 @@ class ParallelTempering(object):
         """
         # ask each process to report the current position of its chain
         D = {'task' : 'send_position'}
-        [ pipe.send(D) for pipe in self.connections ]
+        [pipe.send(D) for pipe in self.connections]
 
         # receive the positions and probabilities
         data = [pipe.recv() for pipe in self.connections]
@@ -1781,7 +1782,7 @@ class ParallelTempering(object):
             pj = probabilities[j]/self.inv_temps[j]
             dp = pi - pj
 
-            if random() <= exp(-dt*dp): # check if the swap is successful
+            if random() <= exp(-dt*dp):  # check if the swap is successful
                 Di = {'task' : 'update_position',
                       'position' : positions[i],
                       'probability' : pi}
@@ -1794,7 +1795,7 @@ class ParallelTempering(object):
                 self.connections[j].send(Di)
                 self.successful_swaps[i,j] += 1
 
-    def advance(self, n, swap_interval = 10):
+    def advance(self, n, swap_interval=10):
         """
         Advances each chain by a total of *n* steps, performing swap attempts
         at intervals set by the *swap_interval* keyword.
@@ -1821,7 +1822,7 @@ class ParallelTempering(object):
 
             # display the progress status message
             pct = str(int(100*(j+1)/k))
-            eta = str(int(dt*((k/(j+1)-1))))
+            eta = str(int(dt*(k/(j+1)-1)))
             msg = '\r  [ Running ParallelTempering - {}% complete   ETA: {} sec ]    '.format(pct, eta)
             sys.stdout.write(msg)
             sys.stdout.flush()
@@ -1897,7 +1898,7 @@ class ParallelTempering(object):
             total_swaps[i] += self.successful_swaps[i,j]
             total_swaps[j] += self.successful_swaps[i,j]
 
-        fig = plt.figure( figsize=(10,5) )
+        fig = plt.figure(figsize=(10, 5))
         ax1 = fig.add_subplot(121)
         transition_matrix_plot(ax=ax1, matrix=rate_matrix, exclude_diagonal=True, upper_triangular=True)
         ax1.set_xlabel('chain number')
@@ -1920,12 +1921,12 @@ class ParallelTempering(object):
         :return: A list containing the chain objects.
         """
         # order each process to return its locally stored chain object
-        D = {'task' : 'send_chain'}
+        request = {'task' : 'send_chain'}
         for pipe in self.connections:
-            pipe.send(D)
+            pipe.send(request)
 
         # receive the chains and return them
-        return [ pipe.recv() for pipe in self.connections ]
+        return [pipe.recv() for pipe in self.connections]
 
     def shutdown(self):
         """
@@ -1941,7 +1942,7 @@ class ParallelTempering(object):
 
 
 class EnsembleSampler(object):
-    def __init__(self, posterior = None, starting_positions = None, alpha = 2., bounds = None):
+    def __init__(self, posterior=None, starting_positions=None, alpha=2., bounds=None):
         self.posterior = posterior
 
         if starting_positions is not None:
@@ -2058,11 +2059,11 @@ class EnsembleSampler(object):
     def plot_diagnostics(self):
         x = linspace(1, self.L, self.L)
 
-        rates = x / array(self.total_proposals).cumsum(axis = 1)
+        rates = x / array(self.total_proposals).cumsum(axis=1)
 
-        avg_rate = rates.mean(axis = 0)
+        avg_rate = rates.mean(axis=0)
 
-        fig = plt.figure(figsize = (12,7))
+        fig = plt.figure(figsize=(12, 7))
 
         ax1 = fig.add_subplot(221)
         alpha = max(0.01, min(1, 20. / float(self.N_walkers)))
@@ -2080,7 +2081,7 @@ class EnsembleSampler(object):
 
         p_mu = array(self.prob_means)
         ax2 = fig.add_subplot(222)
-        ax2.plot(x, (p_mu - p_mu[-1]) / self.prob_devs[-1], lw = 2, c = 'C0')
+        ax2.plot(x, (p_mu - p_mu[-1]) / self.prob_devs[-1], lw=2, c='C0')
         ax2.set_ylim([-0.6, 0.6])
         ax2.grid()
         ax2.set_title('log-probabilities normalised mean difference')
@@ -2091,7 +2092,7 @@ class EnsembleSampler(object):
         ax3 = fig.add_subplot(223)
         alpha = max(0.02, min(1, 20. / float(self.N_params)))
         for i in range(self.N_params):
-            ax3.plot(x, (devs[i,:] / devs[i,-1]) - 1., lw = 0.5, c = 'C0', alpha = alpha)
+            ax3.plot(x, (devs[i,:] / devs[i,-1]) - 1., lw=0.5, c='C0', alpha=alpha)
         ax3.set_ylim([-0.6, 0.6])
         ax3.grid()
         ax3.set_title('parameter standard-dev difference')
@@ -2102,7 +2103,7 @@ class EnsembleSampler(object):
         ax4 = fig.add_subplot(224)
         alpha = max(0.02, min(1, 20. / float(self.N_params)))
         for i in range(self.N_params):
-            ax4.plot(x, (means[i,:] - means[i,-1]) / devs[i,-1], lw = 0.5, c = 'C0', alpha = alpha)
+            ax4.plot(x, (means[i,:] - means[i,-1]) / devs[i,-1], lw=0.5, c='C0', alpha=alpha)
         ax4.set_ylim([-0.6, 0.6])
         ax4.grid()
         ax4.set_title('parameters normalised mean difference')
@@ -2114,7 +2115,7 @@ class EnsembleSampler(object):
 
     def matrix_plot(self, **kwargs):
         params = [k for k in self.theta.T]
-        matrix_plot(samples = params, **kwargs)
+        matrix_plot(samples=params, **kwargs)
 
     def trace_plot(self, **kwargs):
         params = [k for k in self.theta.T]
@@ -2122,21 +2123,21 @@ class EnsembleSampler(object):
 
     def save(self, filename):
         D = {
-            'theta':self.theta,
-            'N_params':self.N_params,
-            'N_walkers':self.N_walkers,
-            'probs':self.probs,
-            'L':self.L,
-            'total_proposals':array(self.total_proposals),
-            'means':array(self.means),
-            'std_devs':array(self.std_devs),
-            'prob_means':array(self.prob_means),
-            'prob_devs':array(self.prob_devs),
-            'bounded':self.bounded,
-            'a':self.a,
-            'z_lwr':self.z_lwr,
-            'z_upr':self.z_upr,
-            'max_attempts':self.max_attempts
+            'theta': self.theta,
+            'N_params': self.N_params,
+            'N_walkers': self.N_walkers,
+            'probs': self.probs,
+            'L': self.L,
+            'total_proposals': array(self.total_proposals),
+            'means': array(self.means),
+            'std_devs': array(self.std_devs),
+            'prob_means': array(self.prob_means),
+            'prob_devs': array(self.prob_devs),
+            'bounded': self.bounded,
+            'a': self.a,
+            'z_lwr': self.z_lwr,
+            'z_upr': self.z_upr,
+            'max_attempts': self.max_attempts
         }
 
         if self.bounded:
@@ -2147,8 +2148,8 @@ class EnsembleSampler(object):
         savez(filename, **D)
 
     @classmethod
-    def load(cls, filename, posterior = None):
-        sampler = cls(posterior = posterior)
+    def load(cls, filename, posterior=None):
+        sampler = cls(posterior=posterior)
         D = load(filename)
 
         sampler.theta = D['theta']
@@ -2186,9 +2187,10 @@ def ESS(x):
     # remove reflected 2nd half
     f = f[:len(f)//2]
     # check that the first value is not negative
-    if f[0] < 0.: raise ValueError('First element of the autocorrelation is negative')
+    if f[0] < 0.:
+        raise ValueError('First element of the autocorrelation is negative')
     # cut to first negative value
-    f = f[:argmax(f<0.)]
+    f = f[:argmax(f < 0.)]
     # sum and normalise
     thin_factor = f.sum() / f[0]
     return int(len(x) / thin_factor)
