@@ -1,5 +1,5 @@
 
-from numpy import array, log, pi, zeros, concatenate, float64, piecewise, where
+from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
@@ -8,8 +8,23 @@ from itertools import chain
 # joint prior should know the full parameter set
 
 class JointPrior(object):
+    """
+    A class which combines multiple prior distribution objects into a single
+    joint-prior distribution object.
+
+    :param model_variables: \
+        An ordered list of strings identifying all parameters in the model. This list
+        is used to determine which elements of a vector of model parameters need to be
+        passed to the various prior distribution objects given in the 'components' list.
+        For this reason the n'th string in the list *must* correspond to the n'th model
+        parameter.
+
+    :param components: \
+        A list of prior distribution objects (e.g. GaussianPrior, ExponentialPrior)
+        which will be combined into a single joint-prior object.
+    """
     def __init__(self, model_variables, components):
-        if not all( isinstance(c, BasePrior) for c in components):
+        if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
                 """
                 All objects contained in the 'components' argument must be instances
@@ -24,7 +39,7 @@ class JointPrior(object):
             if len(L) == 1:
                 self.components.extend(L)
             elif len(L) > 1:
-                self.components.append( cls.combine(L) )
+                self.components.append(cls.combine(L))
 
         # check that no variable appears more than once across all prior components
         self.prior_variables = []
@@ -51,12 +66,12 @@ class JointPrior(object):
                 """
             )
 
-        self.model_variable_map = { var:i for i,var in enumerate(model_variables) }
-        self.variable_indices = [ [self.model_variable_map[v] for v in c.variables] for c in self.components]
+        self.model_variable_map = {var: i for i, var in enumerate(model_variables)}
+        self.variable_indices = [[self.model_variable_map[v] for v in c.variables] for c in self.components]
         self.n_variables = len(model_variables)
 
     def __call__(self, theta):
-        return sum( c(theta[i]) for c,i in zip(self.components, self.variable_indices) )
+        return sum(c(theta[i]) for c, i in zip(self.components, self.variable_indices))
 
     def gradient(self, theta):
         grad = zeros(self.n_variables)
@@ -101,12 +116,24 @@ class BasePrior(object):
 
 
 class GaussianPrior(BasePrior):
+    """
+    A class for generating a Gaussian prior for one or more of the model variables.
+
+    :param mean: \
+        A list specifying the means of the Gaussian priors on each variable.
+
+    :param sigma: \
+        A list specifying the standard deviations of the Gaussian priors on each variable.
+
+    :param variables: \
+        A list of strings specifying the names of the variables for which the priors are generated.
+    """
     def __init__(self, mean, sigma, variables):
 
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
 
-        # if parameters were passed as
+        # if parameters were passed as floats, convert from 0D to 1D arrays
         if self.mean.ndim == 0: self.mean = self.mean.reshape([1])
         if self.sigma.ndim == 0: self.sigma = self.sigma.reshape([1])
 
@@ -140,7 +167,7 @@ class GaussianPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all( type(p) is cls for p in priors ):
+        if not all(type(p) is cls for p in priors):
             raise ValueError(
                 f"""
                 All prior objects being combined must be of type {cls}
@@ -162,6 +189,15 @@ class GaussianPrior(BasePrior):
 
 
 class ExponentialPrior(BasePrior):
+    """
+    A class for generating an exponential prior for one or more of the model variables.
+
+    :param beta: \
+        A list specifying the 'beta' parameter value of the exponential priors on each variable.
+
+    :param variables: \
+        A list of strings specifying the names of the variables for which the priors are generated.
+    """
     def __init__(self, beta, variables):
 
         self.beta = array(beta, dtype=float64).squeeze()
@@ -182,20 +218,20 @@ class ExponentialPrior(BasePrior):
         self.zeros = zeros(self.n_params)
 
     def __call__(self, theta):
-        if (theta<0.).any():
+        if (theta < 0.).any():
             return -1e100
         else:
             return -(self.lam*theta).sum() + self.normalisation
 
     def gradient(self, theta):
-        return where(theta>=0., -self.lam, self.zeros)
+        return where(theta >= 0., -self.lam, self.zeros)
 
     def sample(self):
         return exponential(scale=self.beta)
 
     @classmethod
     def combine(cls, priors):
-        if not all( type(p) is cls for p in priors ):
+        if not all(type(p) is cls for p in priors):
             raise ValueError(
                 f"""
                 All prior objects being combined must be of type {cls}
@@ -215,10 +251,26 @@ class ExponentialPrior(BasePrior):
 
 
 class UniformPrior(BasePrior):
-    def __init__(self, lower, upper, variables):
+    """
+    A class for generating an exponential prior for one or more of the model variables.
 
+    :param lower: \
+        A list specifying the lower bound of the uniform priors on each variable.
+
+    :param upper: \
+        A list specifying the upper bound of the uniform priors on each variable.
+
+    :param variables: \
+        A list of strings specifying the names of the variables for which the priors are generated.
+    """
+    def __init__(self, lower, upper, variables):
         self.lower = array(lower).squeeze()
         self.upper = array(upper).squeeze()
+
+        # if parameters were passed as floats, convert from 0D to 1D arrays
+        self.lower = self.lower.reshape([1]) if self.lower.ndim == 0 else self.lower
+        self.upper = self.upper.reshape([1]) if self.upper.ndim == 0 else self.upper
+
         self.n_params = self.lower.size
         self.grad = zeros(self.n_params)
 
@@ -226,7 +278,7 @@ class UniformPrior(BasePrior):
             raise ValueError("""'lower' and 'upper' arguments must have the same number of elements""")
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError("""'lower' and 'upper' arguments must have either 0 or 1 dimensions""")
+            raise ValueError("""'lower' and 'upper' arguments must be 1D arrays""")
 
         if (self.upper <= self.lower).any():
             raise ValueError("""All values in 'lower' must be less than the corresponding values in 'upper'""")
@@ -247,4 +299,22 @@ class UniformPrior(BasePrior):
         return self.grad
 
     def sample(self):
-        return uniform(low=self.lower, high=self.upper)#, size=self.n_params)
+        return uniform(low=self.lower, high=self.upper)
+
+    @classmethod
+    def combine(cls, priors):
+        if not all(type(p) is cls for p in priors):
+            raise ValueError(
+                f"""
+                All prior objects being combined must be of type {cls}
+                """
+            )
+
+        variables = []
+        for p in priors:
+            variables.extend(p.variables)
+
+        lower = concatenate([p.lower for p in priors])
+        upper = concatenate([p.upper for p in priors])
+
+        return cls(lower=lower, upper=upper, variables=variables)
