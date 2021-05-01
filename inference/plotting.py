@@ -15,8 +15,8 @@ from matplotlib.colors import Normalize
 import matplotlib.patheffects as path_effects
 
 
-def matrix_plot(samples, labels = None, show = True, reference = None, filename = None, plot_style = 'contour',
-                colormap = 'Blues', show_ticks = None, point_colors = None, point_size = 1, label_size = 10):
+def matrix_plot(samples, labels=None, show=True, reference=None, filename=None, plot_style='contour',
+                colormap='Blues', show_ticks=None, point_colors=None, point_size=1, label_size=10):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
     1D and 2D marginal distributions.
@@ -59,7 +59,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     """
 
     N_par = len(samples)
-    if labels is None: # set default axis labels if none are given
+    if labels is None:  # set default axis labels if none are given
         if N_par >= 10:
             labels = ['p' + str(i) for i in range(N_par)]
         else:
@@ -83,7 +83,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
     L = 200
     cmap = get_cmap(colormap)
     # find the darker of the two ends of the colormap, and use it for the marginal plots
-    marginal_color = sorted([cmap(10), cmap(245)], key = lambda x : sum(x[:-1]))[0]
+    marginal_color = sorted([cmap(10), cmap(245)], key=lambda x: sum(x[:-1]))[0]
 
     # build axis arrays and determine limits for all variables
     axis_limits = []
@@ -114,7 +114,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
         if (j > 0) and (i != j):  # diagonal doesnt share y-axis
             y_share = axes[(i, 0)]
 
-        axes[tup] = plt.subplot2grid((N_par, N_par), (i, j), sharex = x_share, sharey = y_share)
+        axes[tup] = plt.subplot2grid((N_par, N_par), (i, j), sharex=x_share, sharey=y_share)
 
     # now loop over grid and plot
     for tup in inds_list:
@@ -124,60 +124,60 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
         if i == j:
             sample = samples[i]
             pdf = GaussianKDE(sample)
-            estimate = array( pdf(axis_arrays[i]) )
-            ax.plot(axis_arrays[i], 0.9*(estimate/estimate.max()), lw = 1, color = marginal_color)
-            ax.fill_between(axis_arrays[i], 0.9*(estimate/estimate.max()), color = marginal_color, alpha = 0.1)
+            estimate = array(pdf(axis_arrays[i]))
+            ax.plot(axis_arrays[i], 0.9*(estimate/estimate.max()), lw=1, color=marginal_color)
+            ax.fill_between(axis_arrays[i], 0.9*(estimate/estimate.max()), color=marginal_color, alpha=0.1)
             if reference is not None:
-                ax.plot([reference[i], reference[i]], [0, 1], lw = 1.5, ls = 'dashed', color = 'red')
+                ax.plot([reference[i], reference[i]], [0, 1], lw=1.5, ls='dashed', color='red')
             ax.set_ylim([0, 1])
         else:
             x = samples[j]
             y = samples[i]
 
             # plot the 2D marginals
-            if plot_style is 'contour':
+            if plot_style == 'contour':
                 # Filled contour plotting using 2D gaussian KDE
-                pdf = KDE2D(x = x, y = y)
+                pdf = KDE2D(x=x, y=y)
                 x_ax = axis_arrays[j][::4]
                 y_ax = axis_arrays[i][::4]
                 X, Y = meshgrid(x_ax, y_ax)
                 prob = array(pdf(X.flatten(), Y.flatten())).reshape([L//4, L//4])
                 ax.set_facecolor(cmap(256//20))
-                ax.contourf(X, Y, prob, 10, cmap = cmap)
-            elif plot_style is 'histogram':
+                ax.contourf(X, Y, prob, 10, cmap=cmap)
+            elif plot_style == 'histogram':
                 # hexagonal-bin histogram
                 ax.set_facecolor(cmap(0))
                 ax.hexbin(x, y, gridsize = 35, cmap = cmap)
             else:
                 # scatterplot
                 if point_colors is None:
-                    ax.scatter(x, y, color = marginal_color, s=point_size)
+                    ax.scatter(x, y, color=marginal_color, s=point_size)
                 else:
-                    ax.scatter(x, y, c = point_colors, s=point_size, cmap = cmap)
+                    ax.scatter(x, y, c=point_colors, s=point_size, cmap=cmap)
 
             # plot any reference points if given
             if reference is not None:
-                ax.plot(reference[j], reference[i], marker = 'o', markersize = 7,
-                        markerfacecolor = 'none', markeredgecolor = 'white', markeredgewidth = 3.5)
-                ax.plot(reference[j], reference[i], marker = 'o', markersize = 7,
-                        markerfacecolor = 'none', markeredgecolor = 'red', markeredgewidth = 2)
+                ax.plot(reference[j], reference[i], marker='o', markersize=7,
+                        markerfacecolor='none', markeredgecolor='white', markeredgewidth=3.5)
+                ax.plot(reference[j], reference[i], marker='o', markersize=7,
+                        markerfacecolor='none', markeredgecolor='red', markeredgewidth=2)
 
         # assign axis labels
-        if i == N_par - 1: ax.set_xlabel(labels[j], fontsize = label_size)
-        if j == 0 and i != 0: ax.set_ylabel(labels[i], fontsize = label_size)
+        if i == N_par - 1: ax.set_xlabel(labels[j], fontsize=label_size)
+        if j == 0 and i != 0: ax.set_ylabel(labels[i], fontsize=label_size)
         # impose x-limits on bottom row
         if i == N_par - 1: ax.set_xlim(axis_limits[j])
         # impose y-limits on left column, except the top-left corner
         if j == 0 and i != 0: ax.set_ylim(axis_limits[i])
 
-        if show_ticks: # set up ticks for the edge plots if they are to be shown
+        if show_ticks:  # set up ticks for the edge plots if they are to be shown
             # hide x-tick labels for plots not on the bottom row
             if (i < N_par - 1): plt.setp(ax.get_xticklabels(), visible=False)
             # hide y-tick labels for plots not in the left column
-            if j > 0: plt.setp(ax.get_yticklabels(), visible = False)
+            if j > 0: plt.setp(ax.get_yticklabels(), visible=False)
             # remove all y-ticks for 1D marginal plots on the diagonal
             if i == j: ax.set_yticks([])
-        else: # else remove all ticks from all axes
+        else:  # else remove all ticks from all axes
             ax.set_xticks([])
             ax.set_yticks([])
 
@@ -197,7 +197,7 @@ def matrix_plot(samples, labels = None, show = True, reference = None, filename 
 
 
 
-def trace_plot(samples, labels = None, show = True, filename = None):
+def trace_plot(samples, labels=None, show=True, filename=None):
     """
     Construct a 'trace plot' for a set of variables which displays the
     value of the variables as a function of step number in the chain.
@@ -239,12 +239,12 @@ def trace_plot(samples, labels = None, show = True, filename = None):
         if i==0 and j==0:
             axes[(i,j)] = plt.subplot2grid((m, n), (i, j))
         else:
-            axes[(i,j)] = plt.subplot2grid((m, n), (i, j), sharex = axes[(0,0)])
+            axes[(i,j)] = plt.subplot2grid((m, n), (i, j), sharex=axes[(0,0)])
 
-        axes[(i,j)].plot(s, '.', markersize = 4, alpha = 0.15, c = col)
+        axes[(i,j)].plot(s, '.', markersize=4, alpha=0.15, c=col)
         axes[(i,j)].set_ylabel(label)
         # get the 98% HDI to calculate plot limits, and 10% HDI to estimate the mode
-        lwr, upr = sample_hdi(s, fraction = 0.99)
+        lwr, upr = sample_hdi(s, fraction=0.99)
         mid = 0.5 * sum(sample_hdi(s, fraction=0.10))
         axes[(i,j)].set_ylim([lwr-(mid-lwr)*0.7, upr+(upr-mid)*0.7])
         # get the 10% HDI to estimate the mode
@@ -266,7 +266,7 @@ def trace_plot(samples, labels = None, show = True, filename = None):
 
 
 
-def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=None, label_intervals=True):
+def hdi_plot(x, sample, intervals=(0.65, 0.95), colormap='Blues', axis=None, label_intervals=True, color_levels=None):
     """
     Plot highest-density intervals for a given sample of model realisations.
 
@@ -290,6 +290,10 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
     :keyword bool label_intervals: \
         If ``True``, then labels will be assigned to each interval plot such that they appear
         in the legend when using ``matplotlib.pyplot.legend``.
+
+    :keyword color_levels: \
+        A list of integers in the range [0,255] which specify the color value within the chosen
+        color map to be used for each of the intervals.
     """
     # order the intervals from highest to lowest
     intervals = array(intervals)
@@ -297,7 +301,7 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
     intervals = intervals[::-1]
 
     # check that all the intervals are valid:
-    if not all( (intervals > 0.) & (intervals < 1.) ):
+    if not all((intervals > 0.) & (intervals < 1.)):
         raise ValueError('All intervals must be greater than 0 and less than 1')
 
     # check the sample data has compatible dimensions
@@ -312,14 +316,14 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
     s.sort(axis=0)
     n = s.shape[0]
 
-    # construct the colors for each interval
     cmap = get_cmap(colormap)
-    lwr = 0.2
-    upr = 0.8
-    colors = 1 - intervals
-    colors += lwr - colors.min()
-    colors *= upr/colors.max()
-    colors = [cmap(int(255*c)) for c in colors]
+    if color_levels is None:
+        # construct the colors for each interval
+        lwr = 0.20
+        upr = 1.0
+        color_levels = 255*((upr-lwr)*(1 - intervals) + lwr)
+
+    colors = [cmap(int(c)) for c in color_levels]
 
     # if not plotting axis is given, then use default pyplot
     if axis is None: axis = plt
@@ -342,7 +346,7 @@ def hdi_plot(x, sample, intervals=(0.35, 0.65, 0.95), colormap='Blues', axis=Non
             upr = s[-1,:]
 
         if label_intervals:
-            axis.fill_between(x, lwr, upr, color=col, label = '{}% HDI'.format(int(100*frac)))
+            axis.fill_between(x, lwr, upr, color=col, label='{}% HDI'.format(int(100*frac)))
         else:
             axis.fill_between(x, lwr, upr, color=col)
 
@@ -381,12 +385,12 @@ def transition_matrix_plot(ax=None, matrix=None, colormap='viridis', exclude_dia
     N = matrix.shape[0]
 
     if upper_triangular:
-        inds = [(i,j) for i in range(N) for j in range(N) if i<=j]
+        inds = [(i,j) for i in range(N) for j in range(N) if i <= j]
     else:
         inds = [(i,j) for i in range(N) for j in range(N)]
 
     if exclude_diagonal:
-        inds = [(i,j) for i,j in inds if i!=j]
+        inds = [(i,j) for i,j in inds if i != j]
 
     rectangles = [Rectangle((i+0.5, j+0.5), 1, 1) for i, j in inds]
 
