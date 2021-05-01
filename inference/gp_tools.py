@@ -274,13 +274,19 @@ class GpRegressor(object):
         number of dimensions). Alternatively, a list of array-like objects can be
         given, which will be converted to a ``ndarray`` internally.
 
-    :param y: The y-data values as a list or array of floats.
+    :param y: \
+        The y-data values as a 1D array.
 
     :param y_err: \
-        The error on the y-data values supplied as a list or array of floats.
+        The error on the y-data values supplied as a 1D array.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
+
+    :param y_cov: \
+        A covariance matrix representing the uncertainties on the y-data values.
+        This is an alternative to the 'y_err' keyword argument, allowing the
+        y-data covariance matrix to be specified directly.
 
     :param hyperpars: \
         An array specifying the hyper-parameter values to be used by the
@@ -308,8 +314,8 @@ class GpRegressor(object):
         Sets the number of processes used in optimizing the hyper-parameter values.
         Multiple processes are only used when the optimizer keyword is set to "bfgs".
     """
-    def __init__(self, x, y, y_err = None, hyperpars = None, kernel = SquaredExponential, mean = ConstantMean,
-                 cross_val = False, optimizer = 'bfgs', n_processes = 1):
+    def __init__(self, x, y, y_err=None, y_cov=None, hyperpars=None, kernel=SquaredExponential, mean=ConstantMean,
+                 cross_val=False, optimizer='bfgs', n_processes=1):
 
         # store the data
         self.x = array(x)
@@ -327,32 +333,20 @@ class GpRegressor(object):
             raise ValueError('The given number of x-data points does not match the number of y-data values')
 
         # build data errors covariance matrix
-        self.sig = zeros([self.N_points, self.N_points])
-        if y_err is not None:
-            if len(y) == len(y_err):
-                for i in range(len(self.y)):
-                    self.sig[i,i] = y_err[i]**2
-            else:
-                raise ValueError('y_err must be the same length as y')
+        self.sig = self.check_error_data(y_err, y_cov)
 
         # create an instance of the covariance function if only the class was passed
-        if isclass(kernel):
-            self.cov = kernel()
-        else:
-            self.cov = kernel
+        self.cov = kernel() if isclass(kernel) else kernel
 
         # create an instance of the mean function if only the class was passed
-        if isclass(mean):
-            self.mean = mean()
-        else:
-            self.mean = mean
+        self.mean = mean() if isclass(mean) else mean
 
         # pass the data to the mean and covariance functions for pre-calculations
         self.cov.pass_data(self.x, self.y)
         self.mean.pass_data(self.x, self.y)
         # collect the bounds on all the hyper-parameters
         self.hp_bounds = copy(self.mean.bounds)
-        self.hp_bounds.extend( copy(self.cov.bounds) )
+        self.hp_bounds.extend(copy(self.cov.bounds))
         # build slices to address the different parameter sets
         self.n_hyperpars = len(self.hp_bounds)
         self.mean_slice = slice(0, self.mean.n_params)
@@ -436,7 +430,81 @@ class GpRegressor(object):
         self.K_xx = self.cov.build_covariance(self.cov_hyperpars) + self.sig
         self.mu = self.mean.build_mean(self.mean_hyperpars)
         self.L = cholesky(self.K_xx)
-        self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y-self.mu, lower = True))
+        self.alpha = solve_triangular(self.L.T, solve_triangular(self.L, self.y-self.mu, lower=True))
+
+    def check_error_data(self, y_err, y_cov):
+        if y_cov is not None:
+            # if y_cov is given as a list or tuple, attempt conversion to an array
+            if any([type(y_cov) is t for t in [list, tuple]]):
+                y_err = array(y_cov).squeeze()
+            elif type(y_cov) is not ndarray:  # else if it isn't already an array raise an error
+                raise TypeError(
+                    """
+                    [ GpRegressor error ]
+                    The 'y_cov' keyword argument should be given as a numpy array:
+                    Expected type {} but type {} was given.
+                    """.format(ndarray, type(y_err))
+                )
+
+            # now check to make sure the given error array is a valid size
+            if y_cov.shape != (self.N_points, self.N_points):
+                raise ValueError(
+                    """
+                    [ GpRegressor error ]
+                    The 'y_cov' keyword argument was passed an array with an incorrect shape.
+                    'y_cov' must be a 2D array of shape (N,N), where 'N' is the number of given 
+                    y-data values.
+                    """
+                )
+
+            # check to make sure the given matrix is symmetric
+            if not (y_cov == y_cov.T).all():
+                raise ValueError(
+                    """
+                    [ GpRegressor error ]
+                    The covariance matrix passed to the 'y_cov' keyword argument is not symmetric.
+                    """
+                )
+            
+            # raise a warning if both keywords have been specified
+            if y_err is not None:
+                warn(
+                    """
+                    [ GpRegressor warning ]
+                    Only one of the 'y_err' and 'y_cov' keyword arguments should be specified.
+                    Only the input to 'y_cov' will be used, the input to 'y_err' will be ignored.
+                    """
+                )
+
+            return y_cov
+
+        elif y_err is not None:
+            # if y_err is given as a list or tuple, attempt conversion to an array
+            if any([type(y_err) is t for t in [list, tuple]]):
+                y_err = array(y_err).squeeze()
+            elif type(y_err) is not ndarray:  # else if it isn't already an array raise an error
+                raise TypeError(
+                    """
+                    [ GpRegressor error ]
+                    The 'y_err' keyword argument should be given as a numpy array:
+                    Expected type {} but type {} was given.
+                    """.format(ndarray, type(y_err))
+                )
+
+            # now check to make sure the given error array is a valid size
+            if y_err.shape != (self.N_points,):
+                raise ValueError(
+                    """
+                    [ GpRegressor error ]
+                    The 'y_err' keyword argument was passed an array with an incorrect shape.
+                    'y_err' must be a 1D array of length N, where 'N' is the number of given 
+                    y-data values.
+                    """
+                )
+
+            return diag(y_err**2)
+        else:
+            return zeros([self.N_points, self.N_points])
 
     def process_points(self, points):
         if type(points) is ndarray:
@@ -446,7 +514,7 @@ class GpRegressor(object):
 
         m = len(x.shape)
         if self.N_dimensions == 1:
-            if m == 0: # the case when given a float
+            if m == 0:  # the case when given a float
                 x = x.reshape([1,1])
             elif m == 1:
                 x = x.reshape([x.shape[0],1])
