@@ -3,10 +3,6 @@ from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
-# individual prior components are given only the parameters they act on
-# individual prior components shouldnt know anything about overall parameter set
-# joint prior should know the full parameter set
-
 class JointPrior(object):
     """
     A class which combines multiple prior distribution objects into a single
@@ -34,7 +30,7 @@ class JointPrior(object):
 
         # Combine any prior components which are of the same type
         self.components = []
-        for cls in [GaussianPrior, ExponentialPrior]:
+        for cls in [GaussianPrior, ExponentialPrior, UniformPrior]:
             L = [c for c in components if isinstance(c, cls)]
             if len(L) == 1:
                 self.components.extend(L)
@@ -71,15 +67,42 @@ class JointPrior(object):
         self.n_variables = len(model_variables)
 
     def __call__(self, theta):
+        """
+        Returns the joint-prior log-probability value, calculated as the sum
+        of the log-probabilities from each prior component for the provided
+        set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The prior log-probability value.
+        """
         return sum(c(theta[i]) for c, i in zip(self.components, self.variable_indices))
 
     def gradient(self, theta):
+        """
+        Returns the gradient of the prior log-probability with respect to the model
+        parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the prior log-probability with respect to the model parameters.
+        """
         grad = zeros(self.n_variables)
         for c,i in zip(self.components, self.variable_indices):
             grad[i] = c.gradient(theta[i])
         return grad
 
     def sample(self):
+        """
+        Draws a sample from the prior.
+
+        :returns: \
+            A single sample from the prior distribution as a 1D numpy array.
+        """
         sample = zeros(self.n_variables)
         for c,i in zip(self.components, self.variable_indices):
             sample[i] = c.sample()
@@ -156,13 +179,38 @@ class GaussianPrior(BasePrior):
         self.normalisation = -log(self.sigma).sum() - 0.5*log(2*pi)*self.n_params
 
     def __call__(self, theta):
+        """
+        Returns the prior log-probability value for the provided set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The prior log-probability value.
+        """
         z = (self.mean-theta)*self.inv_sigma
         return -0.5*(z**2).sum() + self.normalisation
 
     def gradient(self, theta):
+        """
+        Returns the gradient of the prior log-probability with respect to the model
+        parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the prior log-probability with respect to the model parameters.
+        """
         return (self.mean-theta)*self.inv_sigma_sqr
 
     def sample(self):
+        """
+        Draws a sample from the prior.
+
+        :returns: \
+            A single sample from the prior distribution as a 1D numpy array.
+        """
         return normal(loc=self.mean, scale=self.sigma)
 
     @classmethod
@@ -218,15 +266,40 @@ class ExponentialPrior(BasePrior):
         self.zeros = zeros(self.n_params)
 
     def __call__(self, theta):
+        """
+        Returns the prior log-probability value for the provided set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The prior log-probability value.
+        """
         if (theta < 0.).any():
             return -1e100
         else:
             return -(self.lam*theta).sum() + self.normalisation
 
     def gradient(self, theta):
+        """
+        Returns the gradient of the prior log-probability with respect to the model
+        parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the prior log-probability with respect to the model parameters.
+        """
         return where(theta >= 0., -self.lam, self.zeros)
 
     def sample(self):
+        """
+        Draws a sample from the prior.
+
+        :returns: \
+            A single sample from the prior distribution as a 1D numpy array.
+        """
         return exponential(scale=self.beta)
 
     @classmethod
@@ -289,6 +362,15 @@ class UniformPrior(BasePrior):
         self.normalisation = -log(self.upper-self.lower).sum()
 
     def __call__(self, theta):
+        """
+        Returns the prior log-probability value for the provided set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The prior log-probability value.
+        """
         inside = (self.lower <= theta) & (theta <= self.upper)
         if inside.all():
             return self.normalisation
@@ -296,9 +378,25 @@ class UniformPrior(BasePrior):
             return -1e100
 
     def gradient(self, theta):
+        """
+        Returns the gradient of the prior log-probability with respect to the model
+        parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the prior log-probability with respect to the model parameters.
+        """
         return self.grad
 
     def sample(self):
+        """
+        Draws a sample from the prior.
+
+        :returns: \
+            A single sample from the prior distribution as a 1D numpy array.
+        """
         return uniform(low=self.lower, high=self.upper)
 
     @classmethod
