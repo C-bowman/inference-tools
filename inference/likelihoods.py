@@ -2,46 +2,7 @@
 from numpy import array, log, exp, pi, sqrt
 
 
-
-class JointLikelihood(object):
-    def __init__(self, components):
-        self.components = components
-
-    def __call__(self, theta):
-        return sum( c(theta) for c in self.components )
-
-    def gradient(self, theta):
-        return sum( c.gradient(theta) for c in self.components )
-
-    def __add__(self, other):
-        if isinstance(other, JointLikelihood):
-            new = JointLikelihood(self.components)
-            new.components.extend(other.components)
-            return new
-        elif isinstance(other, BaseLikelihood):
-            new = JointLikelihood(self.components)
-            new.components.append(other)
-            return new
-        else:
-            new.components.append(other)
-        return new
-
-
-
-
-class BaseLikelihood(object):
-    def __add__(self, other):
-        if type(other) is JointDistribution:
-            new = JointDistribution(other.components)
-            new.components.append(self)
-        else:
-            new = JointDistribution([self, other])
-        return new
-
-
-
-
-class GaussianLikelihood(BaseLikelihood):
+class GaussianLikelihood(object):
     """
     :param y_data: \
         The measured data as a 1D array.
@@ -50,12 +11,26 @@ class GaussianLikelihood(BaseLikelihood):
         The standard deviations corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
-        
+        A callable object which returns a prediction of the y_data values when passed an
+        array of model parameters.
+
+    :keyword callable forward_model_gradient: \
+        A callable object which returns the derivative of the predictions of each y_data
+        value with respect to each model parameter as a 2D numpy array, such that element
+        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
+        with respect to the j'th model parameter.
     """
-    def __init__(self, y_data, sigma, forward_model):
+    def __init__(self, y_data, sigma, forward_model, forward_model_gradient=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
+
+        if forward_model_gradient is None:
+            self.model_gradient = gradient_not_given
+        elif hasattr(forward_model_gradient, '__call__'):
+            self.model_gradient = forward_model_gradient
+        else:
+            raise AttributeError('Given forward_model_gradient object must be callable')
 
         self.y = array(y_data).squeeze()
         self.sigma = array(sigma).squeeze()
@@ -77,20 +52,43 @@ class GaussianLikelihood(BaseLikelihood):
         self.normalisation = -log(self.sigma).sum() - 0.5*log(2*pi)*self.n_data
 
     def __call__(self, theta):
+        """
+        Returns the log-likelihood value for the given set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The log-likelihood value.
+        """
         prediction = self.model(theta)
         z = (self.y-prediction)*self.inv_sigma
         return -0.5*(z**2).sum() + self.normalisation
 
     def gradient(self, theta):
+        """
+        Returns the gradient of log-likelihood with respect to model parameters.
+
+        Using this method requires that the `forward_model_gradient` keyword argument
+        was specified when the instance of `GaussianLikelihood` was created.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the log-likelihood as a 1D numpy array.
+        """
         prediction = self.model(theta)
-        dF_dt = self.model.gradient(theta)
+        dF_dt = self.model_gradient(theta)
         dL_dF = (self.y-prediction)*self.inv_sigma_sqr
-        return dF_dt.dot(dL_dF)
+        return dL_dF.dot(dF_dt)
 
 
 
 
-class CauchyLikelihood(BaseLikelihood):
+
+
+class CauchyLikelihood(object):
     """
     :param y_data: \
         The measured data as a 1D array.
@@ -99,13 +97,26 @@ class CauchyLikelihood(BaseLikelihood):
         The uncertainties corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
+        A callable object which returns a prediction of the y_data values when passed an
+        array of model parameters.
 
+    :keyword callable forward_model_gradient: \
+        A callable object which returns the derivative of the predictions of each y_data
+        value with respect to each model parameter as a 2D numpy array, such that element
+        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
+        with respect to the j'th model parameter.
     """
-
-    def __init__(self, y_data, gamma, forward_model):
+    def __init__(self, y_data, gamma, forward_model, forward_model_gradient=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
+
+        if forward_model_gradient is None:
+            self.model_gradient = gradient_not_given
+        elif hasattr(forward_model_gradient, '__call__'):
+            self.model_gradient = forward_model_gradient
+        else:
+            raise AttributeError('Given forward_model_gradient object must be callable')
 
         self.y = array(y_data).squeeze()
         self.gamma = array(gamma).squeeze()
@@ -126,23 +137,44 @@ class CauchyLikelihood(BaseLikelihood):
         self.normalisation = -log(pi*self.gamma).sum()
 
     def __call__(self, theta):
+        """
+        Returns the log-likelihood value for the given set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The log-likelihood value.
+        """
         prediction = self.model(theta)
         z = (self.y - prediction)*self.inv_gamma
         return -log(1 + z**2).sum() + self.normalisation
 
     def gradient(self, theta):
+        """
+        Returns the gradient of log-likelihood with respect to model parameters.
+
+        Using this method requires that the `forward_model_gradient` keyword argument
+        was specified when the instance of `CauchyLikelihood` was created.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the log-likelihood as a 1D numpy array.
+        """
         prediction = self.model(theta)
-        dF_dt = self.model.gradient(theta)
+        dF_dt = self.model_gradient(theta)
         z = (self.y - prediction)*self.inv_gamma
-        dL_dF = -2*self.inv_gamma*z / (1 + z**2)
-        return dF_dt.dot(dL_dF)
+        dL_dF = 2*self.inv_gamma*z / (1 + z**2)
+        return dL_dF.dot(dF_dt)
 
 
 
 
 
 
-class LogisticLikelihood(BaseLikelihood):
+class LogisticLikelihood(object):
     """
     :param y_data: \
         The measured data as a 1D array.
@@ -151,12 +183,26 @@ class LogisticLikelihood(BaseLikelihood):
         The uncertainties corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
+        A callable object which returns a prediction of the y_data values when passed an
+        array of model parameters.
 
+    :keyword callable forward_model_gradient: \
+        A callable object which returns the derivative of the predictions of each y_data
+        value with respect to each model parameter as a 2D numpy array, such that element
+        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
+        with respect to the j'th model parameter.
     """
-    def __init__(self, y_data, sigma, forward_model):
+    def __init__(self, y_data, sigma, forward_model, forward_model_gradient=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
+
+        if forward_model_gradient is None:
+            self.model_gradient = gradient_not_given
+        elif hasattr(forward_model_gradient, '__call__'):
+            self.model_gradient = forward_model_gradient
+        else:
+            raise AttributeError('Given forward_model_gradient object must be callable')
 
         self.y = array(y_data).squeeze()
         self.sigma = array(sigma).squeeze()
@@ -178,13 +224,48 @@ class LogisticLikelihood(BaseLikelihood):
         self.normalisation = -log(self.scale).sum()
 
     def __call__(self, theta):
+        """
+        Returns the log-likelihood value for the given set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The log-likelihood value.
+        """
         prediction = self.model(theta)
         z = (self.y - prediction)*self.inv_scale
         return z.sum() - 2*log(1 + exp(z)).sum() + self.normalisation
 
     def gradient(self, theta):
+        """
+        Returns the gradient of log-likelihood with respect to model parameters.
+
+        Using this method requires that the `forward_model_gradient` keyword argument
+        was specified when the instance of `LogisticLikelihood` was created.
+
+        :param theta: \
+            The model parameters as a 1D numpy array.
+
+        :returns: \
+            The gradient of the log-likelihood as a 1D numpy array.
+        """
         prediction = self.model(theta)
-        dF_dt = self.model.gradient(theta)
+        dF_dt = self.model_gradient(theta)
         z = (self.y - prediction)*self.inv_scale
         dL_dF = (2 / (1 + exp(-z)) - 1)*self.inv_scale
-        return dF_dt.dot(dL_dF)
+        return dL_dF.dot(dF_dt)
+
+
+
+
+
+
+def gradient_not_given(theta):
+    raise ValueError(
+        """
+        he gradient() method of a likelihood class instance was called, however
+        the forward_model_gradient keyword argument was not specified when instance 
+        was created.
+        """
+    )
