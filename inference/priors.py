@@ -8,18 +8,14 @@ class JointPrior(object):
     A class which combines multiple prior distribution objects into a single
     joint-prior distribution object.
 
-    :param model_variables: \
-        An ordered list of strings identifying all parameters in the model. This list
-        is used to determine which elements of a vector of model parameters need to be
-        passed to the various prior distribution objects given in the 'components' list.
-        For this reason the n'th string in the list *must* correspond to the n'th model
-        parameter.
-
     :param components: \
         A list of prior distribution objects (e.g. GaussianPrior, ExponentialPrior)
         which will be combined into a single joint-prior object.
+
+    :param int n_variables: \
+        The total number of model variables.
     """
-    def __init__(self, model_variables, components):
+    def __init__(self, components, n_variables):
         if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
                 """
@@ -43,28 +39,23 @@ class JointPrior(object):
             if var not in self.prior_variables:
                 self.prior_variables.append(var)
             else:
-                raise ValueError("""Variable identifier string '{}' appears more than once in prior components""".format(var))
+                raise ValueError("""Variable index '{}' appears more than once in prior components""".format(var))
 
-        # check that model_variables is a list of strings as expected
-        if type(model_variables) is not list or not all( type(var) is str for var in model_variables):
-            raise ValueError("""'model_variables' argument must be a list of strings""")
-
-        # make sure model_variables contains no duplicates
-        if len(model_variables) != len(set(model_variables)):
-            raise ValueError("""All strings given in 'model_variables' must be unique - one or more of the strings given were duplicates""")
-
-        # ensure that all strings given to the prior components are present in model_variables
-        if not set(self.prior_variables).issubset(set(model_variables)):
+        if len(self.prior_variables) != n_variables:
             raise ValueError(
                 """
-                All variable identifier strings given to the various components of the prior must
-                be a sub-set of those listed in the model_variables argument.
-                """
-            )
+                The total number of variables specified across the various prior components ({})
+                does not match the number specified in the 'n_variables' argument ({}).
+                """.format(len(self.prior_variables), n_variables))
 
-        self.model_variable_map = {var: i for i, var in enumerate(model_variables)}
-        self.variable_indices = [[self.model_variable_map[v] for v in c.variables] for c in self.components]
-        self.n_variables = len(model_variables)
+        if not all(0 <= i < n_variables for i in self.prior_variables):
+            raise ValueError(
+                """
+                All variable indices given to the prior components must have values 
+                in the range [0, n_variables-1].
+                """)
+
+        self.n_variables = n_variables
 
     def __call__(self, theta):
         """
@@ -78,7 +69,7 @@ class JointPrior(object):
         :returns: \
             The prior log-probability value.
         """
-        return sum(c(theta[i]) for c, i in zip(self.components, self.variable_indices))
+        return sum(c(theta) for c in self.components)
 
     def gradient(self, theta):
         """
@@ -92,8 +83,8 @@ class JointPrior(object):
             The gradient of the prior log-probability with respect to the model parameters.
         """
         grad = zeros(self.n_variables)
-        for c,i in zip(self.components, self.variable_indices):
-            grad[i] = c.gradient(theta[i])
+        for c in self.components:
+            grad[c.variables] = c.gradient(theta)
         return grad
 
     def sample(self):
@@ -104,8 +95,8 @@ class JointPrior(object):
             A single sample from the prior distribution as a 1D numpy array.
         """
         sample = zeros(self.n_variables)
-        for c,i in zip(self.components, self.variable_indices):
-            sample[i] = c.sample()
+        for c in self.components:
+            sample[c.variables] = c.sample()
         return sample
 
 
@@ -115,23 +106,32 @@ class JointPrior(object):
 
 class BasePrior(object):
     @staticmethod
-    def check_variables(variables, n_vars):
-        if type(variables) is str:
+    def check_variables(variable_inds, n_vars):
+        if type(variable_inds) is int:
             if n_vars == 1:
-                return [variables]
+                return [variable_inds]
             else:
                 raise ValueError(
                     """
-                    The total number of variables specified via the 'variables' argument is inconsistent
-                    with the number specified by the other arguments.
+                    The total number of variables specified via the 'variable_indices' argument is
+                    inconsistent with the number specified by the other arguments.
                     """
                 )
 
-        elif type(variables) is list and all(type(p) is str for p in variables):
-            return variables
+        elif type(variable_inds) is not list or not all(type(p) is int for p in variable_inds):
+            raise TypeError('The "variables" argument must be an integer or list of integers')
 
-        else:
-            raise TypeError('The "variables" argument must be an string or list of strings')
+        if len(variable_inds) != len(set(variable_inds)):
+            raise ValueError(
+                """
+                All integers given via the 'variable_indices' must be unique.
+                Two or more of the given integers are duplicates.
+                """
+            )
+
+        return variable_inds
+
+
 
 
 
@@ -148,10 +148,10 @@ class GaussianPrior(BasePrior):
     :param sigma: \
         A list specifying the standard deviations of the Gaussian priors on each variable.
 
-    :param variables: \
-        A list of strings specifying the names of the variables for which the priors are generated.
+    :param variable_indices: \
+        A list of integers specifying the indices of the variables to which the prior will apply.
     """
-    def __init__(self, mean, sigma, variables):
+    def __init__(self, mean, sigma, variable_indices):
 
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
@@ -171,7 +171,7 @@ class GaussianPrior(BasePrior):
         if not (self.sigma > 0.).all():
             raise ValueError('All values of "sigma" must be greater than zero')
 
-        self.variables = self.check_variables(variables, self.n_params)
+        self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
         self.inv_sigma = 1./self.sigma
@@ -188,7 +188,7 @@ class GaussianPrior(BasePrior):
         :returns: \
             The prior log-probability value.
         """
-        z = (self.mean-theta)*self.inv_sigma
+        z = (self.mean-theta[self.variables])*self.inv_sigma
         return -0.5*(z**2).sum() + self.normalisation
 
     def gradient(self, theta):
@@ -202,7 +202,7 @@ class GaussianPrior(BasePrior):
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
         """
-        return (self.mean-theta)*self.inv_sigma_sqr
+        return (self.mean-theta[self.variables])*self.inv_sigma_sqr
 
     def sample(self):
         """
@@ -229,7 +229,7 @@ class GaussianPrior(BasePrior):
         means = concatenate([p.mean for p in priors])
         sigmas = concatenate([p.sigma for p in priors])
 
-        return cls(mean=means, sigma=sigmas, variables=variables)
+        return cls(mean=means, sigma=sigmas, variable_indices=variables)
 
 
 
@@ -243,10 +243,10 @@ class ExponentialPrior(BasePrior):
     :param beta: \
         A list specifying the 'beta' parameter value of the exponential priors on each variable.
 
-    :param variables: \
-        A list of strings specifying the names of the variables for which the priors are generated.
+    :param variable_indices: \
+        A list of integers specifying the indices of the variables to which the prior will apply.
     """
-    def __init__(self, beta, variables):
+    def __init__(self, beta, variable_indices):
 
         self.beta = array(beta, dtype=float64).squeeze()
         if self.beta.ndim == 0: self.beta = self.beta.reshape([1])
@@ -258,7 +258,7 @@ class ExponentialPrior(BasePrior):
         if not (self.beta > 0.).all():
             raise ValueError('All values of "beta" must be greater than zero')
 
-        self.variables = self.check_variables(variables, self.n_params)
+        self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
         self.lam = 1./self.beta
@@ -278,7 +278,7 @@ class ExponentialPrior(BasePrior):
         if (theta < 0.).any():
             return -1e100
         else:
-            return -(self.lam*theta).sum() + self.normalisation
+            return -(self.lam*theta[self.variables]).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -291,7 +291,7 @@ class ExponentialPrior(BasePrior):
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
         """
-        return where(theta >= 0., -self.lam, self.zeros)
+        return where(theta[self.variables] >= 0., -self.lam, self.zeros)
 
     def sample(self):
         """
@@ -316,7 +316,7 @@ class ExponentialPrior(BasePrior):
             variables.extend(p.variables)
 
         betas = concatenate([p.beta for p in priors])
-        return cls(beta=betas, variables=variables)
+        return cls(beta=betas, variable_indices=variables)
 
 
 
@@ -325,7 +325,7 @@ class ExponentialPrior(BasePrior):
 
 class UniformPrior(BasePrior):
     """
-    A class for generating an exponential prior for one or more of the model variables.
+    A class for generating a uniform prior for one or more of the model variables.
 
     :param lower: \
         A list specifying the lower bound of the uniform priors on each variable.
@@ -333,10 +333,10 @@ class UniformPrior(BasePrior):
     :param upper: \
         A list specifying the upper bound of the uniform priors on each variable.
 
-    :param variables: \
-        A list of strings specifying the names of the variables for which the priors are generated.
+    :param variable_indices: \
+        A list of integers specifying the indices of the variables to which the prior will apply.
     """
-    def __init__(self, lower, upper, variables):
+    def __init__(self, lower, upper, variable_indices):
         self.lower = array(lower).squeeze()
         self.upper = array(upper).squeeze()
 
@@ -356,7 +356,7 @@ class UniformPrior(BasePrior):
         if (self.upper <= self.lower).any():
             raise ValueError("""All values in 'lower' must be less than the corresponding values in 'upper'""")
 
-        self.variables = self.check_variables(variables, self.n_params)
+        self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
         self.normalisation = -log(self.upper-self.lower).sum()
@@ -371,7 +371,8 @@ class UniformPrior(BasePrior):
         :returns: \
             The prior log-probability value.
         """
-        inside = (self.lower <= theta) & (theta <= self.upper)
+        t = theta[self.variables]
+        inside = (self.lower <= t) & (t <= self.upper)
         if inside.all():
             return self.normalisation
         else:
@@ -415,4 +416,4 @@ class UniformPrior(BasePrior):
         lower = concatenate([p.lower for p in priors])
         upper = concatenate([p.upper for p in priors])
 
-        return cls(lower=lower, upper=upper, variables=variables)
+        return cls(lower=lower, upper=upper, variable_indices=variables)
