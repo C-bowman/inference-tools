@@ -11,26 +11,29 @@ class GaussianLikelihood(object):
         The standard deviations corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
-        A callable object which returns a prediction of the y_data values when passed an
-        array of model parameters.
+        A callable which returns a prediction of the y_data values when passed an
+        array of model parameter values.
 
-    :keyword callable forward_model_gradient: \
-        A callable object which returns the derivative of the predictions of each y_data
-        value with respect to each model parameter as a 2D numpy array, such that element
-        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
-        with respect to the j'th model parameter.
+    :keyword callable forward_model_jacobian: \
+        A callable which returns the Jacobian of the forward-model when passed an array of model
+        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
+        of each y_data value with respect to each model parameter, such that element (i,j) of the
+        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
+        the j'th model parameter.
     """
-    def __init__(self, y_data, sigma, forward_model, forward_model_gradient=None):
+    def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
 
-        if forward_model_gradient is None:
-            self.model_gradient = gradient_not_given
-        elif hasattr(forward_model_gradient, '__call__'):
-            self.model_gradient = forward_model_gradient
+        if forward_model_jacobian is None:
+            self.model_jacobian = jacobian_not_given
+            self.gradient_available = False
+        elif hasattr(forward_model_jacobian, '__call__'):
+            self.model_jacobian = forward_model_jacobian
+            self.gradient_available = True
         else:
-            raise AttributeError('Given forward_model_gradient object must be callable')
+            raise AttributeError('Given forward_model_jacobian object must be callable')
 
         self.y = array(y_data).squeeze()
         self.sigma = array(sigma).squeeze()
@@ -69,7 +72,7 @@ class GaussianLikelihood(object):
         """
         Returns the gradient of log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_gradient` keyword argument
+        Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `GaussianLikelihood` was created.
 
         :param theta: \
@@ -79,7 +82,7 @@ class GaussianLikelihood(object):
             The gradient of the log-likelihood as a 1D numpy array.
         """
         prediction = self.model(theta)
-        dF_dt = self.model_gradient(theta)
+        dF_dt = self.model_jacobian(theta)
         dL_dF = (self.y-prediction)*self.inv_sigma_sqr
         return dL_dF.dot(dF_dt)
 
@@ -97,26 +100,29 @@ class CauchyLikelihood(object):
         The uncertainties corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
-        A callable object which returns a prediction of the y_data values when passed an
-        array of model parameters.
+        A callable which returns a prediction of the y_data values when passed an
+        array of model parameter values.
 
-    :keyword callable forward_model_gradient: \
-        A callable object which returns the derivative of the predictions of each y_data
-        value with respect to each model parameter as a 2D numpy array, such that element
-        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
-        with respect to the j'th model parameter.
+    :keyword callable forward_model_jacobian: \
+        A callable which returns the Jacobian of the forward-model when passed an array of model
+        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
+        of each y_data value with respect to each model parameter, such that element (i,j) of the
+        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
+        the j'th model parameter.
     """
-    def __init__(self, y_data, gamma, forward_model, forward_model_gradient=None):
+    def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
 
-        if forward_model_gradient is None:
-            self.model_gradient = gradient_not_given
-        elif hasattr(forward_model_gradient, '__call__'):
-            self.model_gradient = forward_model_gradient
+        if forward_model_jacobian is None:
+            self.model_jacobian = jacobian_not_given
+            self.gradient_available = False
+        elif hasattr(forward_model_jacobian, '__call__'):
+            self.model_jacobian = forward_model_jacobian
+            self.gradient_available = True
         else:
-            raise AttributeError('Given forward_model_gradient object must be callable')
+            raise AttributeError('Given forward_model_jacobian object must be callable')
 
         self.y = array(y_data).squeeze()
         self.gamma = array(gamma).squeeze()
@@ -154,7 +160,7 @@ class CauchyLikelihood(object):
         """
         Returns the gradient of log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_gradient` keyword argument
+        Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `CauchyLikelihood` was created.
 
         :param theta: \
@@ -164,7 +170,7 @@ class CauchyLikelihood(object):
             The gradient of the log-likelihood as a 1D numpy array.
         """
         prediction = self.model(theta)
-        dF_dt = self.model_gradient(theta)
+        dF_dt = self.model_jacobian(theta)
         z = (self.y - prediction)*self.inv_gamma
         dL_dF = 2*self.inv_gamma*z / (1 + z**2)
         return dL_dF.dot(dF_dt)
@@ -183,26 +189,29 @@ class LogisticLikelihood(object):
         The uncertainties corresponding to each element in y_data as a 1D array.
 
     :param callable forward_model: \
-        A callable object which returns a prediction of the y_data values when passed an
-        array of model parameters.
+        A callable which returns a prediction of the y_data values when passed an
+        array of model parameter values.
 
-    :keyword callable forward_model_gradient: \
-        A callable object which returns the derivative of the predictions of each y_data
-        value with respect to each model parameter as a 2D numpy array, such that element
-        (i,j) of the array corresponds to the derivative of the i'th y_data value prediction
-        with respect to the j'th model parameter.
+    :keyword callable forward_model_jacobian: \
+        A callable which returns the Jacobian of the forward-model when passed an array of model
+        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
+        of each y_data value with respect to each model parameter, such that element (i,j) of the
+        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
+        the j'th model parameter.
     """
-    def __init__(self, y_data, sigma, forward_model, forward_model_gradient=None):
+    def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
 
         if not hasattr(forward_model, '__call__'):
             raise AttributeError('Given forward_model object must be callable')
 
-        if forward_model_gradient is None:
-            self.model_gradient = gradient_not_given
-        elif hasattr(forward_model_gradient, '__call__'):
-            self.model_gradient = forward_model_gradient
+        if forward_model_jacobian is None:
+            self.model_jacobian = jacobian_not_given
+            self.gradient_available = False
+        elif hasattr(forward_model_jacobian, '__call__'):
+            self.model_jacobian = forward_model_jacobian
+            self.gradient_available = True
         else:
-            raise AttributeError('Given forward_model_gradient object must be callable')
+            raise AttributeError('Given forward_model_jacobian object must be callable')
 
         self.y = array(y_data).squeeze()
         self.sigma = array(sigma).squeeze()
@@ -241,7 +250,7 @@ class LogisticLikelihood(object):
         """
         Returns the gradient of log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_gradient` keyword argument
+        Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `LogisticLikelihood` was created.
 
         :param theta: \
@@ -251,7 +260,7 @@ class LogisticLikelihood(object):
             The gradient of the log-likelihood as a 1D numpy array.
         """
         prediction = self.model(theta)
-        dF_dt = self.model_gradient(theta)
+        dF_dt = self.model_jacobian(theta)
         z = (self.y - prediction)*self.inv_scale
         dL_dF = (2 / (1 + exp(-z)) - 1)*self.inv_scale
         return dL_dF.dot(dF_dt)
@@ -261,11 +270,11 @@ class LogisticLikelihood(object):
 
 
 
-def gradient_not_given(theta):
+def jacobian_not_given(*args):
     raise ValueError(
         """
-        he gradient() method of a likelihood class instance was called, however
-        the forward_model_gradient keyword argument was not specified when instance 
+        The gradient() method of a likelihood class instance was called, however
+        the forward_model_jacobian keyword argument was not specified when instance 
         was created.
         """
     )

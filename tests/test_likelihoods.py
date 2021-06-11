@@ -37,7 +37,7 @@ class TestingModel(object):
         A, k, f = theta
         return A*exp(-k*self.x)*sin(f*self.x)
 
-    def gradient(self, theta):
+    def jacobian(self, theta):
         A, k, f = theta
         partials = zeros([self.N_data, self.N_params])
         exp_term = exp(-k*self.x)
@@ -62,7 +62,7 @@ class test_likelihoods(unittest.TestCase):
         model = TestingModel()
         y, sigma = model.generate_test_data([10., 0.2, 2.], error=1.5)
 
-        GL = GaussianLikelihood(y_data=y, sigma=sigma, forward_model=model.forward, forward_model_gradient=model.gradient)
+        GL = GaussianLikelihood(y_data=y, sigma=sigma, forward_model=model.forward, forward_model_jacobian=model.jacobian)
 
         test_point = array([12., 0.25, 1.4])
         test_likelihood = GL(test_point)
@@ -75,7 +75,7 @@ class test_likelihoods(unittest.TestCase):
         model = TestingModel()
         y, sigma = model.generate_test_data([10., 0.2, 2.], error=1.5)
 
-        CL = CauchyLikelihood(y_data=y, gamma=sigma, forward_model=model.forward, forward_model_gradient=model.gradient)
+        CL = CauchyLikelihood(y_data=y, gamma=sigma, forward_model=model.forward, forward_model_jacobian=model.jacobian)
 
         test_point = array([12., 0.25, 1.4])
         test_likelihood = CL(test_point)
@@ -88,7 +88,7 @@ class test_likelihoods(unittest.TestCase):
         model = TestingModel()
         y, sigma = model.generate_test_data([10., 0.2, 2.], error=1.5)
 
-        LL = LogisticLikelihood(y_data=y, sigma=sigma, forward_model=model.forward, forward_model_gradient=model.gradient)
+        LL = LogisticLikelihood(y_data=y, sigma=sigma, forward_model=model.forward, forward_model_jacobian=model.jacobian)
 
         test_point = array([12., 0.25, 1.4])
         test_likelihood = LL(test_point)
