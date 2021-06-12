@@ -84,9 +84,12 @@ class test_priors(unittest.TestCase):
         assert allclose(analytic_gradient, numeric_gradient)
 
     def test_JointPrior(self):
-        P1 = ExponentialPrior(beta=10, variable_indices=[0])
-        P2 = GaussianPrior(mean=20, sigma=2, variable_indices=[1])
+        P1 = ExponentialPrior(beta=10, variable_indices=[1])
+        P2 = GaussianPrior(mean=20, sigma=2, variable_indices=[0])
         P3 = UniformPrior(lower=8, upper=16, variable_indices=[2])
         JP = JointPrior(components=[P1, P2, P3], n_variables=3)
         test_point = array([4., 23., 12.])
         test_point_log_prob = JP(test_point)
+        analytic_gradient = JP.gradient(test_point)
+        numeric_gradient = finite_difference(func=JP, x0=test_point, vectorised_arguments=True)
+        assert allclose(analytic_gradient, numeric_gradient)

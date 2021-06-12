@@ -57,6 +57,12 @@ class JointPrior(object):
 
         self.n_variables = n_variables
 
+        all_bounds = chain(*[c.bounds for c in self.components])
+        all_inds = chain(*[c.variables for c in self.components])
+        both = sorted([(b,i) for b,i in zip(all_bounds, all_inds)], key=lambda x: x[1])
+        self.bounds = [v[0] for v in both]
+
+
     def __call__(self, theta):
         """
         Returns the joint-prior log-probability value, calculated as the sum
@@ -177,6 +183,7 @@ class GaussianPrior(BasePrior):
         self.inv_sigma = 1./self.sigma
         self.inv_sigma_sqr = self.inv_sigma**2
         self.normalisation = -log(self.sigma).sum() - 0.5*log(2*pi)*self.n_params
+        self.bounds = [(None,None)]*self.n_params
 
     def __call__(self, theta):
         """
@@ -264,6 +271,7 @@ class ExponentialPrior(BasePrior):
         self.lam = 1./self.beta
         self.normalisation = log(self.lam).sum()
         self.zeros = zeros(self.n_params)
+        self.bounds = [(0., None)]*self.n_params
 
     def __call__(self, theta):
         """
@@ -360,6 +368,7 @@ class UniformPrior(BasePrior):
 
         # pre-calculate some quantities as an optimisation
         self.normalisation = -log(self.upper-self.lower).sum()
+        self.bounds = [(l,u) for l,u in zip(self.lower, self.upper)]
 
     def __call__(self, theta):
         """
