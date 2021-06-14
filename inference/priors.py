@@ -1,4 +1,8 @@
 
+"""
+.. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
+"""
+
 from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
 from itertools import chain

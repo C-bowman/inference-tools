@@ -1,6 +1,12 @@
 
+"""
+.. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
+"""
+
 class Posterior(object):
     """
+    Class for constructing a posterior distribution object for a given likelihood and prior.
+
     :param callable likelihood: \
         A callable which returns the log-likelihood probability when passed a vector of the model parameters.
 

@@ -829,15 +829,15 @@ class GibbsChain(MarkovChain):
     each parameter, thereby allowing the proposal width of each parameter to be tuned individually.
 
     :param func posterior: \
-        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
     :param start: \
-        vector of model parameters which correspond to the parameter-space coordinates at which
+        Vector of model parameters which correspond to the parameter-space coordinates at which
         the chain will start.
 
     :param widths: \
-        vector of standard deviations which serve as initial guesses for the widths of the proposal
+        Vector of standard deviations which serve as initial guesses for the widths of the proposal
         distribution for each model parameter. If not specified, the starting widths will be
         approximated as 5% of the values in 'start'.
     """
@@ -896,21 +896,21 @@ class PcaChain(MarkovChain):
     sequential 1D Metropolis-Hastings steps in the direction of each of the
     N eigenvectors of the NxN covariance matrix.
 
-    As an initial guess the covariance matrix is taken to be diagonal, which
-    results in standard gibbs sampling for the first samples in the chain.
-    Subsequently, the covariance matrix periodically updated with an estimate
-    derived from the sample itself, and the eigenvectors are re-calculated.
+    As an initial guess the covariance matrix is taken to be diagonal, which results
+    in standard gibbs sampling for the first samples in the chain. As the chain advances,
+    the covariance matrix is periodically updated with an estimate derived from the sample
+    itself, and the eigenvectors are re-calculated.
 
     :param func posterior: \
-        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
     :param start: \
-        vector of model parameters which correspond to the parameter-space coordinates
+        Vector of model parameters which correspond to the parameter-space coordinates
         at which the chain will start.
 
     :param widths: \
-        vector of standard deviations which serve as initial guesses for the widths of
+        Vector of standard deviations which serve as initial guesses for the widths of
         the proposal distribution for each model parameter. If not specified, the starting
         widths will be approximated as 5% of the values in 'start'.
 
@@ -1145,12 +1145,11 @@ class HamiltonianChain(MarkovChain):
     favourably to higher-dimensionality problems.
 
     This implementation automatically selects an appropriate time-step for the Hamiltonian
-    dynamics simulation, but currently does not automatically select an appropriate number
-    of time-steps per proposal, or appropriate inverse-mass values. We would like to add
-    this functionality in the future, for example by implementing the NUTS algorithm.
+    dynamics simulation, but currently does not dynamically select the number of time-steps
+    per proposal, or appropriate inverse-mass values.
 
     :param func posterior: \
-        a function which takes the vector of model parameters as a ``numpy.ndarray``,
+        A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
     :param func grad: \
@@ -1329,16 +1328,20 @@ class HamiltonianChain(MarkovChain):
         """
         Return sample values for a chosen parameter.
 
-        :param int n: Index of the parameter for which samples are to be returned.
+        :param int n: \
+            Index of the parameter for which samples are to be returned.
 
-        :param int burn: Number of samples to discard from the start of the chain. If not \
-                         specified, the value of self.burn is used instead.
+        :param int burn: \
+            Number of samples to discard from the start of the chain. If not specified, the
+            value of self.burn is used instead.
 
-        :param int thin: Instead of returning every sample which is not discarded as part \
-                         of the burn-in, every *m*'th sample is returned for a specified \
-                         integer *m*. If not specified, the value of self.thin is used instead.
+        :param int thin: \
+            Instead of returning every sample which is not discarded as part of the burn-in,
+            every *m*'th sample is returned for a specified integer *m*. If not specified,
+            the value of self.thin is used instead.
 
-        :return: List of samples for parameter *n*'th parameter.
+        :return: \
+            List of samples for parameter *n*'th parameter.
         """
         if burn is None: burn = self.burn
         if thin is None: thin = self.thin
@@ -1360,10 +1363,12 @@ class HamiltonianChain(MarkovChain):
         - The estimated sample size (ESS) for every parameter, or in cases where the
           number of parameters is very large, a histogram of the ESS values.
 
-        :param bool show: If set to True, the plot is displayed.
+        :param bool show: \
+            If set to True, the plot is displayed.
 
-        :param str filename: File path to which the diagnostics plot will be saved. If left \
-                             unspecified the plot won't be saved.
+        :param str filename: \
+            File path to which the diagnostics plot will be saved. If left unspecified
+            the plot won't be saved.
         """
         if burn is None: burn = self.estimate_burn_in()
         param_ESS = [ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.L)]

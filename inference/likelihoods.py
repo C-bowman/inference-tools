@@ -1,9 +1,15 @@
 
+"""
+.. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
+"""
+
 from numpy import array, log, exp, pi, sqrt
 
 
 class GaussianLikelihood(object):
     """
+    A class for constructing a Gaussian likelihood function.
+
     :param y_data: \
         The measured data as a 1D array.
 
@@ -70,7 +76,7 @@ class GaussianLikelihood(object):
 
     def gradient(self, theta):
         """
-        Returns the gradient of log-likelihood with respect to model parameters.
+        Returns the gradient of the log-likelihood with respect to model parameters.
 
         Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `GaussianLikelihood` was created.
@@ -93,6 +99,8 @@ class GaussianLikelihood(object):
 
 class CauchyLikelihood(object):
     """
+    A class for constructing a Cauchy likelihood function.
+
     :param y_data: \
         The measured data as a 1D array.
 
@@ -158,7 +166,7 @@ class CauchyLikelihood(object):
 
     def gradient(self, theta):
         """
-        Returns the gradient of log-likelihood with respect to model parameters.
+        Returns the gradient of the log-likelihood with respect to model parameters.
 
         Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `CauchyLikelihood` was created.
@@ -182,6 +190,8 @@ class CauchyLikelihood(object):
 
 class LogisticLikelihood(object):
     """
+    A class for constructing a Logistic likelihood function.
+
     :param y_data: \
         The measured data as a 1D array.
 
@@ -248,7 +258,7 @@ class LogisticLikelihood(object):
 
     def gradient(self, theta):
         """
-        Returns the gradient of log-likelihood with respect to model parameters.
+        Returns the gradient of the log-likelihood with respect to model parameters.
 
         Using this method requires that the `forward_model_jacobian` keyword argument
         was specified when the instance of `LogisticLikelihood` was created.

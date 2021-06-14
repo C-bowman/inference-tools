@@ -2,6 +2,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+
 from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray
 from itertools import product, cycle
 from warnings import warn
