@@ -4,8 +4,8 @@ Stuff goes here
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: Modules:
 
-   likelihoods
-   priors
-   posterior
+   Likelihood classes <likelihoods>
+   Prior classes <priors>
+   The Posterior class <posterior>
