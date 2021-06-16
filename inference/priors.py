@@ -7,6 +7,7 @@ from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
+
 class JointPrior(object):
     """
     A class which combines multiple prior distribution objects into a single
@@ -65,7 +66,6 @@ class JointPrior(object):
         all_inds = chain(*[c.variables for c in self.components])
         both = sorted([(b,i) for b,i in zip(all_bounds, all_inds)], key=lambda x: x[1])
         self.bounds = [v[0] for v in both]
-
 
     def __call__(self, theta):
         """
@@ -146,17 +146,17 @@ class BasePrior(object):
 
 
 
-
-
 class GaussianPrior(BasePrior):
     """
     A class for generating a Gaussian prior for one or more of the model variables.
 
     :param mean: \
-        A list specifying the means of the Gaussian priors on each variable.
+        A list specifying the means of the Gaussian priors on each of the variables specified
+        in the ``variable_indices`` argument.
 
     :param sigma: \
-        A list specifying the standard deviations of the Gaussian priors on each variable.
+        A list specifying the standard deviations of the Gaussian priors on each of the
+        variables specified in the ``variable_indices`` argument.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
@@ -252,7 +252,8 @@ class ExponentialPrior(BasePrior):
     A class for generating an exponential prior for one or more of the model variables.
 
     :param beta: \
-        A list specifying the 'beta' parameter value of the exponential priors on each variable.
+        A list specifying the 'beta' parameter value of the exponential priors on each of the
+        variables specified in the ``variable_indices`` argument.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
@@ -340,10 +341,12 @@ class UniformPrior(BasePrior):
     A class for generating a uniform prior for one or more of the model variables.
 
     :param lower: \
-        A list specifying the lower bound of the uniform priors on each variable.
+        A list specifying the lower bound of the uniform priors on each of the variables
+        specified in the ``variable_indices`` argument.
 
     :param upper: \
-        A list specifying the upper bound of the uniform priors on each variable.
+        A list specifying the upper bound of the uniform priors on each of the variables
+        specified in the ``variable_indices`` argument.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
