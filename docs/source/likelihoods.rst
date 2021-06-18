@@ -1,6 +1,8 @@
 Likelihood classes
 ~~~~~~~~~~~~~~~~~~
-more stuff goes here
+The ``inference.likelihoods`` module provides tools for constructing likelihood functions.
+Example code demonstrating their use can be found in the
+`Gaussian fitting jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/gaussian_fitting_demo.ipynb>`_.
 
 GaussianLikelihood
 ^^^^^^^^^^^^^^^^^^

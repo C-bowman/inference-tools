@@ -1,6 +1,7 @@
 Constructing Likelihoods, Priors and Posteriors
 ===============================================
-Stuff goes here
+Classes for constructing likelihood, prior and posterior distributions are available
+in the ``likelihoods``, ``priors`` and ``posterior`` modules.
 
 .. toctree::
    :maxdepth: 2

@@ -1,6 +1,8 @@
 Prior classes
 ~~~~~~~~~~~~~
-prior stuff goes here
+The ``inference.priors`` module provides tools for constructing prior distributions over
+the model variables. Example code demonstrating their use can be found in
+the `Gaussian fitting jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/gaussian_fitting_demo.ipynb>`_.
 
 GaussianPrior
 ^^^^^^^^^^^^^
