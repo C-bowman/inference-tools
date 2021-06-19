@@ -14,18 +14,18 @@ class GaussianLikelihood(object):
         The measured data as a 1D array.
 
     :param sigma: \
-        The standard deviations corresponding to each element in y_data as a 1D array.
+        The standard deviations corresponding to each element in ``y_data`` as a 1D array.
 
     :param callable forward_model: \
-        A callable which returns a prediction of the y_data values when passed an
+        A callable which returns a prediction of the ``y_data`` values when passed an
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element (i,j) of the
-        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
-        the j'th model parameter.
+        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        the ``j``'th model parameter.
     """
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
 
@@ -78,8 +78,8 @@ class GaussianLikelihood(object):
         """
         Returns the gradient of the log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_jacobian` keyword argument
-        was specified when the instance of `GaussianLikelihood` was created.
+        Using this method requires that the ``forward_model_jacobian`` keyword argument
+        was specified when the instance of ``GaussianLikelihood`` was created.
 
         :param theta: \
             The model parameters as a 1D numpy array.
@@ -105,18 +105,18 @@ class CauchyLikelihood(object):
         The measured data as a 1D array.
 
     :param gamma: \
-        The uncertainties corresponding to each element in y_data as a 1D array.
+        The uncertainties corresponding to each element in ``y_data`` as a 1D array.
 
     :param callable forward_model: \
-        A callable which returns a prediction of the y_data values when passed an
+        A callable which returns a prediction of the ``y_data`` values when passed an
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element (i,j) of the
-        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
-        the j'th model parameter.
+        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        the ``j``'th model parameter.
     """
     def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
 
@@ -168,8 +168,8 @@ class CauchyLikelihood(object):
         """
         Returns the gradient of the log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_jacobian` keyword argument
-        was specified when the instance of `CauchyLikelihood` was created.
+        Using this method requires that the ``forward_model_jacobian`` keyword argument
+        was specified when the instance of ``CauchyLikelihood`` was created.
 
         :param theta: \
             The model parameters as a 1D numpy array.
@@ -196,18 +196,18 @@ class LogisticLikelihood(object):
         The measured data as a 1D array.
 
     :param sigma: \
-        The uncertainties corresponding to each element in y_data as a 1D array.
+        The uncertainties corresponding to each element in ``y_data`` as a 1D array.
 
     :param callable forward_model: \
-        A callable which returns a prediction of the y_data values when passed an
+        A callable which returns a prediction of the ``y_data`` values when passed an
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element (i,j) of the
-        Jacobian corresponds to the derivative of the i'th y_data value prediction with respect to
-        the j'th model parameter.
+        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        the ``j``'th model parameter.
     """
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
 
@@ -260,8 +260,8 @@ class LogisticLikelihood(object):
         """
         Returns the gradient of the log-likelihood with respect to model parameters.
 
-        Using this method requires that the `forward_model_jacobian` keyword argument
-        was specified when the instance of `LogisticLikelihood` was created.
+        Using this method requires that the ``forward_model_jacobian`` keyword argument
+        was specified when the instance of ``LogisticLikelihood`` was created.
 
         :param theta: \
             The model parameters as a 1D numpy array.
