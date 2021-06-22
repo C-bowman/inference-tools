@@ -23,8 +23,8 @@ class GaussianLikelihood(object):
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
         the ``j``'th model parameter.
     """
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
@@ -65,7 +65,7 @@ class GaussianLikelihood(object):
         Returns the log-likelihood value for the given set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The log-likelihood value.
@@ -82,10 +82,10 @@ class GaussianLikelihood(object):
         was specified when the instance of ``GaussianLikelihood`` was created.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
-            The gradient of the log-likelihood as a 1D numpy array.
+            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
         """
         prediction = self.model(theta)
         dF_dt = self.model_jacobian(theta)
@@ -114,8 +114,8 @@ class CauchyLikelihood(object):
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
         the ``j``'th model parameter.
     """
     def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
@@ -155,7 +155,7 @@ class CauchyLikelihood(object):
         Returns the log-likelihood value for the given set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The log-likelihood value.
@@ -172,10 +172,10 @@ class CauchyLikelihood(object):
         was specified when the instance of ``CauchyLikelihood`` was created.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
-            The gradient of the log-likelihood as a 1D numpy array.
+            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
         """
         prediction = self.model(theta)
         dF_dt = self.model_jacobian(theta)
@@ -205,8 +205,8 @@ class LogisticLikelihood(object):
     :keyword callable forward_model_jacobian: \
         A callable which returns the Jacobian of the forward-model when passed an array of model
         parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each y_data value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th y_data value prediction with respect to
+        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
+        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
         the ``j``'th model parameter.
     """
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
@@ -247,7 +247,7 @@ class LogisticLikelihood(object):
         Returns the log-likelihood value for the given set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The log-likelihood value.
@@ -264,10 +264,10 @@ class LogisticLikelihood(object):
         was specified when the instance of ``LogisticLikelihood`` was created.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
-            The gradient of the log-likelihood as a 1D numpy array.
+            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
         """
         prediction = self.model(theta)
         dF_dt = self.model_jacobian(theta)

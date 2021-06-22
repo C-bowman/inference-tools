@@ -22,7 +22,7 @@ class Posterior(object):
         Returns the log-posterior probability for the given set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The log-posterior probability.
@@ -34,10 +34,10 @@ class Posterior(object):
         Returns the gradient of the log-posterior with respect to model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
-            The gradient of the log-posterior as a 1D numpy array.
+            The gradient of the log-posterior as a 1D ``numpy.ndarray``.
         """
         return self.likelihood.gradient(theta) + self.prior.gradient(theta)
 
@@ -47,7 +47,7 @@ class Posterior(object):
         Minimising the value of the cost therefore maximises the log-posterior probability.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The negative log-posterior probability.
@@ -59,10 +59,10 @@ class Posterior(object):
         Returns the gradient of the negative log-posterior with respect to model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
-            The gradient of the negative log-posterior as a 1D numpy array.
+            The gradient of the negative log-posterior as a 1D ``numpy.ndarray``.
         """
         return -(self.likelihood.gradient(theta) + self.prior.gradient(theta))
 

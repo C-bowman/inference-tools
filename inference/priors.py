@@ -74,7 +74,7 @@ class JointPrior(object):
         set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The prior log-probability value.
@@ -87,7 +87,7 @@ class JointPrior(object):
         parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
@@ -102,7 +102,7 @@ class JointPrior(object):
         Draws a sample from the prior.
 
         :returns: \
-            A single sample from the prior distribution as a 1D numpy array.
+            A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
         sample = zeros(self.n_variables)
         for c in self.components:
@@ -194,7 +194,7 @@ class GaussianPrior(BasePrior):
         Returns the prior log-probability value for the provided set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The prior log-probability value.
@@ -208,7 +208,7 @@ class GaussianPrior(BasePrior):
         parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
@@ -220,7 +220,7 @@ class GaussianPrior(BasePrior):
         Draws a sample from the prior.
 
         :returns: \
-            A single sample from the prior distribution as a 1D numpy array.
+            A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
         return normal(loc=self.mean, scale=self.sigma)
 
@@ -283,7 +283,7 @@ class ExponentialPrior(BasePrior):
         Returns the prior log-probability value for the provided set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The prior log-probability value.
@@ -299,7 +299,7 @@ class ExponentialPrior(BasePrior):
         parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
@@ -311,7 +311,7 @@ class ExponentialPrior(BasePrior):
         Draws a sample from the prior.
 
         :returns: \
-            A single sample from the prior distribution as a 1D numpy array.
+            A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
         return exponential(scale=self.beta)
 
@@ -382,7 +382,7 @@ class UniformPrior(BasePrior):
         Returns the prior log-probability value for the provided set of model parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The prior log-probability value.
@@ -400,7 +400,7 @@ class UniformPrior(BasePrior):
         parameters.
 
         :param theta: \
-            The model parameters as a 1D numpy array.
+            The model parameters as a 1D ``numpy.ndarray``.
 
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
@@ -412,7 +412,7 @@ class UniformPrior(BasePrior):
         Draws a sample from the prior.
 
         :returns: \
-            A single sample from the prior distribution as a 1D numpy array.
+            A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
         return uniform(low=self.lower, high=self.upper)
 
