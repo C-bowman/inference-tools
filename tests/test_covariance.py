@@ -1,4 +1,3 @@
-
 import pytest
 import unittest
 
@@ -8,13 +7,12 @@ from inference.gp_tools import SquaredExponential, RationalQuadratic
 
 
 class test_covariance_functions(unittest.TestCase):
-
     def test_SquaredExponential_covariance_and_gradients(self):
         seed(2)
         N = 20
         S = 0.1
         x = linspace(0, 10, N).reshape([N, 1])
-        y = sin(x) + .1 + normal(size=N) * S
+        y = sin(x) + 0.1 + normal(size=N) * S
 
         cov = SquaredExponential()
         cov.pass_data(x, y)
@@ -45,7 +43,7 @@ class test_covariance_functions(unittest.TestCase):
         N = 20
         S = 0.1
         x = linspace(0, 10, N).reshape([N, 1])
-        y = sin(x) + .1 + normal(size=N) * S
+        y = sin(x) + 0.1 + normal(size=N) * S
 
         cov = RationalQuadratic()
         cov.pass_data(x, y)
@@ -78,6 +76,6 @@ class test_covariance_functions(unittest.TestCase):
         assert L_max_fractional_error < 1e-6
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
 
     unittest.main()
