@@ -1,4 +1,3 @@
-
 import pytest
 import unittest
 
@@ -8,7 +7,6 @@ from inference.gp_tools import GpRegressor
 
 
 class test_GpRegressor(unittest.TestCase):
-
     def test_marginal_likelihood_gradient(self):
         seed(1)
         N = 20
@@ -41,9 +39,9 @@ class test_GpRegressor(unittest.TestCase):
 
         grad_M, grad_A, grad_L = grad_lml
 
-        M_fractional_error = abs(fd_grad_M / grad_M - 1.).max()
-        A_fractional_error = abs(fd_grad_A / grad_A - 1.).max()
-        L_fractional_error = abs(fd_grad_L / grad_L - 1.).max()
+        M_fractional_error = abs(fd_grad_M / grad_M - 1.0).max()
+        A_fractional_error = abs(fd_grad_A / grad_A - 1.0).max()
+        L_fractional_error = abs(fd_grad_L / grad_L - 1.0).max()
 
         assert M_fractional_error < 1e-6
         assert A_fractional_error < 1e-6
@@ -81,9 +79,9 @@ class test_GpRegressor(unittest.TestCase):
 
         grad_M, grad_A, grad_L = grad_lml
 
-        M_fractional_error = abs(fd_grad_M / grad_M - 1.).max()
-        A_fractional_error = abs(fd_grad_A / grad_A - 1.).max()
-        L_fractional_error = abs(fd_grad_L / grad_L - 1.).max()
+        M_fractional_error = abs(fd_grad_M / grad_M - 1.0).max()
+        A_fractional_error = abs(fd_grad_A / grad_A - 1.0).max()
+        L_fractional_error = abs(fd_grad_L / grad_L - 1.0).max()
 
         assert M_fractional_error < 1e-6
         assert A_fractional_error < 1e-6
@@ -94,7 +92,7 @@ class test_GpRegressor(unittest.TestCase):
         N = 10
         S = 1.1
         x = linspace(0, 10, N)
-        y = 0.3 * x + 0.02*x**3 + 5.0 + normal(size=N)*S
+        y = 0.3 * x + 0.02 * x ** 3 + 5.0 + normal(size=N) * S
         err = zeros(N) + S
 
         gp = GpRegressor(x, y, y_err=err)
@@ -107,7 +105,7 @@ class test_GpRegressor(unittest.TestCase):
         mu_neg, sig_neg = gp(sample_x - delta)
 
         fd_grad = (mu_pos - mu_neg) / (2 * delta)
-        grad_max_frac_error = (grad / fd_grad - 1.).max()
+        grad_max_frac_error = (grad / fd_grad - 1.0).max()
 
         assert grad_max_frac_error < 1e-6
 
@@ -116,7 +114,7 @@ class test_GpRegressor(unittest.TestCase):
         N = 10
         S = 1.1
         x = linspace(0, 10, N)
-        y = 0.3 * x + 0.02*x**3 + 5.0 + normal(size=N)*S
+        y = 0.3 * x + 0.02 * x ** 3 + 5.0 + normal(size=N) * S
         err = zeros(N) + S
 
         gp = GpRegressor(x, y, y_err=err)
@@ -129,10 +127,10 @@ class test_GpRegressor(unittest.TestCase):
         mu_neg, sig_neg = gp(sample_x - delta)
 
         fd_grad_mu = (mu_pos - mu_neg) / (2 * delta)
-        fd_grad_var = (sig_pos**2 - sig_neg**2) / (2 * delta)
+        fd_grad_var = (sig_pos ** 2 - sig_neg ** 2) / (2 * delta)
 
-        mu_max_frac_error = (grad_mu / fd_grad_mu - 1.).max()
-        var_max_frac_error = (grad_var / fd_grad_var - 1.).max()
+        mu_max_frac_error = (grad_mu / fd_grad_mu - 1.0).max()
+        var_max_frac_error = (grad_var / fd_grad_var - 1.0).max()
 
         assert mu_max_frac_error < 1e-6
         assert var_max_frac_error < 1e-6
@@ -145,10 +143,11 @@ class test_GpRegressor(unittest.TestCase):
         y = sin(x) + 3.0 + normal(size=N) * S
         errors = zeros(N) + S
 
-        gpr = GpRegressor(x, y, y_err=errors, optimizer='bfgs')
-        gpr = GpRegressor(x, y, y_err=errors, optimizer='bfgs', n_processes=2)
-        gpr = GpRegressor(x, y, y_err=errors, optimizer='diffev')
+        gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs")
+        gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_processes=2)
+        gpr = GpRegressor(x, y, y_err=errors, optimizer="diffev")
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
 
     unittest.main()
