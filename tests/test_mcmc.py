@@ -1,6 +1,3 @@
-import pytest
-import unittest
-
 from numpy import array, sqrt
 from inference.mcmc import GibbsChain, HamiltonianChain
 
@@ -34,31 +31,24 @@ class ToroidalGaussian(object):
         return -g / self.w2
 
 
-class test_mcmc_samplers(unittest.TestCase):
-    def test_gibbs_chain(self):
-        start_location = array([2.0, -4.0])
-        width_guesses = array([5.0, 0.05])
+def test_gibbs_chain():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
 
-        chain = GibbsChain(
-            posterior=rosenbrock, start=start_location, widths=width_guesses
-        )
-        chain.advance(50000)
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    chain.advance(50000)
 
-        p = chain.get_probabilities()
-        chain.plot_diagnostics(show=False)
+    p = chain.get_probabilities()
+    chain.plot_diagnostics(show=False)
 
-        chain.autoselect_burn()
-        chain.autoselect_thin()
-
-    def test_hamiltonian_chain(self):
-        # create an instance of our posterior class
-        posterior = ToroidalGaussian()
-        chain = HamiltonianChain(
-            posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
-        )
-        chain.advance(3000)
+    chain.autoselect_burn()
+    chain.autoselect_thin()
 
 
-if __name__ == "__main__":
-
-    unittest.main()
+def test_hamiltonian_chain():
+    # create an instance of our posterior class
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(
+        posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
+    )
+    chain.advance(3000)

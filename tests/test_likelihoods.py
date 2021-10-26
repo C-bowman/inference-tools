@@ -1,5 +1,3 @@
-import pytest
-import unittest
 from numpy import array, allclose, linspace, exp, sin, cos, zeros
 from numpy.random import normal
 from inference.likelihoods import (
@@ -30,7 +28,7 @@ def finite_difference(func=None, x0=None, delta=1e-5, vectorised_arguments=False
     return grad
 
 
-class TestingModel(object):
+class ModelTesting(object):
     def __init__(self):
         self.x = linspace(0, 10, 51)
         self.N_data = self.x.size
@@ -58,63 +56,64 @@ class TestingModel(object):
         )
 
 
-class test_likelihoods(unittest.TestCase):
-    def test_GaussianLikelihood(self):
-        model = TestingModel()
-        y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
+def test_GaussianLikelihood():
+    model = ModelTesting()
+    y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
 
-        GL = GaussianLikelihood(
-            y_data=y,
-            sigma=sigma,
-            forward_model=model.forward,
-            forward_model_jacobian=model.jacobian,
-        )
+    GL = GaussianLikelihood(
+        y_data=y,
+        sigma=sigma,
+        forward_model=model.forward,
+        forward_model_jacobian=model.jacobian,
+    )
 
-        test_point = array([12.0, 0.25, 1.4])
-        test_likelihood = GL(test_point)
-        analytic_gradient = GL.gradient(test_point)
-        numeric_gradient = finite_difference(
-            func=GL, x0=test_point, vectorised_arguments=True
-        )
+    test_point = array([12.0, 0.25, 1.4])
+    test_likelihood = GL(test_point)
+    analytic_gradient = GL.gradient(test_point)
+    numeric_gradient = finite_difference(
+        func=GL, x0=test_point, vectorised_arguments=True
+    )
 
-        assert allclose(analytic_gradient, numeric_gradient)
+    assert allclose(analytic_gradient, numeric_gradient)
 
-    def test_CauchyLikelihood(self):
-        model = TestingModel()
-        y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
 
-        CL = CauchyLikelihood(
-            y_data=y,
-            gamma=sigma,
-            forward_model=model.forward,
-            forward_model_jacobian=model.jacobian,
-        )
+def test_CauchyLikelihood():
+    model = ModelTesting()
+    y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
 
-        test_point = array([12.0, 0.25, 1.4])
-        test_likelihood = CL(test_point)
-        analytic_gradient = CL.gradient(test_point)
-        numeric_gradient = finite_difference(
-            func=CL, x0=test_point, vectorised_arguments=True
-        )
+    CL = CauchyLikelihood(
+        y_data=y,
+        gamma=sigma,
+        forward_model=model.forward,
+        forward_model_jacobian=model.jacobian,
+    )
 
-        assert allclose(analytic_gradient, numeric_gradient)
+    test_point = array([12.0, 0.25, 1.4])
+    test_likelihood = CL(test_point)
+    analytic_gradient = CL.gradient(test_point)
+    numeric_gradient = finite_difference(
+        func=CL, x0=test_point, vectorised_arguments=True
+    )
 
-    def test_LogisticLikelihood(self):
-        model = TestingModel()
-        y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
+    assert allclose(analytic_gradient, numeric_gradient)
 
-        LL = LogisticLikelihood(
-            y_data=y,
-            sigma=sigma,
-            forward_model=model.forward,
-            forward_model_jacobian=model.jacobian,
-        )
 
-        test_point = array([12.0, 0.25, 1.4])
-        test_likelihood = LL(test_point)
-        analytic_gradient = LL.gradient(test_point)
-        numeric_gradient = finite_difference(
-            func=LL, x0=test_point, vectorised_arguments=True
-        )
+def test_LogisticLikelihood():
+    model = ModelTesting()
+    y, sigma = model.generate_test_data([10.0, 0.2, 2.0], error=1.5)
 
-        assert allclose(analytic_gradient, numeric_gradient)
+    LL = LogisticLikelihood(
+        y_data=y,
+        sigma=sigma,
+        forward_model=model.forward,
+        forward_model_jacobian=model.jacobian,
+    )
+
+    test_point = array([12.0, 0.25, 1.4])
+    test_likelihood = LL(test_point)
+    analytic_gradient = LL.gradient(test_point)
+    numeric_gradient = finite_difference(
+        func=LL, x0=test_point, vectorised_arguments=True
+    )
+
+    assert allclose(analytic_gradient, numeric_gradient)
