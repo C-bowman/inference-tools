@@ -72,9 +72,9 @@ def matrix_plot(
     N_par = len(samples)
     if labels is None:  # set default axis labels if none are given
         if N_par >= 10:
-            labels = ["p" + str(i) for i in range(N_par)]
+            labels = [f"p{i}" for i in range(N_par)]
         else:
-            labels = ["param " + str(i) for i in range(N_par)]
+            labels = [f"param {i}" for i in range(N_par)]
     else:
         if len(labels) != N_par:
             raise ValueError("number of labels must match number of plotted parameters")
@@ -87,9 +87,7 @@ def matrix_plot(
     # check that given plot style is valid, else default to a histogram
     if plot_style not in ["contour", "histogram", "scatter"]:
         plot_style = "histogram"
-        warn(
-            """'plot_style' must be set as either 'contour', 'histogram' or 'scatter'"""
-        )
+        warn("'plot_style' must be set as either 'contour', 'histogram' or 'scatter'")
 
     # by default, we suppress axis ticks if there are 6 parameters or more to keep things tidy
     if show_ticks is None:
@@ -245,9 +243,8 @@ def matrix_plot(
         plt.savefig(filename)
     if show:
         plt.show()
-    else:
-        fig.clear()
-        plt.close(fig)
+
+    return fig
 
 
 def trace_plot(samples, labels=None, show=True, filename=None):
@@ -270,9 +267,9 @@ def trace_plot(samples, labels=None, show=True, filename=None):
     N_par = len(samples)
     if labels is None:
         if N_par >= 10:
-            labels = ["p" + str(i) for i in range(N_par)]
+            labels = [f"p{i}" for i in range(N_par)]
         else:
-            labels = ["param " + str(i) for i in range(N_par)]
+            labels = [f"param {i}" for i in range(N_par)]
     else:
         if len(labels) != N_par:
             raise ValueError(
@@ -313,9 +310,7 @@ def trace_plot(samples, labels=None, show=True, filename=None):
         plt.savefig(filename)
     if show:
         plt.show()
-    else:
-        fig.clear()
-        plt.close(fig)
+    return fig
 
 
 def hdi_plot(
@@ -387,7 +382,7 @@ def hdi_plot(
 
     # if not plotting axis is given, then use default pyplot
     if axis is None:
-        axis = plt
+        _, axis = plt.subplots()
 
     from numpy import take_along_axis, expand_dims
 
@@ -412,6 +407,8 @@ def hdi_plot(
             )
         else:
             axis.fill_between(x, lwr, upr, color=col)
+
+    return axis
 
 
 def transition_matrix_plot(
@@ -475,6 +472,9 @@ def transition_matrix_plot(
         rectangles, facecolors=rectangle_colors, edgecolors=["black"] * N
     )
 
+    if ax is None:
+        _, ax = plt.subplots()
+
     ax.add_collection(pc)
     ax.set_xlim(x_limits)
     ax.set_ylim(y_limits)
@@ -482,7 +482,9 @@ def transition_matrix_plot(
     # only plot the rate values as text if the matrix is of size 10 or less
     if N < 11:
         fsize = 20 - N
-        text_artists = [
+        for i, j in inds:
+            # here we draw a black outline around the white text we've
+            # added to improve visibility
             ax.text(
                 i + 1,
                 j + 1,
@@ -491,16 +493,11 @@ def transition_matrix_plot(
                 verticalalignment="center",
                 color="white",
                 fontsize=fsize,
-            )
-            for i, j in inds
-        ]
-        # here we draw a black outline around the white text we've added to improve visibility
-        [
-            t.set_path_effects(
+            ).set_path_effects(
                 [
                     path_effects.Stroke(linewidth=1.5, foreground="black"),
                     path_effects.Normal(),
                 ]
             )
-            for t in text_artists
-        ]
+
+    return ax
