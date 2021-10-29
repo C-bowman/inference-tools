@@ -130,12 +130,10 @@ class BasePrior(object):
                 )
             return [variable_inds]
 
-        elif type(variable_inds) is not list or not all(
-            type(p) is int for p in variable_inds
+        if not isinstance(variable_inds, (list, tuple)) or not all(
+            isinstance(p, int) for p in variable_inds
         ):
-            raise TypeError(
-                'The "variables" argument must be an integer or list of integers'
-            )
+            raise TypeError("'variable_inds' must be an integer or list of integers")
 
         if len(variable_inds) != len(set(variable_inds)):
             raise ValueError(
@@ -233,12 +231,8 @@ class GaussianPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -322,12 +316,8 @@ class ExponentialPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -424,12 +414,8 @@ class UniformPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
