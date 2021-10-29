@@ -289,8 +289,7 @@ class ExponentialPrior(BasePrior):
         """
         if (theta < 0.0).any():
             return -1e100
-        else:
-            return -(self.lam * theta[self.variables]).sum() + self.normalisation
+        return -(self.lam * theta[self.variables]).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -387,8 +386,7 @@ class UniformPrior(BasePrior):
         inside = (self.lower <= t) & (t <= self.upper)
         if inside.all():
             return self.normalisation
-        else:
-            return -1e100
+        return -1e100
 
     def gradient(self, theta):
         """
