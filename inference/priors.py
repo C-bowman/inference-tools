@@ -41,14 +41,11 @@ class JointPrior(object):
         # check that no variable appears more than once across all prior components
         self.prior_variables = []
         for var in chain(*[c.variables for c in self.components]):
-            if var not in self.prior_variables:
-                self.prior_variables.append(var)
-            else:
+            if var in self.prior_variables:
                 raise ValueError(
-                    """Variable index '{}' appears more than once in prior components""".format(
-                        var
-                    )
+                    f"Variable index '{var}' appears more than once in prior components"
                 )
+            self.prior_variables.append(var)
 
         if len(self.prior_variables) != n_variables:
             raise ValueError(
@@ -123,16 +120,15 @@ class JointPrior(object):
 class BasePrior(object):
     @staticmethod
     def check_variables(variable_inds, n_vars):
-        if type(variable_inds) is int:
-            if n_vars == 1:
-                return [variable_inds]
-            else:
+        if isinstance(variable_inds, int):
+            if n_vars != 1:
                 raise ValueError(
                     """
                     The total number of variables specified via the 'variable_indices' argument is
                     inconsistent with the number specified by the other arguments.
                     """
                 )
+            return [variable_inds]
 
         elif type(variable_inds) is not list or not all(
             type(p) is int for p in variable_inds
