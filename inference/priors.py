@@ -60,7 +60,7 @@ class JointPrior(object):
         if not all(0 <= i < n_variables for i in self.prior_variables):
             raise ValueError(
                 """
-                All variable indices given to the prior components must have values 
+                All variable indices given to the prior components must have values
                 in the range [0, n_variables-1].
                 """
             )
@@ -359,18 +359,18 @@ class UniformPrior(BasePrior):
             )
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError("""'lower' and 'upper' arguments must be 1D arrays""")
+            raise ValueError("'lower' and 'upper' arguments must be 1D arrays")
 
         if (self.upper <= self.lower).any():
             raise ValueError(
-                """All values in 'lower' must be less than the corresponding values in 'upper'"""
+                "All values in 'lower' must be less than the corresponding values in 'upper'"
             )
 
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
         self.normalisation = -log(self.upper - self.lower).sum()
-        self.bounds = [(l, u) for l, u in zip(self.lower, self.upper)]
+        self.bounds = [(lo, up) for lo, up in zip(self.lower, self.upper)]
 
     def __call__(self, theta):
         """
