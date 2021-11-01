@@ -1,10 +1,12 @@
-from numpy import array, allclose, linspace, exp, sin, cos, zeros
+from numpy import array, allclose, linspace, exp, sin, cos, zeros, ones
 from numpy.random import normal
 from inference.likelihoods import (
     GaussianLikelihood,
     CauchyLikelihood,
     LogisticLikelihood,
 )
+
+import pytest
 
 
 def finite_difference(func=None, x0=None, delta=1e-5, vectorised_arguments=False):
@@ -67,14 +69,70 @@ def test_GaussianLikelihood():
         forward_model_jacobian=model.jacobian,
     )
 
+    assert GL.gradient_available
+
     test_point = array([12.0, 0.25, 1.4])
     test_likelihood = GL(test_point)
+
+    assert test_likelihood < 0.0
+
     analytic_gradient = GL.gradient(test_point)
     numeric_gradient = finite_difference(
         func=GL, x0=test_point, vectorised_arguments=True
     )
 
     assert allclose(analytic_gradient, numeric_gradient)
+
+
+def test_GaussianLikelihood_needs_callable_forward_model():
+    with pytest.raises(ValueError):
+        GaussianLikelihood(y_data=zeros(1), sigma=ones(1), forward_model=None)
+
+
+def test_GaussianLikelihood_needs_callable_forward_model_jacobian():
+    with pytest.raises(ValueError):
+        GaussianLikelihood(
+            y_data=zeros(1),
+            sigma=zeros(1),
+            forward_model=lambda x: None,
+            forward_model_jacobian=1,
+        )
+
+
+def test_GaussianLikelihood_gradient_raises_error_without_jacobian():
+    likelihood = GaussianLikelihood(
+        y_data=ones(1),
+        sigma=ones(1),
+        forward_model=lambda x: None,
+        forward_model_jacobian=None,
+    )
+
+    assert not likelihood.gradient_available
+
+    with pytest.raises(ValueError):
+        likelihood.gradient(4)
+
+
+def test_GaussianLikelihood_inconsistent_sizes():
+    with pytest.raises(ValueError):
+        GaussianLikelihood(y_data=ones(3), sigma=ones(1), forward_model=lambda: None)
+
+
+def test_GaussianLikelihood_too_many_dims():
+    with pytest.raises(ValueError):
+        GaussianLikelihood(
+            y_data=ones((2, 2)), sigma=ones(4), forward_model=lambda: None
+        )
+
+    with pytest.raises(ValueError):
+        GaussianLikelihood(
+            y_data=ones(4), sigma=ones((2, 2)), forward_model=lambda: None
+        )
+
+
+def test_GaussianLikelihood_bad_sigma():
+    with pytest.raises(ValueError):
+        GaussianLikelihood(y_data=ones(1), sigma=zeros(1), forward_model=lambda: None)
 
 
 def test_CauchyLikelihood():
@@ -88,14 +146,65 @@ def test_CauchyLikelihood():
         forward_model_jacobian=model.jacobian,
     )
 
+    assert CL.gradient_available
+
     test_point = array([12.0, 0.25, 1.4])
     test_likelihood = CL(test_point)
+
+    assert test_likelihood < 0.0
+
     analytic_gradient = CL.gradient(test_point)
     numeric_gradient = finite_difference(
         func=CL, x0=test_point, vectorised_arguments=True
     )
 
     assert allclose(analytic_gradient, numeric_gradient)
+
+
+def test_CauchyLikelihood_needs_callable_forward_model():
+    with pytest.raises(ValueError):
+        CauchyLikelihood(y_data=zeros(1), gamma=ones(1), forward_model=None)
+
+
+def test_CauchyLikelihood_needs_callable_forward_model_jacobian():
+    with pytest.raises(ValueError):
+        CauchyLikelihood(
+            y_data=zeros(1),
+            gamma=zeros(1),
+            forward_model=lambda x: None,
+            forward_model_jacobian=1,
+        )
+
+
+def test_CauchyLikelihood_gradient_raises_error_without_jacobian():
+    likelihood = CauchyLikelihood(
+        y_data=ones(1),
+        gamma=ones(1),
+        forward_model=lambda x: None,
+        forward_model_jacobian=None,
+    )
+
+    assert not likelihood.gradient_available
+
+    with pytest.raises(ValueError):
+        likelihood.gradient(4)
+
+
+def test_CauchyLikelihood_inconsistent_sizes():
+    with pytest.raises(ValueError):
+        CauchyLikelihood(y_data=ones(3), gamma=ones(1), forward_model=lambda: None)
+
+
+def test_CauchyLikelihood_too_many_dims():
+    with pytest.raises(ValueError):
+        CauchyLikelihood(y_data=ones((2, 2)), gamma=ones(4), forward_model=lambda: None)
+    with pytest.raises(ValueError):
+        CauchyLikelihood(y_data=ones(4), gamma=ones((2, 2)), forward_model=lambda: None)
+
+
+def test_CauchyLikelihood_bad_gamma():
+    with pytest.raises(ValueError):
+        CauchyLikelihood(y_data=ones(1), gamma=zeros(1), forward_model=lambda: None)
 
 
 def test_LogisticLikelihood():
@@ -109,11 +218,66 @@ def test_LogisticLikelihood():
         forward_model_jacobian=model.jacobian,
     )
 
+    assert LL.gradient_available
+
     test_point = array([12.0, 0.25, 1.4])
     test_likelihood = LL(test_point)
+
+    assert test_likelihood < 0.0
+
     analytic_gradient = LL.gradient(test_point)
     numeric_gradient = finite_difference(
         func=LL, x0=test_point, vectorised_arguments=True
     )
 
     assert allclose(analytic_gradient, numeric_gradient)
+
+
+def test_LogisticLikelihood_needs_callable_forward_model():
+    with pytest.raises(ValueError):
+        LogisticLikelihood(y_data=zeros(1), sigma=ones(1), forward_model=None)
+
+
+def test_LogisticLikelihood_needs_callable_forward_model_jacobian():
+    with pytest.raises(ValueError):
+        LogisticLikelihood(
+            y_data=zeros(1),
+            sigma=zeros(1),
+            forward_model=lambda x: None,
+            forward_model_jacobian=1,
+        )
+
+
+def test_LogisticLikelihood_gradient_raises_error_without_jacobian():
+    likelihood = LogisticLikelihood(
+        y_data=ones(1),
+        sigma=ones(1),
+        forward_model=lambda x: None,
+        forward_model_jacobian=None,
+    )
+
+    assert not likelihood.gradient_available
+
+    with pytest.raises(ValueError):
+        likelihood.gradient(4)
+
+
+def test_LogisticLikelihood_inconsistent_sizes():
+    with pytest.raises(ValueError):
+        LogisticLikelihood(y_data=ones(3), sigma=ones(1), forward_model=lambda: None)
+
+
+def test_LogisticLikelihood_too_many_dims():
+    with pytest.raises(ValueError):
+        LogisticLikelihood(
+            y_data=ones((2, 2)), sigma=ones(4), forward_model=lambda: None
+        )
+    with pytest.raises(ValueError):
+        LogisticLikelihood(
+            y_data=ones(4), sigma=ones((2, 2)), forward_model=lambda: None
+        )
+
+
+def test_LogisticLikelihood_bad_sigma():
+    with pytest.raises(ValueError):
+        LogisticLikelihood(y_data=ones(1), sigma=zeros(1), forward_model=lambda: None)
