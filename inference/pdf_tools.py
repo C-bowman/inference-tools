@@ -27,24 +27,20 @@ class DensityEstimator(object):
         return None
 
     def interval(self, frac=0.95):
-        p_max = self.__call__(self.mode)
+        p_max = self(self.mode)
         p_conf = self.binary_search(
             self.interval_prob, frac, [0.0, p_max], uphill=False
         )
         return self.get_interval(p_conf)
 
     def get_interval(self, z):
-        lwr = self.binary_search(
-            self.__call__, z, [self.lwr_limit, self.mode], uphill=True
-        )
-        upr = self.binary_search(
-            self.__call__, z, [self.mode, self.upr_limit], uphill=False
-        )
+        lwr = self.binary_search(self, z, [self.lwr_limit, self.mode], uphill=True)
+        upr = self.binary_search(self, z, [self.mode, self.upr_limit], uphill=False)
         return lwr, upr
 
     def interval_prob(self, z):
         lwr, upr = self.get_interval(z)
-        return quad(self.__call__, lwr, upr, limit=100)[0]
+        return quad(self, lwr, upr, limit=100)[0]
 
     def moments(self):
         pass
@@ -315,7 +311,7 @@ class UnimodalPdf(DensityEstimator):
         lwr = self.mode - 5 * max(exp(-f), 1.0) * s
         upr = self.mode + 5 * max(exp(f), 1.0) * s
         x = linspace(lwr, upr, 1000)
-        p = self.__call__(x)
+        p = self(x)
 
         mu = simps(p * x, x=x)
         var = simps(p * (x - mu) ** 2, x=x)
@@ -516,7 +512,7 @@ class GaussianKDE(DensityEstimator):
             lwr, upr = self.s[0], self.s[-1]
 
         result = minimize_scalar(
-            lambda x: -self.__call__(x), bounds=[lwr, upr], method="bounded"
+            lambda x: -self(x), bounds=[lwr, upr], method="bounded"
         )
         return result.x
 
@@ -527,11 +523,11 @@ class GaussianKDE(DensityEstimator):
         :return: mean, variance, skewness, ex-kurtosis
 
         Note that these quantities are calculated directly from the estimated PDF, and
-        note from the sample values.
+        not from the sample values.
         """
         N = 1000
         x = linspace(self.lwr_limit, self.upr_limit, N)
-        p = self.__call__(x)
+        p = self(x)
 
         mu = simps(p * x, x=x)
         var = simps(p * (x - mu) ** 2, x=x)
