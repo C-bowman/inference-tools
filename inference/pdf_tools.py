@@ -57,151 +57,97 @@ class DensityEstimator(object):
         :keyword bool show: Boolean value indicating whether the plot should be displayed in a window. (Default is True)
         :keyword str label: The label to be used for the x-axis on the plot as a string.
         """
-        sigma_1 = self.interval(frac=0.68268)
-        sigma_2 = self.interval(frac=0.95449)
-        sigma_3 = self.interval(frac=0.9973)
+
+        def ensure_is_nested_list(var):
+            if not isinstance(var[0], (list, tuple)):
+                var = [var]
+            return var
+
+        sigma_1 = ensure_is_nested_list(self.interval(frac=0.68268))
+        sigma_2 = ensure_is_nested_list(self.interval(frac=0.95449))
+        sigma_3 = ensure_is_nested_list(self.interval(frac=0.9973))
         mu, var, skw, kur = self.moments()
 
         if type(self) is GaussianKDE:
-            lwr = sigma_3[0] - 5 * self.h
-            upr = sigma_3[1] + 5 * self.h
+            lwr = sigma_3[0][0] - 5 * self.h
+            upr = sigma_3[0][1] + 5 * self.h
         else:
-            if hasattr(sigma_3[0], "__len__"):
-                s_min = sigma_3[0][0]
-                s_max = sigma_3[-1][1]
-            else:
-                s_min = sigma_3[0]
-                s_max = sigma_3[1]
+            s_min = sigma_3[0][0]
+            s_max = sigma_3[-1][1]
 
             lwr = s_min - 0.1 * (s_max - s_min)
             upr = s_max + 0.1 * (s_max - s_min)
 
         axis = linspace(lwr, upr, 500)
 
-        fig = plt.figure(figsize=(10, 6))
-        ax = plt.subplot2grid((1, 3), (0, 0), colspan=2)
-        ax.plot(axis, self.__call__(axis), lw=1, c="C0")
-        ax.fill_between(axis, self.__call__(axis), color="C0", alpha=0.1)
-        ax.plot(
-            [self.mode, self.mode],
-            [0.0, self.__call__(self.mode)],
-            c="red",
-            ls="dashed",
+        fig, ax = plt.subplots(
+            nrows=1,
+            ncols=2,
+            figsize=(10, 6),
+            gridspec_kw={"width_ratios": [2, 1]},
         )
+        ax[0].plot(axis, self(axis), lw=1, c="C0")
+        ax[0].fill_between(axis, self(axis), color="C0", alpha=0.1)
+        ax[0].plot([self.mode, self.mode], [0.0, self(self.mode)], c="red", ls="dashed")
 
-        if label is not None:
-            ax.set_xlabel(label, fontsize=13)
-        else:
-            ax.set_xlabel("argument", fontsize=13)
+        ax[0].set_xlabel(label or "argument", fontsize=13)
 
-        ax.set_ylabel("probability density", fontsize=13)
-        ax.grid()
+        ax[0].set_ylabel("probability density", fontsize=13)
+        ax[0].grid()
 
         gap = 0.05
         h = 0.95
         x1 = 0.35
         x2 = 0.40
-        ax = plt.subplot2grid((1, 3), (0, 2))
 
-        ax.text(0.0, h, "Basics", horizontalalignment="left", fontweight="bold")
-        h -= gap
-        ax.text(x1, h, "Mode:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(self.mode), horizontalalignment="left")
-        h -= gap
-        ax.text(x1, h, "Mean:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(mu), horizontalalignment="left")
-        h -= gap
-        ax.text(x1, h, "Standard dev:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(sqrt(var)), horizontalalignment="left")
-        h -= 2 * gap
+        def section_title(height, name):
+            ax[1].text(0.0, height, name, horizontalalignment="left", fontweight="bold")
+            return height - gap
 
-        ax.text(
-            0.0,
-            h,
-            "Highest-density intervals",
-            horizontalalignment="left",
-            fontweight="bold",
-        )
+        def write_quantity(height, name, value):
+            ax[1].text(x1, height, f"{name}:", horizontalalignment="right")
+            ax[1].text(x2, height, f"{value:.5G}", horizontalalignment="left")
+            return height - gap
+
+        h = section_title(h, "Basics")
+        h = write_quantity(h, "Mode", self.mode)
+        h = write_quantity(h, "Mean", mu)
+        h = write_quantity(h, "Standard dev", sqrt(var))
         h -= gap
-        ax.text(x1, h, "1-sigma:", horizontalalignment="right")
-        if hasattr(sigma_1[0], "__len__"):
-            for itvl in sigma_1:
-                ax.text(
+
+        h = section_title(h, "Highest-density intervals")
+
+        def write_sigma(height, name, sigma):
+            ax[1].text(x1, height, name, horizontalalignment="right")
+            for itvl in sigma:
+                ax[1].text(
                     x2,
-                    h,
-                    r"{:.5G} $\rightarrow$ {:.5G}".format(itvl[0], itvl[1]),
+                    height,
+                    rf"{itvl[0]:.5G} $\rightarrow$ {itvl[1]:.5G}",
                     horizontalalignment="left",
                 )
-                h -= gap
-        else:
-            ax.text(
-                x2,
-                h,
-                r"{:.5G} $\rightarrow$ {:.5G}".format(sigma_1[0], sigma_1[1]),
-                horizontalalignment="left",
-            )
-            h -= gap
+                height -= gap
+            return height
 
-        ax.text(x1, h, "2-sigma:", horizontalalignment="right")
-        if hasattr(sigma_2[0], "__len__"):
-            for itvl in sigma_2:
-                ax.text(
-                    x2,
-                    h,
-                    r"{:.5G} $\rightarrow$ {:.5G}".format(itvl[0], itvl[1]),
-                    horizontalalignment="left",
-                )
-                h -= gap
-        else:
-            ax.text(
-                x2,
-                h,
-                r"{:.5G} $\rightarrow$ {:.5G}".format(sigma_2[0], sigma_2[1]),
-                horizontalalignment="left",
-            )
-            h -= gap
+        h = write_sigma(h, "1-sigma:", sigma_1)
+        h = write_sigma(h, "2-sigma:", sigma_2)
+        h = write_sigma(h, "3-sigma:", sigma_3)
+        h -= gap
 
-        ax.text(x1, h, "3-sigma:", horizontalalignment="right")
-        if hasattr(sigma_3[0], "__len__"):
-            for itvl in sigma_3:
-                ax.text(
-                    x2,
-                    h,
-                    r"{:.5G} $\rightarrow$ {:.5G}".format(itvl[0], itvl[1]),
-                    horizontalalignment="left",
-                )
-                h -= gap
-        else:
-            ax.text(
-                x2,
-                h,
-                r"{:.5G} $\rightarrow$ {:.5G}".format(sigma_3[0], sigma_3[1]),
-                horizontalalignment="left",
-            )
-            h -= gap
+        h = section_title(h, "Higher moments")
+        h = write_quantity(h, "Variance", var)
+        h = write_quantity(h, "Skewness", skw)
+        h = write_quantity(h, "Kurtosis", kur)
 
-        h -= gap
-        ax.text(0.0, h, "Higher moments", horizontalalignment="left", fontweight="bold")
-        h -= gap
-        ax.text(x1, h, "Variance:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(var), horizontalalignment="left")
-        h -= gap
-        ax.text(x1, h, "Skewness:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(skw), horizontalalignment="left")
-        h -= gap
-        ax.text(x1, h, "Kurtosis:", horizontalalignment="right")
-        ax.text(x2, h, "{:.5G}".format(kur), horizontalalignment="left")
-
-        ax.axis("off")
+        ax[1].axis("off")
 
         plt.tight_layout()
         if filename is not None:
             plt.savefig(filename)
         if show:
             plt.show()
-        else:
-            fig.clear()
-            plt.close(fig)
+
+        return fig, ax
 
     @staticmethod
     def binary_search(func, value, bounds, uphill=True):
