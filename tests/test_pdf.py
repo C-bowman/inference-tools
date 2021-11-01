@@ -42,6 +42,24 @@ def test_gaussian_kde_interval():
     )
 
 
+def test_gaussian_kde_plotting():
+    N = 20000
+    expected_mu = 5.0
+    expected_sigma = 2.0
+
+    sample = default_rng().normal(expected_mu, expected_sigma, size=N)
+    pdf = GaussianKDE(sample)
+    min_value, max_value = pdf.interval(0.99)
+
+    fig, ax = pdf.plot_summary(show=False, label="test label")
+    assert ax[0].get_xlabel() == "test label"
+    left, right, bottom, top = ax[0].axis()
+    assert left <= min_value
+    assert right >= max_value
+    assert bottom <= 0.0
+    assert top >= pdf(expected_mu)
+
+
 def test_unimodal_pdf_moments():
     N = 5000
     # Create some samples from the exponentially-modified Gaussian distribution
