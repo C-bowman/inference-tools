@@ -64,7 +64,7 @@ def line_posterior():
     m = 0.5
     c = 0.05
     sigma = 0.3
-    y = m * x + c + default_rng().normal(size=N) * sigma
+    y = m * x + c + default_rng(1324).normal(size=N) * sigma
     return LinePosterior(x=x, y=y, err=np.ones(N) * sigma)
 
 
@@ -416,7 +416,7 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
     chain = HamiltonianChain(
         posterior=line_posterior,
         start=[0.5, 0.1],
-        bounds=(np.array([0.45, 0.0]), np.array([0.55, 1e100])),
+        bounds=(np.array([0.45, 0.0]), np.array([0.55, 10.0])),
     )
     chain.advance(10)
 

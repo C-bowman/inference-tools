@@ -1,5 +1,5 @@
 from numpy import array, allclose, linspace, exp, sin, cos, zeros, ones
-from numpy.random import normal
+from numpy.random import default_rng
 from inference.likelihoods import (
     GaussianLikelihood,
     CauchyLikelihood,
@@ -53,7 +53,7 @@ class ModelTesting(object):
 
     def generate_test_data(self, theta, error=1.0):
         return (
-            self.forward(theta) + error * normal(size=self.N_data),
+            self.forward(theta) + error * default_rng(1324).normal(size=self.N_data),
             zeros(self.N_data) + error,
         )
 

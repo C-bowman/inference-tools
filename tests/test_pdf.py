@@ -1,5 +1,5 @@
 from inference.pdf_tools import GaussianKDE, UnimodalPdf, sample_hdi, BinaryTree
-from numpy.random import default_rng, normal, exponential
+from numpy.random import default_rng
 
 from numpy import isclose, linspace, concatenate
 
@@ -12,7 +12,7 @@ def test_gaussian_kde_moments():
     expected_mu = 5.0
     expected_sigma = 2.0
 
-    sample = default_rng().normal(expected_mu, expected_sigma, size=N)
+    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
     pdf = GaussianKDE(sample)
     mu, variance, skew, kurt = pdf.moments()
 
@@ -29,7 +29,7 @@ def test_gaussian_kde_interval():
     expected_mu = 5.0
     expected_sigma = 2.0
 
-    sample = default_rng().normal(expected_mu, expected_sigma, size=N)
+    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
     pdf = GaussianKDE(sample)
     left, right = pdf.interval()
 
@@ -47,7 +47,7 @@ def test_gaussian_kde_plotting():
     expected_mu = 5.0
     expected_sigma = 2.0
 
-    sample = default_rng().normal(expected_mu, expected_sigma, size=N)
+    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
     pdf = GaussianKDE(sample)
     min_value, max_value = pdf.interval(0.99)
 
@@ -63,7 +63,8 @@ def test_gaussian_kde_plotting():
 def test_unimodal_pdf_moments():
     N = 5000
     # Create some samples from the exponentially-modified Gaussian distribution
-    sample = normal(size=N) + exponential(scale=3.0, size=N)
+    rng = default_rng(1234)
+    sample = rng.normal(size=N) + rng.exponential(scale=3.0, size=N)
     pdf = UnimodalPdf(sample)
     mu, variance, skew, kurt = pdf.moments()
     tolerance = 0.2
@@ -77,7 +78,8 @@ def test_unimodal_pdf_moments():
 def test_unimodal_pdf_interval():
     N = 5000
     # Create some samples from the exponentially-modified Gaussian distribution
-    sample = normal(size=N) + exponential(scale=3.0, size=N)
+    rng = default_rng(1234)
+    sample = rng.normal(size=N) + rng.exponential(scale=3.0, size=N)
     pdf = UnimodalPdf(sample)
     left, right = pdf.interval()
 
@@ -90,7 +92,7 @@ def test_sample_hdi_95():
     N = 20000
     expected_mu = 5.0
     expected_sigma = 2.0
-    sample = default_rng().normal(expected_mu, expected_sigma, size=N)
+    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
 
     left, right = sample_hdi(sample, fraction=0.95)
 
@@ -138,7 +140,7 @@ def test_sample_hdi_double():
 
 def test_sample_hdi_invalid_fractions():
     # Create some samples from the exponentially-modified Gaussian distribution
-    sample = normal(size=3000)
+    sample = default_rng(1324).normal(size=3000)
     with pytest.raises(ValueError):
         sample_hdi(sample, fraction=2.0)
     with pytest.raises(ValueError):

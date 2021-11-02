@@ -1,5 +1,5 @@
 from numpy import linspace, zeros, subtract, exp, array
-from numpy.random import multivariate_normal, default_rng
+from numpy.random import default_rng
 from inference.plotting import matrix_plot, trace_plot, hdi_plot, transition_matrix_plot
 from matplotlib.collections import PolyCollection
 import matplotlib.pyplot as plt
@@ -13,7 +13,7 @@ def test_matrix_plot():
     mean = zeros(N)
     covariance = exp(-0.1 * subtract.outer(x, x) ** 2)
 
-    samples = multivariate_normal(mean, covariance, size=100)
+    samples = default_rng(1234).multivariate_normal(mean, covariance, size=100)
     samples = [samples[:, i] for i in range(N)]
     labels = ["test {}".format(i) for i in range(len(samples))]
 
@@ -28,7 +28,7 @@ def test_trace_plot():
     mean = zeros(N)
     covariance = exp(-0.1 * subtract.outer(x, x) ** 2)
 
-    samples = multivariate_normal(mean, covariance, size=100)
+    samples = default_rng(1234).multivariate_normal(mean, covariance, size=100)
     samples = [samples[:, i] for i in range(N)]
     labels = ["test {}".format(i) for i in range(len(samples))]
 
@@ -42,7 +42,7 @@ def test_hdi_plot():
     start = 0
     end = 12
     x_fits = linspace(start, end, N)
-    curves = array([default_rng().normal(size=N) for _ in range(N)])
+    curves = array([default_rng(1324).normal(size=N) for _ in range(N)])
     intervals = [0.5, 0.65, 0.95]
 
     ax = hdi_plot(x_fits, curves, intervals)
@@ -76,7 +76,7 @@ def test_hdi_plot_bad_dimensions():
     start = 0
     end = 12
     x_fits = linspace(start, end, N)
-    curves = array([default_rng().normal(size=N + 1) for _ in range(N + 1)])
+    curves = array([default_rng(1324).normal(size=N + 1) for _ in range(N + 1)])
 
     with pytest.raises(ValueError):
         hdi_plot(x_fits, curves)
@@ -84,7 +84,7 @@ def test_hdi_plot_bad_dimensions():
 
 def test_transition_matrix_plot():
     N = 5
-    matrix = default_rng().random((N, N))
+    matrix = default_rng(1324).random((N, N))
 
     ax = transition_matrix_plot(matrix=matrix)
 
@@ -104,7 +104,7 @@ def test_transition_matrix_plot():
 
 def test_transition_matrix_plot_upper_triangle():
     N = 5
-    matrix = default_rng().random((N, N))
+    matrix = default_rng(1324).random((N, N))
 
     ax = transition_matrix_plot(
         matrix=matrix, exclude_diagonal=True, upper_triangular=True
