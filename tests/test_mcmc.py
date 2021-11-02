@@ -251,15 +251,8 @@ def test_gibbs_chain_set_boundary(line_posterior):
     assert all(gradient <= right)
 
 
-def test_gibbs_chain_remove_boundary():
-    N = 25
-    x = np.linspace(-2, 5, N)
-    m = 0.5
-    c = 0.05
-    sigma = 0.3
-    y = m * x + c + default_rng().normal(size=N) * sigma
-    posterior = LinePosterior(x=x, y=y, err=np.ones(N) * sigma)
-    chain = GibbsChain(posterior=posterior, start=[0.5, 0.1])
+def test_gibbs_chain_remove_boundary(line_posterior):
+    chain = GibbsChain(posterior=line_posterior, start=[0.5, 0.1])
 
     left, right = (0.45, 0.4500000000001)
     chain.set_boundaries(0, [left, right])
@@ -389,6 +382,50 @@ def test_hamiltonian_chain_advance():
     assert len(chain.get_parameter(1)) == chain.n
     assert len(chain.get_parameter(2)) == chain.n
     assert len(chain.probs) == chain.n
+
+
+def test_hamiltonian_chain_advance_no_gradient():
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(posterior=posterior, start=[1, 0.1, 0.1])
+    first_n = chain.n
+    steps = 10
+    chain.advance(steps)
+
+    assert chain.n == first_n + steps
+    chain.burn = 0
+    assert len(chain.get_parameter(0)) == chain.n
+    assert len(chain.get_parameter(1)) == chain.n
+    assert len(chain.get_parameter(2)) == chain.n
+    assert len(chain.probs) == chain.n
+
+
+def test_hamiltonian_chain_burn_in():
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(posterior=posterior, start=[1, 0.1, 0.1])
+    steps = 10
+    chain.advance(steps)
+    burn = chain.estimate_burn_in()
+
+    assert 0 < burn <= steps
+
+    chain.autoselect_burn()
+    assert chain.burn == burn
+
+
+def test_hamiltonian_chain_advance_bounds(line_posterior):
+    chain = HamiltonianChain(
+        posterior=line_posterior,
+        start=[0.5, 0.1],
+        bounds=(np.array([0.45, 0.0]), np.array([0.55, 1e100])),
+    )
+    chain.advance(10)
+
+    gradient = np.array(chain.get_parameter(0))
+    assert all(gradient >= 0.45)
+    assert all(gradient <= 0.55)
+
+    offset = np.array(chain.get_parameter(1))
+    assert all(offset >= 0)
 
 
 def test_hamiltonian_chain_restore(tmp_path):
