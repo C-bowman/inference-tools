@@ -31,24 +31,132 @@ class ToroidalGaussian(object):
         return -g / self.w2
 
 
-def test_gibbs_chain():
+def expected_len(length, start=1, step=1):
+    """Expected length of an iterable"""
+    real_length = length - (start - 1)
+    return (real_length // step) + (real_length % step)
+
+
+def test_gibbs_chain_get_replace_last():
     start_location = array([2.0, -4.0])
     width_guesses = array([5.0, 0.05])
 
     chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    chain.advance(50000)
 
-    p = chain.get_probabilities()
-    chain.plot_diagnostics(show=False)
+    replacements = [22.22, 44.44]
+    chain.replace_last([22.22, 44.44])
+    assert chain.get_last() == replacements
+
+
+def test_gibbs_chain_take_step():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    first_n = chain.n
+
+    chain.take_step()
+
+    assert chain.n == first_n + 1
+    assert len(chain.params[0].samples) == chain.n
+    assert len(chain.probs) == chain.n
+
+
+def test_gibbs_chain_advance():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    first_n = chain.n
+
+    steps = 104
+    chain.advance(steps)
+
+    assert chain.n == first_n + steps
+    assert len(chain.params[0].samples) == chain.n
+    assert len(chain.probs) == chain.n
+
+
+def test_gibbs_chain_get_parameter():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+
+    steps = 5
+    chain.advance(steps)
+
+    samples = chain.get_parameter(0)
+    assert len(samples) == expected_len(steps)
+
+    burn = 2
+    samples = chain.get_parameter(0, burn=burn)
+    assert len(samples) == expected_len(steps, burn)
+
+    thin = 2
+    samples = chain.get_parameter(1, thin=thin)
+    assert len(samples) == expected_len(steps, step=thin)
+
+    samples = chain.get_parameter(1, burn=burn, thin=thin)
+    assert len(samples) == expected_len(steps, start=burn, step=thin)
+
+
+def test_gibbs_chain_get_probabilities():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    steps = 5
+    chain.advance(steps)
+
+    probabilities = chain.get_probabilities()
+    assert len(probabilities) == steps
+    assert probabilities[-1] > probabilities[0]
+
+    burn = 2
+    probabilities = chain.get_probabilities(burn=burn)
+    assert len(probabilities) == expected_len(steps, start=burn)
+    assert probabilities[-1] > probabilities[0]
+
+    thin = 2
+    probabilities = chain.get_probabilities(thin=thin)
+    assert len(probabilities) == expected_len(steps, step=thin)
+    assert probabilities[-1] > probabilities[0]
+
+    probabilities = chain.get_probabilities(burn=burn, thin=thin)
+    assert len(probabilities) == expected_len(steps, start=burn, step=thin)
+    assert probabilities[-1] > probabilities[0]
+
+
+def test_gibbs_chain_burn_in():
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    steps = 50
+    chain.advance(steps)
+
+    burn = chain.estimate_burn_in()
+
+    assert 0 < burn <= steps
 
     chain.autoselect_burn()
-    chain.autoselect_thin()
+    assert chain.burn == burn
 
 
-def test_hamiltonian_chain():
-    # create an instance of our posterior class
-    posterior = ToroidalGaussian()
-    chain = HamiltonianChain(
-        posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
-    )
-    chain.advance(3000)
+def test_gibbs_chain_restore(tmp_path):
+    start_location = array([2.0, -4.0])
+    width_guesses = array([5.0, 0.05])
+
+    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    steps = 50
+    chain.advance(steps)
+
+    filename = tmp_path / "restore_file.npz"
+    chain.save(filename)
+
+    new_chain = GibbsChain.load(filename)
+
+    assert new_chain.n == chain.n
+    assert new_chain.probs == chain.probs
+    assert new_chain.get_sample() == chain.get_sample()
