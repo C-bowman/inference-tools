@@ -10,6 +10,7 @@ from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
+import numpy as np
 from numpy import array, arange, zeros
 from numpy import (
     exp,
@@ -279,10 +280,7 @@ class MarkovChain(object):
 
             # add starting point as first step in chain
             if len(self.params) != 0:
-                self.probs.append(
-                    self.posterior(array([p.samples[-1] for p in self.params]))
-                    * self.inv_temp
-                )
+                self.probs.append(self.posterior(self.get_last()) * self.inv_temp)
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
@@ -378,7 +376,7 @@ class MarkovChain(object):
 
         # get a rough estimate of the time per step
         step_time = time()
-        __ = self.posterior(self.get_last())
+        self.posterior(self.get_last())
         step_time = time() - step_time
         step_time *= 2 * self.L
         if step_time <= 0.0:
@@ -419,7 +417,7 @@ class MarkovChain(object):
         sys.stdout.write("\n")
 
     def get_last(self):
-        return [p.samples[-1] for p in self.params]
+        return np.array([p.samples[-1] for p in self.params], dtype=np.float64)
 
     def replace_last(self, theta):
         for p, t in zip(self.params, theta):
@@ -906,20 +904,19 @@ class GibbsChain(MarkovChain):
         Take a 1D metropolis-hastings step for each parameter
         """
         p_old = self.probs[-1]
-        prop = array([p.samples[-1] for p in self.params])
+        prop = self.get_last()
 
         for i, p in enumerate(self.params):
-
             while True:
                 prop[i] = p.proposal()
                 p_new = self.posterior(prop) * self.inv_temp
 
-                if (
-                    p_new > p_old
-                ):  # automatically accept step if the probability goes up
+                if p_new > p_old:
+                    # automatically accept step if the probability goes up
                     p.submit_accept_prob(1.0)
                     break
-                else:  # else calculate the acceptance probability and perform the test
+                else:
+                    # else calculate the acceptance probability and perform the test
                     acceptance_prob = exp(p_new - p_old)
                     p.submit_accept_prob(acceptance_prob)
                     if random() < acceptance_prob:
@@ -1065,7 +1062,7 @@ class PcaChain(MarkovChain):
         Take a Metropolis-Hastings step along each principal component
         """
         p_old = self.probs[-1]
-        theta0 = array([p.samples[-1] for p in self.params])
+        theta0 = self.get_last()
         # loop over each eigenvector and take a step along each
         for v, p in zip(self.directions, self.params):
             while True:

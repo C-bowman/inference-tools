@@ -45,7 +45,7 @@ def test_gibbs_chain_get_replace_last():
 
     replacements = [22.22, 44.44]
     chain.replace_last([22.22, 44.44])
-    assert chain.get_last() == replacements
+    assert all(chain.get_last() == replacements)
 
 
 def test_gibbs_chain_take_step():
