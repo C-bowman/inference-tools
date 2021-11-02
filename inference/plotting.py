@@ -10,8 +10,7 @@ from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
-from matplotlib.cm import get_cmap, ScalarMappable
-from matplotlib.colors import Normalize
+from matplotlib.cm import get_cmap
 import matplotlib.patheffects as path_effects
 
 
