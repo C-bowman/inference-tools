@@ -14,9 +14,11 @@
 #
 import os
 import sys
+
+from importlib.metadata import version as get_version
+
 sys.path.insert(0, os.path.abspath('../../'))
 sys.path.insert(0, os.path.abspath('./'))
-
 
 # -- Project information -----------------------------------------------------
 
@@ -24,11 +26,10 @@ project = 'inference-tools'
 copyright = '2019, Chris Bowman'
 author = 'Chris Bowman'
 
-# The short X.Y version
-version = ''
 # The full version, including alpha/beta/rc tags
-release = '0.5.4'
-
+release = get_version(project)
+# Major.minor version
+version = ".".join(release.split(".")[:2])
 
 # -- General configuration ---------------------------------------------------
 
