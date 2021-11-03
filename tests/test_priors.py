@@ -134,6 +134,11 @@ def test_GaussianPrior_inconsistent_size():
         GaussianPrior(mean=zeros(1), sigma=ones(2), variable_indices=[0])
 
 
+def test_GaussianPrior_inconsistent_size_squeezed_dim():
+    with pytest.raises(ValueError):
+        GaussianPrior(mean=zeros((2, 1, 2)), sigma=ones(2), variable_indices=[0, 1])
+
+
 def test_GaussianPrior_inconsistent_dimensions():
     with pytest.raises(ValueError):
         GaussianPrior(mean=zeros((2, 2)), sigma=ones(4), variable_indices=[0])
