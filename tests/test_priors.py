@@ -9,6 +9,8 @@ from inference.priors import (
 
 import pytest
 
+from hypothesis import assume, given, strategies as st
+
 
 def finite_difference(func=None, x0=None, delta=1e-5, vectorised_arguments=False):
     grad = zeros(x0.size)
@@ -31,20 +33,30 @@ def finite_difference(func=None, x0=None, delta=1e-5, vectorised_arguments=False
     return grad
 
 
-def test_check_variables_scalar():
-    result = BasePrior.check_variables(56, 1)
-    assert result == [56]
+@given(variable_inds=st.integers())
+def test_check_variables_scalar(variable_inds):
+    result = BasePrior.check_variables(variable_inds, 1)
+    assert result == [variable_inds]
 
 
-def test_check_variables_scalar_bad():
+@given(variable_inds=st.integers(), length=st.integers())
+def test_check_variables_scalar_bad(variable_inds, length):
+    assume(length != 1)
     with pytest.raises(ValueError):
-        BasePrior.check_variables(56, 4)
+        BasePrior.check_variables(variable_inds, length)
 
 
-def test_check_variables_list():
-    indices = [56, 24, 32, 1]
-    result = BasePrior.check_variables(indices, 4)
-    assert result == indices
+@given(variable_inds=st.lists(st.integers(), unique=True))
+def test_check_variables_list(variable_inds):
+    result = BasePrior.check_variables(variable_inds, len(variable_inds))
+    assert result == variable_inds
+
+
+@given(variable_inds=st.lists(st.integers(), unique=True), length=st.integers())
+def test_check_variables_list_bad_length(variable_inds, length):
+    assume(length != len(variable_inds))
+    with pytest.raises(ValueError):
+        BasePrior.check_variables(variable_inds, length)
 
 
 def test_check_variables_list_not_int():

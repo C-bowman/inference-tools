@@ -1,6 +1,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+from typing import Union, Iterable
 
 from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
@@ -119,21 +120,23 @@ class JointPrior(object):
 
 class BasePrior(object):
     @staticmethod
-    def check_variables(variable_inds, n_vars):
-        if isinstance(variable_inds, int):
-            if n_vars != 1:
-                raise ValueError(
-                    """
-                    The total number of variables specified via the 'variable_indices' argument is
-                    inconsistent with the number specified by the other arguments.
-                    """
-                )
-            return [variable_inds]
-
-        if not isinstance(variable_inds, (list, tuple)) or not all(
-            isinstance(p, int) for p in variable_inds
-        ):
+    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
+        if not isinstance(variable_inds, (int, Iterable)):
             raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if isinstance(variable_inds, int):
+            variable_inds = [variable_inds]
+
+        if not all(isinstance(p, int) for p in variable_inds):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if n_vars != len(variable_inds):
+            raise ValueError(
+                """
+                The total number of variables specified via the 'variable_indices' argument is
+                inconsistent with the number specified by the other arguments.
+                """
+            )
 
         if len(variable_inds) != len(set(variable_inds)):
             raise ValueError(
