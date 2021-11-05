@@ -1,6 +1,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+from typing import Union, Iterable
 
 from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
@@ -41,14 +42,11 @@ class JointPrior(object):
         # check that no variable appears more than once across all prior components
         self.prior_variables = []
         for var in chain(*[c.variables for c in self.components]):
-            if var not in self.prior_variables:
-                self.prior_variables.append(var)
-            else:
+            if var in self.prior_variables:
                 raise ValueError(
-                    """Variable index '{}' appears more than once in prior components""".format(
-                        var
-                    )
+                    f"Variable index '{var}' appears more than once in prior components"
                 )
+            self.prior_variables.append(var)
 
         if len(self.prior_variables) != n_variables:
             raise ValueError(
@@ -63,7 +61,7 @@ class JointPrior(object):
         if not all(0 <= i < n_variables for i in self.prior_variables):
             raise ValueError(
                 """
-                All variable indices given to the prior components must have values 
+                All variable indices given to the prior components must have values
                 in the range [0, n_variables-1].
                 """
             )
@@ -122,23 +120,22 @@ class JointPrior(object):
 
 class BasePrior(object):
     @staticmethod
-    def check_variables(variable_inds, n_vars):
-        if type(variable_inds) is int:
-            if n_vars == 1:
-                return [variable_inds]
-            else:
-                raise ValueError(
-                    """
-                    The total number of variables specified via the 'variable_indices' argument is
-                    inconsistent with the number specified by the other arguments.
-                    """
-                )
+    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
+        if not isinstance(variable_inds, (int, Iterable)):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
 
-        elif type(variable_inds) is not list or not all(
-            type(p) is int for p in variable_inds
-        ):
-            raise TypeError(
-                'The "variables" argument must be an integer or list of integers'
+        if isinstance(variable_inds, int):
+            variable_inds = [variable_inds]
+
+        if not all(isinstance(p, int) for p in variable_inds):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if n_vars != len(variable_inds):
+            raise ValueError(
+                """
+                The total number of variables specified via the 'variable_indices' argument is
+                inconsistent with the number specified by the other arguments.
+                """
             )
 
         if len(variable_inds) != len(set(variable_inds)):
@@ -237,12 +234,8 @@ class GaussianPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -299,8 +292,7 @@ class ExponentialPrior(BasePrior):
         """
         if (theta < 0.0).any():
             return -1e100
-        else:
-            return -(self.lam * theta[self.variables]).sum() + self.normalisation
+        return -(self.lam * theta[self.variables]).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -326,12 +318,8 @@ class ExponentialPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -374,18 +362,18 @@ class UniformPrior(BasePrior):
             )
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError("""'lower' and 'upper' arguments must be 1D arrays""")
+            raise ValueError("'lower' and 'upper' arguments must be 1D arrays")
 
         if (self.upper <= self.lower).any():
             raise ValueError(
-                """All values in 'lower' must be less than the corresponding values in 'upper'"""
+                "All values in 'lower' must be less than the corresponding values in 'upper'"
             )
 
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
         self.normalisation = -log(self.upper - self.lower).sum()
-        self.bounds = [(l, u) for l, u in zip(self.lower, self.upper)]
+        self.bounds = [(lo, up) for lo, up in zip(self.lower, self.upper)]
 
     def __call__(self, theta):
         """
@@ -401,8 +389,7 @@ class UniformPrior(BasePrior):
         inside = (self.lower <= t) & (t <= self.upper)
         if inside.all():
             return self.normalisation
-        else:
-            return -1e100
+        return -1e100
 
     def gradient(self, theta):
         """
@@ -428,12 +415,8 @@ class UniformPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:

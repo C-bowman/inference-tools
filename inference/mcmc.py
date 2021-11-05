@@ -10,6 +10,7 @@ from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
+import numpy as np
 from numpy import array, arange, zeros
 from numpy import (
     exp,
@@ -183,28 +184,28 @@ class Parameter(object):
         self.try_count = 0
 
     def get_items(self, param_id):
-        i = "param_" + str(param_id)
-        items = [
-            (i + "samples", self.samples),
-            (i + "sigma", self.sigma),
-            (i + "avg", self.avg),
-            (i + "var", self.var),
-            (i + "num", self.num),
-            (i + "sigma_values", self.sigma_values),
-            (i + "sigma_checks", self.sigma_checks),
-            (i + "try_count", self.try_count),
-            (i + "last_update", self.last_update),
-            (i + "target_rate", self.target_rate),
-            (i + "max_tries", self.max_tries),
-            (i + "chk_int", self.chk_int),
-            (i + "growth_factor", self.growth_factor),
-            (i + "adjust_rate", self.adjust_rate),
-            (i + "_non_negative", self._non_negative),
-            (i + "bounded", self.bounded),
-            (i + "upper", self.upper),
-            (i + "lower", self.lower),
-            (i + "width", self.width),
-        ]
+        i = f"param_{param_id}"
+        items = {
+            f"{i}samples": self.samples,
+            f"{i}sigma": self.sigma,
+            f"{i}avg": self.avg,
+            f"{i}var": self.var,
+            f"{i}num": self.num,
+            f"{i}sigma_values": self.sigma_values,
+            f"{i}sigma_checks": self.sigma_checks,
+            f"{i}try_count": self.try_count,
+            f"{i}last_update": self.last_update,
+            f"{i}target_rate": self.target_rate,
+            f"{i}max_tries": self.max_tries,
+            f"{i}chk_int": self.chk_int,
+            f"{i}growth_factor": self.growth_factor,
+            f"{i}adjust_rate": self.adjust_rate,
+            f"{i}_non_negative": self._non_negative,
+            f"{i}bounded": self.bounded,
+            f"{i}upper": self.upper,
+            f"{i}lower": self.lower,
+            f"{i}width": self.width,
+        }
         return items
 
     def load_items(self, dictionary, param_id):
@@ -279,10 +280,7 @@ class MarkovChain(object):
 
             # add starting point as first step in chain
             if len(self.params) != 0:
-                self.probs.append(
-                    self.posterior(array([p.samples[-1] for p in self.params]))
-                    * self.inv_temp
-                )
+                self.probs.append(self.posterior(self.get_last()) * self.inv_temp)
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
@@ -378,7 +376,7 @@ class MarkovChain(object):
 
         # get a rough estimate of the time per step
         step_time = time()
-        __ = self.posterior(self.get_last())
+        self.posterior(self.get_last())
         step_time = time() - step_time
         step_time *= 2 * self.L
         if step_time <= 0.0:
@@ -419,7 +417,7 @@ class MarkovChain(object):
         sys.stdout.write("\n")
 
     def get_last(self):
-        return [p.samples[-1] for p in self.params]
+        return np.array([p.samples[-1] for p in self.params], dtype=np.float64)
 
     def replace_last(self, theta):
         for p, t in zip(self.params, theta):
@@ -774,27 +772,22 @@ class MarkovChain(object):
         :param str filename: file path to which the chain will be saved.
         """
         # get the chain attributes
-        items = [
-            ("n", self.n),
-            ("L", self.L),
-            ("probs", self.probs),
-            ("burn", self.burn),
-            ("thin", self.thin),
-            ("inv_temp", self.inv_temp),
-            ("print_status", self.print_status),
-        ]
+        items = {
+            "n": self.n,
+            "L": self.L,
+            "probs": self.probs,
+            "burn": self.burn,
+            "thin": self.thin,
+            "inv_temp": self.inv_temp,
+            "print_status": self.print_status,
+        }
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
-            items.extend(p.get_items(param_id=i))
-
-        # build the dict
-        D = {}
-        for key, value in items:
-            D[key] = value
+            items.update(p.get_items(param_id=i))
 
         # save as npz
-        savez(filename, **D)
+        savez(filename, **items)
 
     @classmethod
     def load(cls, filename, posterior=None):
@@ -911,20 +904,19 @@ class GibbsChain(MarkovChain):
         Take a 1D metropolis-hastings step for each parameter
         """
         p_old = self.probs[-1]
-        prop = array([p.samples[-1] for p in self.params])
+        prop = self.get_last()
 
         for i, p in enumerate(self.params):
-
             while True:
                 prop[i] = p.proposal()
                 p_new = self.posterior(prop) * self.inv_temp
 
-                if (
-                    p_new > p_old
-                ):  # automatically accept step if the probability goes up
+                if p_new > p_old:
+                    # automatically accept step if the probability goes up
                     p.submit_accept_prob(1.0)
                     break
-                else:  # else calculate the acceptance probability and perform the test
+                else:
+                    # else calculate the acceptance probability and perform the test
                     acceptance_prob = exp(p_new - p_old)
                     p.submit_accept_prob(acceptance_prob)
                     if random() < acceptance_prob:
@@ -1070,7 +1062,7 @@ class PcaChain(MarkovChain):
         Take a Metropolis-Hastings step along each principal component
         """
         p_old = self.probs[-1]
-        theta0 = array([p.samples[-1] for p in self.params])
+        theta0 = self.get_last()
         # loop over each eigenvector and take a step along each
         for v, p in zip(self.directions, self.params):
             while True:
@@ -1108,33 +1100,30 @@ class PcaChain(MarkovChain):
         :param str filename: file path to which the chain will be saved.
         """
         # get the chain attributes
-        items = [
-            ("n", self.n),
-            ("L", self.L),
-            ("probs", self.probs),
-            ("burn", self.burn),
-            ("thin", self.thin),
-            ("inv_temp", self.inv_temp),
-            ("print_status", self.print_status),
-            ("dir_update_interval", self.dir_update_interval),
-            ("dir_growth_factor", self.dir_growth_factor),
-            ("last_update", self.last_update),
-            ("next_update", self.next_update),
-            ("angles_history", array(self.angles_history)),
-            ("update_history", array(self.update_history)),
-            ("directions", array(self.directions)),
-            ("covar", self.covar),
-        ]
+        items = {
+            "n": self.n,
+            "L": self.L,
+            "probs": self.probs,
+            "burn": self.burn,
+            "thin": self.thin,
+            "inv_temp": self.inv_temp,
+            "print_status": self.print_status,
+            "dir_update_interval": self.dir_update_interval,
+            "dir_growth_factor": self.dir_growth_factor,
+            "last_update": self.last_update,
+            "next_update": self.next_update,
+            "angles_history": array(self.angles_history),
+            "update_history": array(self.update_history),
+            "directions": array(self.directions),
+            "covar": self.covar,
+        }
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
-            items.extend(p.get_items(param_id=i))
+            items.update(p.get_items(param_id=i))
 
-        D = {}  # build the dict
-        for key, value in items:
-            D[key] = value
         # save as npz
-        savez(filename, **D)
+        savez(filename, **items)
 
     @classmethod
     def load(cls, filename, posterior=None):
@@ -1567,37 +1556,31 @@ class HamiltonianChain(MarkovChain):
         return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.n))
 
     def save(self, filename, compressed=False):
-        items = [
-            ("bounded", self.bounded),
-            ("lwr_bounds", self.lwr_bounds),
-            ("upr_bounds", self.upr_bounds),
-            ("widths", self.widths),
-            ("inv_mass", self.variance),
-            ("inv_temp", self.inv_temp),
-            ("theta", self.theta),
-            ("probs", self.probs),
-            ("leapfrog_steps", self.leapfrog_steps),
-            ("L", self.L),
-            ("n", self.n),
-            ("steps", self.steps),
-            ("burn", self.burn),
-            ("thin", self.thin),
-            ("print_status", self.print_status),
-            ("n", self.n),
-        ]
+        items = {
+            "bounded": self.bounded,
+            "lwr_bounds": self.lwr_bounds,
+            "upr_bounds": self.upr_bounds,
+            "widths": self.widths,
+            "inv_mass": self.variance,
+            "inv_temp": self.inv_temp,
+            "theta": self.theta,
+            "probs": self.probs,
+            "leapfrog_steps": self.leapfrog_steps,
+            "L": self.L,
+            "n": self.n,
+            "steps": self.steps,
+            "burn": self.burn,
+            "thin": self.thin,
+            "print_status": self.print_status,
+        }
 
-        items.extend(self.ES.get_items())
-
-        # build the dict
-        D = {}
-        for key, value in items:
-            D[key] = value
+        items.update(self.ES.get_items())
 
         # save as npz
         if compressed:
-            savez_compressed(filename, **D)
+            savez_compressed(filename, **items)
         else:
-            savez(filename, **D)
+            savez(filename, **items)
 
     @classmethod
     def load(cls, filename, posterior=None, grad=None):
@@ -1687,7 +1670,7 @@ class EpsilonSelector(object):
         self.num = 0
 
     def get_items(self):
-        return [(k, v) for k, v in self.__dict__.items()]
+        return self.__dict__
 
     def load_items(self, dictionary):
         self.epsilon = float(dictionary["epsilon"])
