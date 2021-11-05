@@ -1,7 +1,7 @@
-
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+
 
 class Posterior(object):
     """
@@ -13,6 +13,7 @@ class Posterior(object):
     :param callable prior: \
         A callable which returns the log-prior probability when passed a vector of the model parameters.
     """
+
     def __init__(self, likelihood, prior):
         self.likelihood = likelihood
         self.prior = prior
@@ -84,10 +85,16 @@ class Posterior(object):
             raise TypeError("""'n_guesses' and 'prior_samples' must both be integers""")
 
         if n_guesses < 1 or prior_samples < 1:
-            raise ValueError("""'n_guesses' and 'prior_samples' must both be greater than zero""")
+            raise ValueError(
+                """'n_guesses' and 'prior_samples' must both be greater than zero"""
+            )
 
         if n_guesses > prior_samples:
-            raise ValueError("""The value of 'n_guesses' must be less than that of 'prior_samples'""")
+            raise ValueError(
+                """The value of 'n_guesses' must be less than that of 'prior_samples'"""
+            )
 
-        samples = sorted([self.prior.sample() for _ in range(prior_samples)], key=self.cost)
+        samples = sorted(
+            [self.prior.sample() for _ in range(prior_samples)], key=self.cost
+        )
         return samples[:n_guesses]

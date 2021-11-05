@@ -1,7 +1,7 @@
-
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+from typing import Union, Iterable
 
 from numpy import array, log, pi, zeros, concatenate, float64, where
 from numpy.random import normal, exponential, uniform
@@ -20,6 +20,7 @@ class JointPrior(object):
     :param int n_variables: \
         The total number of model variables.
     """
+
     def __init__(self, components, n_variables):
         if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
@@ -41,30 +42,37 @@ class JointPrior(object):
         # check that no variable appears more than once across all prior components
         self.prior_variables = []
         for var in chain(*[c.variables for c in self.components]):
-            if var not in self.prior_variables:
-                self.prior_variables.append(var)
-            else:
-                raise ValueError("""Variable index '{}' appears more than once in prior components""".format(var))
+            if var in self.prior_variables:
+                raise ValueError(
+                    f"Variable index '{var}' appears more than once in prior components"
+                )
+            self.prior_variables.append(var)
 
         if len(self.prior_variables) != n_variables:
             raise ValueError(
                 """
                 The total number of variables specified across the various prior components ({})
                 does not match the number specified in the 'n_variables' argument ({}).
-                """.format(len(self.prior_variables), n_variables))
+                """.format(
+                    len(self.prior_variables), n_variables
+                )
+            )
 
         if not all(0 <= i < n_variables for i in self.prior_variables):
             raise ValueError(
                 """
-                All variable indices given to the prior components must have values 
+                All variable indices given to the prior components must have values
                 in the range [0, n_variables-1].
-                """)
+                """
+            )
 
         self.n_variables = n_variables
 
         all_bounds = chain(*[c.bounds for c in self.components])
         all_inds = chain(*[c.variables for c in self.components])
-        both = sorted([(b,i) for b,i in zip(all_bounds, all_inds)], key=lambda x: x[1])
+        both = sorted(
+            [(b, i) for b, i in zip(all_bounds, all_inds)], key=lambda x: x[1]
+        )
         self.bounds = [v[0] for v in both]
 
     def __call__(self, theta):
@@ -110,26 +118,25 @@ class JointPrior(object):
         return sample
 
 
-
-
-
-
 class BasePrior(object):
     @staticmethod
-    def check_variables(variable_inds, n_vars):
-        if type(variable_inds) is int:
-            if n_vars == 1:
-                return [variable_inds]
-            else:
-                raise ValueError(
-                    """
-                    The total number of variables specified via the 'variable_indices' argument is
-                    inconsistent with the number specified by the other arguments.
-                    """
-                )
+    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
+        if not isinstance(variable_inds, (int, Iterable)):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
 
-        elif type(variable_inds) is not list or not all(type(p) is int for p in variable_inds):
-            raise TypeError('The "variables" argument must be an integer or list of integers')
+        if isinstance(variable_inds, int):
+            variable_inds = [variable_inds]
+
+        if not all(isinstance(p, int) for p in variable_inds):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if n_vars != len(variable_inds):
+            raise ValueError(
+                """
+                The total number of variables specified via the 'variable_indices' argument is
+                inconsistent with the number specified by the other arguments.
+                """
+            )
 
         if len(variable_inds) != len(set(variable_inds)):
             raise ValueError(
@@ -140,10 +147,6 @@ class BasePrior(object):
             )
 
         return variable_inds
-
-
-
-
 
 
 class GaussianPrior(BasePrior):
@@ -161,33 +164,38 @@ class GaussianPrior(BasePrior):
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
+
     def __init__(self, mean, sigma, variable_indices):
 
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
 
         # if parameters were passed as floats, convert from 0D to 1D arrays
-        if self.mean.ndim == 0: self.mean = self.mean.reshape([1])
-        if self.sigma.ndim == 0: self.sigma = self.sigma.reshape([1])
+        if self.mean.ndim == 0:
+            self.mean = self.mean.reshape([1])
+        if self.sigma.ndim == 0:
+            self.sigma = self.sigma.reshape([1])
 
         self.n_params = self.mean.size
 
         if self.mean.size != self.sigma.size:
-            raise ValueError('mean and sigma arguments must have the same number of elements')
+            raise ValueError(
+                "mean and sigma arguments must have the same number of elements"
+            )
 
         if self.mean.ndim > 1 or self.sigma.ndim > 1:
-            raise ValueError('mean and sigma arguments must be 1D arrays')
+            raise ValueError("mean and sigma arguments must be 1D arrays")
 
-        if not (self.sigma > 0.).all():
+        if not (self.sigma > 0.0).all():
             raise ValueError('All values of "sigma" must be greater than zero')
 
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
-        self.inv_sigma = 1./self.sigma
-        self.inv_sigma_sqr = self.inv_sigma**2
-        self.normalisation = -log(self.sigma).sum() - 0.5*log(2*pi)*self.n_params
-        self.bounds = [(None,None)]*self.n_params
+        self.inv_sigma = 1.0 / self.sigma
+        self.inv_sigma_sqr = self.inv_sigma ** 2
+        self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_params
+        self.bounds = [(None, None)] * self.n_params
 
     def __call__(self, theta):
         """
@@ -199,8 +207,8 @@ class GaussianPrior(BasePrior):
         :returns: \
             The prior log-probability value.
         """
-        z = (self.mean-theta[self.variables])*self.inv_sigma
-        return -0.5*(z**2).sum() + self.normalisation
+        z = (self.mean - theta[self.variables]) * self.inv_sigma
+        return -0.5 * (z ** 2).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -213,7 +221,7 @@ class GaussianPrior(BasePrior):
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
         """
-        return (self.mean-theta[self.variables])*self.inv_sigma_sqr
+        return (self.mean - theta[self.variables]) * self.inv_sigma_sqr
 
     def sample(self):
         """
@@ -226,12 +234,8 @@ class GaussianPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -241,10 +245,6 @@ class GaussianPrior(BasePrior):
         sigmas = concatenate([p.sigma for p in priors])
 
         return cls(mean=means, sigma=sigmas, variable_indices=variables)
-
-
-
-
 
 
 class ExponentialPrior(BasePrior):
@@ -258,25 +258,27 @@ class ExponentialPrior(BasePrior):
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
+
     def __init__(self, beta, variable_indices):
 
         self.beta = array(beta, dtype=float64).squeeze()
-        if self.beta.ndim == 0: self.beta = self.beta.reshape([1])
+        if self.beta.ndim == 0:
+            self.beta = self.beta.reshape([1])
         self.n_params = self.beta.size
 
         if self.beta.ndim > 1:
-            raise ValueError('beta argument must be a 1D array')
+            raise ValueError("beta argument must be a 1D array")
 
-        if not (self.beta > 0.).all():
+        if not (self.beta > 0.0).all():
             raise ValueError('All values of "beta" must be greater than zero')
 
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
-        self.lam = 1./self.beta
+        self.lam = 1.0 / self.beta
         self.normalisation = log(self.lam).sum()
         self.zeros = zeros(self.n_params)
-        self.bounds = [(0., None)]*self.n_params
+        self.bounds = [(0.0, None)] * self.n_params
 
     def __call__(self, theta):
         """
@@ -288,10 +290,9 @@ class ExponentialPrior(BasePrior):
         :returns: \
             The prior log-probability value.
         """
-        if (theta < 0.).any():
+        if (theta < 0.0).any():
             return -1e100
-        else:
-            return -(self.lam*theta[self.variables]).sum() + self.normalisation
+        return -(self.lam * theta[self.variables]).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -304,7 +305,7 @@ class ExponentialPrior(BasePrior):
         :returns: \
             The gradient of the prior log-probability with respect to the model parameters.
         """
-        return where(theta[self.variables] >= 0., -self.lam, self.zeros)
+        return where(theta[self.variables] >= 0.0, -self.lam, self.zeros)
 
     def sample(self):
         """
@@ -317,12 +318,8 @@ class ExponentialPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
@@ -330,10 +327,6 @@ class ExponentialPrior(BasePrior):
 
         betas = concatenate([p.beta for p in priors])
         return cls(beta=betas, variable_indices=variables)
-
-
-
-
 
 
 class UniformPrior(BasePrior):
@@ -351,6 +344,7 @@ class UniformPrior(BasePrior):
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
+
     def __init__(self, lower, upper, variable_indices):
         self.lower = array(lower).squeeze()
         self.upper = array(upper).squeeze()
@@ -363,19 +357,23 @@ class UniformPrior(BasePrior):
         self.grad = zeros(self.n_params)
 
         if self.lower.size != self.upper.size:
-            raise ValueError("""'lower' and 'upper' arguments must have the same number of elements""")
+            raise ValueError(
+                """'lower' and 'upper' arguments must have the same number of elements"""
+            )
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError("""'lower' and 'upper' arguments must be 1D arrays""")
+            raise ValueError("'lower' and 'upper' arguments must be 1D arrays")
 
         if (self.upper <= self.lower).any():
-            raise ValueError("""All values in 'lower' must be less than the corresponding values in 'upper'""")
+            raise ValueError(
+                "All values in 'lower' must be less than the corresponding values in 'upper'"
+            )
 
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
-        self.normalisation = -log(self.upper-self.lower).sum()
-        self.bounds = [(l,u) for l,u in zip(self.lower, self.upper)]
+        self.normalisation = -log(self.upper - self.lower).sum()
+        self.bounds = [(lo, up) for lo, up in zip(self.lower, self.upper)]
 
     def __call__(self, theta):
         """
@@ -391,8 +389,7 @@ class UniformPrior(BasePrior):
         inside = (self.lower <= t) & (t <= self.upper)
         if inside.all():
             return self.normalisation
-        else:
-            return -1e100
+        return -1e100
 
     def gradient(self, theta):
         """
@@ -418,12 +415,8 @@ class UniformPrior(BasePrior):
 
     @classmethod
     def combine(cls, priors):
-        if not all(type(p) is cls for p in priors):
-            raise ValueError(
-                f"""
-                All prior objects being combined must be of type {cls}
-                """
-            )
+        if not all(isinstance(p, cls) for p in priors):
+            raise ValueError(f"All prior objects being combined must be of type {cls}")
 
         variables = []
         for p in priors:
