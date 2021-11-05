@@ -396,7 +396,7 @@ class GaussianKDE(DensityEstimator):
         # region contains a given value
         self.tree = BinaryTree(n, (self.s[0], self.s[-1]))
 
-        # The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
+        #: The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
         self.mode = self.locate_mode()
 
     def __call__(self, x_vals):
