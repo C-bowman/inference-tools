@@ -2128,9 +2128,7 @@ class EnsembleSampler(object):
     def advance(self, n):
         t_start = time()
         sys.stdout.write("\n")
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ 0 / {n} iterations completed ]"
-        )
+        sys.stdout.write(f"\r  EnsembleSampler:   [ 0 / {n} iterations completed ]")
         sys.stdout.flush()
 
         for k in range(n):
