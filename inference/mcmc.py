@@ -10,22 +10,8 @@ from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
-import numpy as np
-from numpy import array, arange, zeros
-from numpy import (
-    exp,
-    log,
-    mean,
-    sqrt,
-    argmax,
-    diff,
-    dot,
-    cov,
-    var,
-    percentile,
-    linspace,
-    identity,
-)
+from numpy import array, arange, float64, identity, linspace, zeros
+from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
@@ -64,9 +50,7 @@ class Parameter(object):
         self.target_rate = 0.25  # default of 0.25 is optimal for MH sampling
         self.max_tries = 50  # maximum allowed tries before width is cut in half
         self.chk_int = 100  # interval of steps at which proposal widths are adjusted
-        self.growth_factor = (
-            1.75  # factor by which self.chk_int grows when sigma is modified
-        )
+        self.growth_factor = 1.75  # factor chk_int grows when width is adjusted
         self.adjust_rate = 0.25
 
         # properties
@@ -164,7 +148,7 @@ class Parameter(object):
 
         # now check if the desired success rate is within 2-sigma
         if ~(mu - 2 * std < self.target_rate < mu + 2 * std):
-            adj = (log(self.target_rate) / log(mu)) ** (self.adjust_rate)
+            adj = (log(self.target_rate) / log(mu)) ** self.adjust_rate
             adj = min(adj, 3.0)
             adj = max(adj, 0.1)
             self.adjust_sigma(adj)
@@ -240,20 +224,21 @@ class Parameter(object):
 
 class MarkovChain(object):
     """
-    Implementation of the metropolis-hastings algorithm using a multivariate-normal proposal distribution.
+    Implementation of the metropolis-hastings algorithm using a multivariate-normal
+    proposal distribution.
 
     :param func posterior: \
         A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
     :param start: \
-        Vector of model parameters which correspond to the parameter-space coordinates at which the chain
-        will start.
+        Vector of model parameters which correspond to the parameter-space coordinates
+        at which the chain will start.
 
     :param widths: \
-        Vector of standard deviations which serve as initial guesses for the widths of the proposal
-        distribution for each model parameter. If not specified, the starting widths will be approximated
-        as 5% of the values in 'start'.
+        Vector of standard deviations which serve as initial guesses for the widths of
+        the proposal distribution for each model parameter. If not specified, the
+        starting widths will be approximated as 5% of the values in 'start'.
     """
 
     def __init__(self, posterior=None, start=None, widths=None, temperature=1.0):
@@ -334,12 +319,9 @@ class MarkovChain(object):
             if self.print_status:
                 pct = int(100 * (j + 1) / k)
                 eta = int(dt * (k / (j + 1) - 1))
-                msg = (
-                    "\r  advancing chain:   [ {}% complete   ETA: {} sec ]    ".format(
-                        pct, eta
-                    )
+                sys.stdout.write(
+                    f"\r  advancing chain:   [ {pct}% complete   ETA: {eta} sec ]    "
                 )
-                sys.stdout.write(msg)
                 sys.stdout.flush()
 
         # cleanup
@@ -354,9 +336,7 @@ class MarkovChain(object):
             hrs, mins = divmod(mins, 60)
             time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
             sys.stdout.write(
-                "\r  advancing chain:   [ complete - {} steps taken in {} ]      ".format(
-                    m, time_taken
-                )
+                f"\r  advancing chain:   [ complete - {m} steps taken in {time_taken} ]      "
             )
             sys.stdout.flush()
             sys.stdout.write("\n")
@@ -398,10 +378,9 @@ class MarkovChain(object):
             h, m = divmod(m, 60)
             time_left = "%d:%02d:%02d" % (h, m, s)
             steps_taken = self.n - start_length
-            msg = "\r  advancing chain:   [ {} steps taken, time remaining: {} ]    ".format(
-                steps_taken, time_left
+            sys.stdout.write(
+                f"\r  advancing chain:   [ {steps_taken} steps taken, time remaining: {time_left} ]    "
             )
-            sys.stdout.write(msg)
             sys.stdout.flush()
 
         # this is a little ugly...
@@ -409,15 +388,13 @@ class MarkovChain(object):
         hrs, mins = divmod(mins, 60)
         time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
         sys.stdout.write(
-            "\r  advancing chain:   [ complete - {} steps taken in {} ]      ".format(
-                self.n - start_length, time_taken
-            )
+            f"\r  advancing chain:   [ complete - {self.n - start_length} steps taken in {time_taken} ]      "
         )
         sys.stdout.flush()
         sys.stdout.write("\n")
 
     def get_last(self):
-        return np.array([p.samples[-1] for p in self.params], dtype=np.float64)
+        return array([p.samples[-1] for p in self.params], dtype=float64)
 
     def replace_last(self, theta):
         for p, t in zip(self.params, theta):
@@ -636,9 +613,7 @@ class MarkovChain(object):
 
         # probability history plot
         ax1 = fig.add_subplot(221)
-        step_ax = [
-            i * 1e-3 for i in range(len(self.probs))
-        ]  # TODO - avoid making this axis but preserve figure form
+        step_ax = [i * 1e-3 for i in range(len(self.probs))]
         ax1.plot(step_ax, self.probs, marker=".", ls="none", markersize=3)
         ax1.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax1.set_ylabel("log posterior probability", fontsize=12)
@@ -857,10 +832,11 @@ class MarkovChain(object):
             warn("Thinning not performed as lowest ESS is below 1")
         elif (self.n - self.burn) / self.thin < 100:
             warn("Sample size after thinning is less than 100")
-        msg = "[ thinning factor set to {} | thinned sample size is {} ]".format(
-            self.thin, len(self.probs[self.burn :: self.thin])
+
+        thin_size = len(self.probs[self.burn :: self.thin])
+        print(
+            f"[ thinning factor set to {self.thin} | thinned sample size is {thin_size} ]"
         )
-        print(msg)
 
     def autoselect_burn_and_thin(self):
         self.autoselect_burn()
@@ -1792,9 +1768,9 @@ class ParallelTempering(object):
         if sorted(self.temperatures) != self.temperatures:
             warn(
                 """
-            The list of Markov-chain objects passed to ParallelTempering
-            should be sorted in order of increasing chain temperature.
-            """
+                The list of Markov-chain objects passed to ParallelTempering
+                should be sorted in order of increasing chain temperature.
+                """
             )
 
         # Spawn a separate process for each chain object
@@ -1932,10 +1908,9 @@ class ParallelTempering(object):
             # display the progress status message
             pct = str(int(100 * (j + 1) / k))
             eta = str(int(dt * (k / (j + 1) - 1)))
-            msg = "\r  [ Running ParallelTempering - {}% complete   ETA: {} sec ]    ".format(
-                pct, eta
+            sys.stdout.write(
+                f"\r  [ Running ParallelTempering - {pct}% complete   ETA: {eta} sec ]    "
             )
-            sys.stdout.write(msg)
             sys.stdout.flush()
 
         # run the remaining cycles
@@ -1988,10 +1963,9 @@ class ParallelTempering(object):
             m, s = divmod(seconds_remaining, 60)
             h, m = divmod(m, 60)
             time_left = "%d:%02d:%02d" % (h, m, s)
-            msg = "\r  [ Running ParallelTempering - time remaining: {} ]    ".format(
-                time_left
+            sys.stdout.write(
+                f"\r  [ Running ParallelTempering - time remaining: {time_left} ]    "
             )
-            sys.stdout.write(msg)
             sys.stdout.flush()
 
         # this is a little ugly...
@@ -2142,9 +2116,7 @@ class EnsembleSampler(object):
             if attempts == self.max_attempts:
                 self.total_proposals[i].append(attempts)
                 warn(
-                    "Walker #{} failed to advance within the maximum allowed attempts".format(
-                        i
-                    )
+                    f"Walker #{i} failed to advance within the maximum allowed attempts"
                 )
 
     def advance_all(self):
@@ -2157,7 +2129,7 @@ class EnsembleSampler(object):
         t_start = time()
         sys.stdout.write("\n")
         sys.stdout.write(
-            "\r  EnsembleSampler:   [ 0 / {} iterations completed ]".format(n)
+            f"\r  EnsembleSampler:   [ 0 / {n} iterations completed ]"
         )
         sys.stdout.flush()
 
@@ -2166,18 +2138,15 @@ class EnsembleSampler(object):
 
             # display the progress status message
             dt = time() - t_start
-            eta = int(dt * ((n / (k + 1) - 1)))
-            msg = "\r  EnsembleSampler:   [ {} / {} iterations completed  |  ETA: {} sec ]".format(
-                k + 1, n, eta
+            eta = int(dt * (n / (k + 1) - 1))
+            sys.stdout.write(
+                f"\r  EnsembleSampler:   [ {k + 1} / {n} iterations completed  |  ETA: {eta} sec ]"
             )
-            sys.stdout.write(msg)
             sys.stdout.flush()
 
-        # this is a little ugly...
+        # display completion message
         sys.stdout.write(
-            "\r  EnsembleSampler:   [ {} / {} iterations completed ]                  ".format(
-                n, n
-            )
+            f"\r  EnsembleSampler:   [ {n} / {n} iterations completed ]                  "
         )
         sys.stdout.flush()
         sys.stdout.write("\n")
