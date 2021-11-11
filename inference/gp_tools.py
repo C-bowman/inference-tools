@@ -148,7 +148,7 @@ class RationalQuadratic(object):
         """
         # distributed outer subtraction using broadcasting
         dx = x[:, None, :] - x[None, :, :]
-        self.distances = -0.5 * dx ** 2
+        self.distances = 0.5 * dx ** 2
         # small values added to the diagonal for stability
         self.epsilon = 1e-12 * eye(dx.shape[0])
 
