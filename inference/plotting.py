@@ -327,7 +327,7 @@ def hdi_plot(
     :param x: \
         The x-axis locations of the sample data.
 
-    :param samples: \
+    :param sample: \
         A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))`` where
         ``n`` is the number of samples.
 

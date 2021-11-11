@@ -50,12 +50,11 @@ class JointPrior(object):
 
         if len(self.prior_variables) != n_variables:
             raise ValueError(
+                f"""
+                The total number of variables specified across the various prior
+                components ({len(self.prior_variables)}) does not match the number specified in
+                the 'n_variables' argument ({n_variables}).
                 """
-                The total number of variables specified across the various prior components ({})
-                does not match the number specified in the 'n_variables' argument ({}).
-                """.format(
-                    len(self.prior_variables), n_variables
-                )
             )
 
         if not all(0 <= i < n_variables for i in self.prior_variables):

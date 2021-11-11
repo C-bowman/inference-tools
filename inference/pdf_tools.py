@@ -199,7 +199,7 @@ class UnimodalPdf(DensityEstimator):
         k = linspace(1, self.n_nodes, self.n_nodes)
         t = cos(0.5 * pi * ((2 * k - 1) / self.n_nodes))
         self.u = t / (1.0 - t ** 2)
-        self.w = (pi / self.n_nodes) * (1 + t ** 2) / (self.sd * (1 - t ** 2) ** (1.5))
+        self.w = (pi / self.n_nodes) * (1 + t ** 2) / (self.sd * (1 - t ** 2) ** 1.5)
 
         # first minimise based on a slice of the sample, if it's large enough
         self.cutoff = 2000
@@ -217,9 +217,7 @@ class UnimodalPdf(DensityEstimator):
         # minimise based on the best guess
         self.min_result = minimize(self.minfunc, guesses[0], method="Nelder-Mead")
         self.MAP = self.min_result.x
-        self.mode = self.MAP[
-            0
-        ]  #: The mode of the pdf, calculated automatically when an instance of UnimodalPdf is created.
+        self.mode = self.MAP[0]
 
         # if we were using a reduced sample, use full sample
         if self.skip > 1:
@@ -272,9 +270,8 @@ class UnimodalPdf(DensityEstimator):
 
         # prior checks
         if (s0 > 0) & (0 < k < 20) & (1 < q < 6):
-            return self.log_pdf_model(self.x, paras).sum() - self.n * log(
-                self.norm(paras)
-            )
+            normalisation = self.n * log(self.norm(paras))
+            return self.log_pdf_model(self.x, paras).sum() - normalisation
         else:
             return -1e50
 
@@ -317,7 +314,7 @@ class UnimodalPdf(DensityEstimator):
         var = simps(p * (x - mu) ** 2, x=x)
         skw = simps(p * (x - mu) ** 3, x=x) / var * 1.5
         kur = (simps(p * (x - mu) ** 4, x=x) / var ** 2) - 3.0
-        return (mu, var, skw, kur)
+        return mu, var, skw, kur
 
 
 class GaussianKDE(DensityEstimator):
@@ -360,7 +357,11 @@ class GaussianKDE(DensityEstimator):
 
         if self.s.size < 3:
             raise ValueError(
-                """\n GaussianKDE error \n Not enough samples were given to estimate the PDF - at least 3 samples are required."""
+                """
+                [ GaussianKDE error ]
+                Not enough samples were given to estimate the PDF.
+                At least 3 samples are required.
+                """
             )
 
         if bandwidth is None:
@@ -426,7 +427,7 @@ class GaussianKDE(DensityEstimator):
     def cross_validation_bandwidth_estimator(self, initial_h):
         """
         Selects the bandwidth by maximising a log-probability derived
-        using a 'leave-one out cross-validation' approach.
+        using a 'leave-one-out cross-validation' approach.
         """
         # first check if we need to sub-sample for computational cost reduction
         if len(self.s) > self.max_cvs:
@@ -533,7 +534,7 @@ class GaussianKDE(DensityEstimator):
         var = simps(p * (x - mu) ** 2, x=x)
         skw = simps(p * (x - mu) ** 3, x=x) / var * 1.5
         kur = (simps(p * (x - mu) ** 4, x=x) / var ** 2) - 3.0
-        return (mu, var, skw, kur)
+        return mu, var, skw, kur
 
     def interval(self, frac=0.95):
         """
@@ -550,9 +551,8 @@ class KDE2D(object):
 
         self.x = array(x)
         self.y = array(y)
-        s_x, s_y = self.estimate_bandwidth(
-            self.x, self.y
-        )  # very simple bandwidth estimate
+        # very simple bandwidth estimate
+        s_x, s_y = self.estimate_bandwidth(self.x, self.y)
         self.q_x = 1.0 / (sqrt(2) * s_x)
         self.q_y = 1.0 / (sqrt(2) * s_y)
         self.norm = 1.0 / (len(self.x) * sqrt(2 * pi) * s_x * s_y)
@@ -607,16 +607,17 @@ def sample_hdi(sample, fraction, allow_double=False):
     fraction of the elements in the given sample.
 
     :param sample: \
-        A sample for which the interval will be determined
+        A sample for which the interval will be determined.
 
     :param float fraction: \
         The fraction of the total probability to be contained by the interval.
 
     :param bool allow_double: \
-        When set to True, a double-interval is returned instead if one exists whose total length
-        is meaningfully shorter than the optimal single interval.
+        When set to True, a double-interval is returned instead if one exists whose
+        total length is meaningfully shorter than the optimal single interval.
 
-    :return: tuple(s) specifying the lower and upper bounds of the highest-density interval(s)
+    :return: \
+        Tuple(s) specifying the lower and upper bounds of the highest-density interval(s).
     """
 
     # verify inputs are valid
