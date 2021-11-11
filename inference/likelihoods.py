@@ -24,11 +24,11 @@ class Likelihood:
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
-        A callable which returns the Jacobian of the forward-model when passed an array of model
-        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
-        the ``j``'th model parameter.
+        A callable which returns the Jacobian of the forward-model when passed an array
+        of model parameter values. The Jacobian is a 2D array containing the derivative
+        of the predictions of each ``y_data`` value with respect to each model parameter,
+        such that element ``(i,j)`` of the Jacobian corresponds to the derivative of the
+        ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
     def __init__(
@@ -87,11 +87,11 @@ class GaussianLikelihood(Likelihood):
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
-        A callable which returns the Jacobian of the forward-model when passed an array of model
-        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
-        the ``j``'th model parameter.
+        A callable which returns the Jacobian of the forward-model when passed an array
+        of model parameter values. The Jacobian is a 2D array containing the derivative
+        of the predictions of each ``y_data`` value with respect to each model parameter,
+        such that element ``(i,j)`` of the Jacobian corresponds to the derivative of the
+        ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
@@ -152,11 +152,11 @@ class CauchyLikelihood(Likelihood):
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
-        A callable which returns the Jacobian of the forward-model when passed an array of model
-        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
-        the ``j``'th model parameter.
+        A callable which returns the Jacobian of the forward-model when passed an array
+        of model parameter values. The Jacobian is a 2D array containing the derivative
+        of the predictions of each ``y_data`` value with respect to each model parameter,
+        such that element ``(i,j)`` of the Jacobian corresponds to the derivative of the
+        ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
     def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
@@ -217,11 +217,11 @@ class LogisticLikelihood(Likelihood):
         array of model parameter values.
 
     :keyword callable forward_model_jacobian: \
-        A callable which returns the Jacobian of the forward-model when passed an array of model
-        parameter values. The Jacobian is a 2D array containing the derivative of the predictions
-        of each ``y_data`` value with respect to each model parameter, such that element ``(i,j)`` of the
-        Jacobian corresponds to the derivative of the ``i``'th ``y_data`` value prediction with respect to
-        the ``j``'th model parameter.
+        A callable which returns the Jacobian of the forward-model when passed an array
+        of model parameter values. The Jacobian is a 2D array containing the derivative
+        of the predictions of each ``y_data`` value with respect to each model parameter,
+        such that element ``(i,j)`` of the Jacobian corresponds to the derivative of the
+        ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):

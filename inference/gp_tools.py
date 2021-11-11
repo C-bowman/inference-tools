@@ -28,17 +28,18 @@ class SquaredExponential(object):
 
        K(\underline{u}, \underline{v}) = A^2 \exp \left( -\frac{1}{2} \sum_{i=1}^{n} \left(\frac{u_i - v_i}{l_i}\right)^2 \right)
 
-    The hyper-parameter vector :math:`\underline{\theta}` used by ``SquaredExponential`` to define
-    the above function is structured as follows:
+    The hyper-parameter vector :math:`\underline{\theta}` used by ``SquaredExponential``
+    to define the above function is structured as follows:
 
     .. math::
 
        \underline{\theta} = [ \ln{A}, \ln{l_1}, \ldots, \ln{l_n}]
 
     :param hyperpar_bounds: \
-        By default, ``SquaredExponential`` will automatically set sensible lower and upper bounds on the value of
-        the hyperparameters based on the available data. However, this keyword allows the bounds to be specified
-        manually as a list of length-2 tuples giving the lower/upper bounds for each parameter.
+        By default, ``SquaredExponential`` will automatically set sensible lower and
+        upper bounds on the value of the hyperparameters based on the available data.
+        However, this keyword allows the bounds to be specified manually as a list of
+        length-2 tuples giving the lower/upper bounds for each parameter.
     """
 
     def __init__(self, hyperpar_bounds=None):
@@ -48,15 +49,15 @@ class SquaredExponential(object):
             self.bounds = hyperpar_bounds
 
     def pass_data(self, x, y):
-        # pre-calculates hyperparameter-independent part of the
-        # data covariance matrix as an optimisation
+        """
+        Pre-calculates hyperparameter-independent part of the data covariance
+        matrix as an optimisation, and sets bounds on hyperparameter values.
+        """
+        # distributed outer subtraction using broadcasting
         dx = x[:, None, :] - x[None, :, :]
-        self.distances = (
-            -0.5 * dx ** 2
-        )  # distributed outer subtraction using broadcasting
-        self.epsilon = 1e-12 * eye(
-            dx.shape[0]
-        )  # small values added to the diagonal for stability
+        self.distances = -0.5 * dx ** 2
+        # small values added to the diagonal for stability
+        self.epsilon = 1e-12 * eye(dx.shape[0])
 
         # construct sensible bounds on the hyperparameter values
         if self.bounds is None:
@@ -120,17 +121,18 @@ class RationalQuadratic(object):
 
        K(\underline{u}, \underline{v}) = A^2 \left( 1 + \frac{1}{2\alpha} \sum_{i=1}^{n} \left(\frac{u_i - v_i}{l_i}\right)^2 \right)^{-\alpha}
 
-    The hyper-parameter vector :math:`\underline{\theta}` used by ``RationalQuadratic`` to define
-    the above function is structured as follows:
+    The hyper-parameter vector :math:`\underline{\theta}` used by ``RationalQuadratic``
+    to define the above function is structured as follows:
 
     .. math::
 
        \underline{\theta} = [ \ln{A}, \ln{\alpha}, \ln{l_1}, \ldots, \ln{l_n}]
 
     :param hyperpar_bounds: \
-        By default, ``RationalQuadratic`` will automatically set sensible lower and upper bounds on the value of
-        the hyperparameters based on the available data. However, this keyword allows the bounds to be specified
-        manually as a list of length-2 tuples giving the lower/upper bounds for each parameter.
+        By default, ``RationalQuadratic`` will automatically set sensible lower and
+        upper bounds on the value of the hyperparameters based on the available data.
+        However, this keyword allows the bounds to be specified manually as a list of
+        length-2 tuples giving the lower/upper bounds for each parameter.
     """
 
     def __init__(self, hyperpar_bounds=None):
@@ -140,15 +142,15 @@ class RationalQuadratic(object):
             self.bounds = hyperpar_bounds
 
     def pass_data(self, x, y):
-        # pre-calculates hyperparameter-independent part of the
-        # data covariance matrix as an optimisation
+        """
+        Pre-calculates hyperparameter-independent part of the data covariance
+        matrix as an optimisation, and sets bounds on hyperparameter values.
+        """
+        # distributed outer subtraction using broadcasting
         dx = x[:, None, :] - x[None, :, :]
-        self.distances = (
-            0.5 * dx ** 2
-        )  # distributed outer subtraction using broadcasting
-        self.epsilon = 1e-12 * eye(
-            dx.shape[0]
-        )  # small values added to the diagonal for stability
+        self.distances = 0.5 * dx ** 2
+        # small values added to the diagonal for stability
+        self.epsilon = 1e-12 * eye(dx.shape[0])
 
         # construct sensible bounds on the hyperparameter values
         if self.bounds is None:
@@ -182,9 +184,9 @@ class RationalQuadratic(object):
         """
         raise ValueError(
             """
-        Gradient calculations are not yet available for the
-        RationalQuadratic covariance function.
-        """
+            Gradient calculations are not yet available for the
+            RationalQuadratic covariance function.
+            """
         )
 
     def covariance_and_gradients(self, theta):
@@ -394,10 +396,10 @@ class GpRegressor(object):
         of specified spatial points.
 
         :param points: \
-            The points at which the mean and standard deviation of the regression estimate is to be
-            calculated, given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
-            Alternatively, a list of array-like objects can be given, which will be converted
-            to a ``ndarray`` internally.
+            The points at which the mean and standard deviation of the regression
+            estimate is to be calculated, given as a 2D ``numpy.ndarray`` with shape
+            (number of points, number of dimensions). Alternatively, a list of array-like
+            objects can be given, which will be converted to a ``ndarray`` internally.
 
         :return: \
             Two 1D arrays, the first containing the means and the second containing the
@@ -428,13 +430,11 @@ class GpRegressor(object):
         # check to make sure the right number of hyper-parameters were given
         if len(hyperpars) != self.n_hyperpars:
             raise ValueError(
-                """
+                f"""
                 [ GpRegressor error ]
                 An incorrect number of hyper-parameters were passed via the 'hyperpars' keyword argument:
-                There are {} hyper-parameters but {} were given.
-                """.format(
-                    self.n_hyperpars, len(hyperpars)
-                )
+                There are {self.n_hyperpars} hyper-parameters but {len(hyperpars)} were given.
+                """
             )
 
         self.hyperpars = hyperpars
@@ -452,17 +452,14 @@ class GpRegressor(object):
             # if y_cov is given as a list or tuple, attempt conversion to an array
             if any([type(y_cov) is t for t in [list, tuple]]):
                 y_err = array(y_cov).squeeze()
-            elif (
-                type(y_cov) is not ndarray
-            ):  # else if it isn't already an array raise an error
+            elif type(y_cov) is not ndarray:
+                # else if it isn't already an array raise an error
                 raise TypeError(
-                    """
+                    f"""
                     [ GpRegressor error ]
                     The 'y_cov' keyword argument should be given as a numpy array:
-                    Expected type {} but type {} was given.
-                    """.format(
-                        ndarray, type(y_err)
-                    )
+                    Expected type {ndarray} but type {type(y_cov)} was given.
+                    """
                 )
 
             # now check to make sure the given error array is a valid size
@@ -501,17 +498,14 @@ class GpRegressor(object):
             # if y_err is given as a list or tuple, attempt conversion to an array
             if any([type(y_err) is t for t in [list, tuple]]):
                 y_err = array(y_err).squeeze()
-            elif (
-                type(y_err) is not ndarray
-            ):  # else if it isn't already an array raise an error
+            elif type(y_err) is not ndarray:
+                # else if it isn't already an array raise an error
                 raise TypeError(
-                    """
+                    f"""
                     [ GpRegressor error ]
                     The 'y_err' keyword argument should be given as a numpy array:
-                    Expected type {} but type {} was given.
-                    """.format(
-                        ndarray, type(y_err)
-                    )
+                    Expected type {ndarray} but type {type(y_err)} was given.
+                    """
                 )
 
             # now check to make sure the given error array is a valid size
@@ -564,16 +558,17 @@ class GpRegressor(object):
         with respect to the spatial coordinates at a series of specified points.
 
         :param points: \
-            The points at which the mean vector and and covariance matrix of the gradient of the
-            regression estimate are to be calculated, given as a 2D ``numpy.ndarray`` with shape
-            (number of points, number of dimensions).  Alternatively, a list of array-like objects
-            can be given, which will be converted to a ``ndarray`` internally.
+            The points at which the mean vector and and covariance matrix of the
+            gradient of the regression estimate are to be calculated, given as a 2D
+            ``numpy.ndarray`` with shape (number of points, number of dimensions).
+            Alternatively, a list of array-like objects can be given, which will be
+            converted to a ``ndarray`` internally.
 
         :return means, covariances: \
-            Two arrays containing the means and covariances of each given spatial point. If the
-            number of spatial dimensions ``N`` is greater than 1, then the covariances array is
-            a set of 2D covariance matrices, having shape ``(M,N,N)`` where ``M`` is the given
-            number of spatial points.
+            Two arrays containing the means and covariances of each given spatial point.
+            If the number of spatial dimensions ``N`` is greater than 1, then the
+            covariances array is a set of 2D covariance matrices, having shape
+            ``(M,N,N)`` where ``M`` is the given number of spatial points.
         """
         mu_q = []
         vars = []
@@ -598,18 +593,18 @@ class GpRegressor(object):
         """
         Calculate the spatial derivatives (i.e. the gradient) of the predictive mean
         and variance of the GP estimate. These quantities are useful in the analytic
-        calculation of the spatial derivatives of acquisition functions like the expected
-        improvement.
+        calculation of the spatial derivatives of acquisition functions like the
+        expected improvement.
 
         :param points: \
-            The points at which gradient of the predictive mean and variance are to be calculated,
-            given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
-            Alternatively, a list of array-like objects can be given, which will be converted to a
-            ``ndarray`` internally.
+            The points at which gradient of the predictive mean and variance are to be
+            calculated, given as a 2D ``numpy.ndarray`` with shape (number of points,
+            number of dimensions). Alternatively, a list of array-like objects can be
+            given, which will be converted to a ``ndarray`` internally.
 
         :return mean_gradients, variance_gradients: \
-            Two arrays containing the gradient vectors of the mean and variance at each given
-            spatial point.
+            Two arrays containing the gradient vectors of the mean and variance at each
+            given spatial point.
         """
         mu_gradients = []
         var_gradients = []
@@ -635,12 +630,13 @@ class GpRegressor(object):
         posterior distribution at a set of specified points.
 
         :param points: \
-            The points for which the mean vector and covariance matrix are to be calculated,
-            given as a 2D ``numpy.ndarray`` with shape (number of points, number of dimensions).
-            Alternatively, a list of array-like objects can be given, which will be converted to a
-            ``ndarray`` internally.
+            The points for which the mean vector and covariance matrix are to be
+            calculated, given as a 2D ``numpy.ndarray`` with shape (number of points,
+            number of dimensions). Alternatively, a list of array-like objects can be
+            given, which will be converted to a ``ndarray`` internally.
 
-        :return: The mean vector as a 1D array, followed by the covariance matrix as a 2D array.
+        :return: \
+            The mean vector as a 1D array, followed by the covariance matrix as a 2D array.
         """
         v = self.process_points(points)
         K_qx = self.cov(v, self.x, self.cov_hyperpars)
@@ -656,12 +652,11 @@ class GpRegressor(object):
 
     def loo_predictions(self):
         """
-        Calculates the 'leave-one out' (LOO) predictions for the data,
-        where each data point is removed from the training set and then
-        has its value predicted using the remaining data.
+        Calculates the 'leave-one out' (LOO) predictions for the data, where each data
+        point is removed from the training set and then has its value predicted using
+        the remaining data.
 
-        This implementation is based on equation (5.12) from Rasmussen &
-        Williams.
+        This implementation is based on equation (5.12) from Rasmussen & Williams.
         """
         # Use the Cholesky decomposition of the covariance to find its inverse
         I = eye(len(self.x))
@@ -810,7 +805,6 @@ class GpRegressor(object):
             results = workers.map(self.launch_bfgs, starting_positions)
 
         # extract best solution
-        # print(results[0])
         solution = sorted(results, key=lambda x: x[1])[0][0]
         return solution
 

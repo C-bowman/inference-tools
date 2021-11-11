@@ -8,10 +8,12 @@ class Posterior(object):
     Class for constructing a posterior distribution object for a given likelihood and prior.
 
     :param callable likelihood: \
-        A callable which returns the log-likelihood probability when passed a vector of the model parameters.
+        A callable which returns the log-likelihood probability when passed a vector of
+        the model parameters.
 
     :param callable prior: \
-        A callable which returns the log-prior probability when passed a vector of the model parameters.
+        A callable which returns the log-prior probability when passed a vector of the
+        model parameters.
     """
 
     def __init__(self, likelihood, prior):
@@ -44,8 +46,9 @@ class Posterior(object):
 
     def cost(self, theta):
         """
-        Returns the 'cost', defined as the negative log-posterior probability, for the given set of model parameters.
-        Minimising the value of the cost therefore maximises the log-posterior probability.
+        Returns the 'cost', defined as the negative log-posterior probability, for the
+        given set of model parameters. Minimising the value of the cost therefore
+        maximises the log-posterior probability.
 
         :param theta: \
             The model parameters as a 1D ``numpy.ndarray``.
