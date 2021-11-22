@@ -4,6 +4,7 @@
 [![GitHub license](https://img.shields.io/github/license/C-bowman/inference-tools?color=blue)](https://github.com/C-bowman/inference-tools/blob/master/LICENSE)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/inference-tools?color=purple)](https://pypi.org/project/inference-tools/)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/inference-tools)
+[![DOI](https://zenodo.org/badge/149741362.svg)](https://zenodo.org/badge/latestdoi/149741362)
 
 This package provides a set of Python-based tools for Bayesian data analysis
 which are simple to use, allowing them to applied quickly and easily.
