@@ -1,10 +1,9 @@
 try:
-    from importlib.metadata import version, PackageNotFoundError, packages_distributions
+    from importlib.metadata import version, PackageNotFoundError
 except (ModuleNotFoundError, ImportError):
-    from importlib_metadata import version, PackageNotFoundError, packages_distributions
+    from importlib_metadata import version, PackageNotFoundError
 try:
-    # module is "inference", but package is "inference-tools"
-    __version__ = version(packages_distributions()[__name__][0])
+    __version__ = version("inference-tools")
 except PackageNotFoundError:
     from setuptools_scm import get_version
 
