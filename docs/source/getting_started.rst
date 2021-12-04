@@ -84,8 +84,8 @@ function to return a prediction of the y-data values.
        @staticmethod
        def forward_model(x, theta):
            """
-           The forward model must make a prediction of the experimental data we would expect to measure
-           given a specific set model parameters 'theta'.
+           The forward model must make a prediction of the experimental data we would
+           expect to measure given a specific set model parameters 'theta'.
            """
            # unpack the model parameters
            area, width, center, background = theta

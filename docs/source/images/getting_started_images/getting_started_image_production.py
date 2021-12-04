@@ -19,10 +19,12 @@ y_error = [1., 1., 1., 1., 1., 1., 1., 1.,
            1., 1., 1., 1., 1., 1., 1., 1.]
 
 plt.errorbar(x_data, y_data, yerr=y_error, ls='dashed', marker='D', c='red', markerfacecolor='none')
-plt.ylabel('y')
-plt.xlabel('x')
+plt.title('Example dataset')
+plt.ylabel('y-data value')
+plt.xlabel('x-data value')
 plt.grid()
 plt.tight_layout()
+plt.gcf().set_size_inches([5,3.75])
 plt.savefig('gaussian_data.png')
 plt.show()
 
