@@ -88,7 +88,7 @@ class DensityEstimator(object):
 
         ax[0].set_xlabel(label or "argument", fontsize=13)
         ax[0].set_ylabel("probability density", fontsize=13)
-        ax[0].set_ylim([0., None])
+        ax[0].set_ylim([0.0, None])
         ax[0].grid()
 
         gap = 0.05
