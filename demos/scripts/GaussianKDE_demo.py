@@ -1,7 +1,7 @@
 from numpy import linspace, zeros, exp, sqrt, pi
 from numpy.random import normal
 import matplotlib.pyplot as plt
-from inference.pdf_tools import GaussianKDE
+from inference.pdf import GaussianKDE
 
 """
 Code to demonstrate the use of the GaussianKDE class.

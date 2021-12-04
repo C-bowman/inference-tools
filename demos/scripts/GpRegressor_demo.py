@@ -5,7 +5,7 @@ from numpy import exp, sin, sqrt, concatenate
 from numpy import linspace, zeros, meshgrid
 from numpy.random import multivariate_normal as mvn
 from numpy.random import normal, random
-from inference.gp_tools import GpRegressor
+from inference.gp import GpRegressor
 
 """
 Code demonstrating the use of the GpRegressor class found in inference.gp_tools
@@ -150,7 +150,7 @@ plt.show()
 
 # This time, use the RationalQuadratic covariance function instead
 # of the default SquaredExponential function.
-from inference.gp_tools import RationalQuadratic
+from inference.gp import RationalQuadratic
 
 # Train the GP on the data
 GP = GpRegressor(coords, z, kernel = RationalQuadratic)

@@ -3,7 +3,7 @@
 GpRegressor
 ~~~~~~~~~~~
 
-.. autoclass:: inference.gp_tools.GpRegressor
+.. autoclass:: inference.gp.GpRegressor
    :members: __call__, gradient, build_posterior
 
 
@@ -18,7 +18,7 @@ Create some testing data
    from numpy.random import normal
 
    Nx = 24*2 # create an x-axis with a gap in it
-   x = concatenate([linspace(-3,1,Nx//2),linspace(4,9,Nx//2)])
+   x = concatenate([linspace(-3,1,Nx//2), linspace(4,9,Nx//2)])
    sig = 0.05 # assumed normal error on the data points
    y   = ( 1. / (1 + exp(-x)) ) + 0.1*sin(2*x) + sig*normal(size=Nx) # sampled y data
    errs = zeros(Nx) + sig # y data errors
@@ -91,9 +91,9 @@ Now plot the regression estimate and the data together
 
 .. image:: ./images/GpRegressor_images/regression_estimate.png
 
-As the estimate itself is defined by a multivariate normal distribution, we can draw samples
-from that distribution. To do this, we need to build the full covariance matrix and mean for the
-desired set of points using the ``build_posterior`` method:
+As the estimate itself is defined by a multivariate normal distribution, we can draw
+samples from that distribution. To do this, we need to build the full covariance matrix
+and mean for the desired set of points using the ``build_posterior`` method:
 
 .. code-block:: python
 

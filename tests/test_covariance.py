@@ -1,6 +1,6 @@
 from numpy import linspace, sin, eye
 from numpy.random import normal, seed
-from inference.gp_tools import SquaredExponential, RationalQuadratic
+from inference.gp import SquaredExponential, RationalQuadratic
 
 
 def test_SquaredExponential_covariance_and_gradients():

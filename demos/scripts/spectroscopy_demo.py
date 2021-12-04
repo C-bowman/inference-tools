@@ -1,6 +1,6 @@
 
 import matplotlib.pyplot as plt
-from numpy import linspace, sqrt, pi, array, zeros
+from numpy import linspace, sqrt, pi, array
 from numpy.random import normal
 
 from inference.mcmc import PcaChain
@@ -126,13 +126,11 @@ width_2 = chain.get_parameter(3)
 widths_ratio = [i/j for i,j in zip(width_1, width_2)]
 
 # Use one of the density estimator objects from pdf_tools to get the PDF
-from inference.pdf_tools import UnimodalPdf
+from inference.pdf import UnimodalPdf
 pdf = UnimodalPdf(widths_ratio)
 
 # plot the PDF
 pdf.plot_summary()
-
-
 
 # You may also want to assess the level of uncertainty in the model predictions.
 # This can be done easily by passing each sample through the forward-model

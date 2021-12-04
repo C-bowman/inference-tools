@@ -1,6 +1,6 @@
-Gaussian processes with inference.gp_tools
-==========================================
-This module provides implementations of some useful applications of 'Gaussian processes';
+Gaussian process regression and optimisation
+============================================
+The ``inference.gp`` provides implementations of some useful applications of 'Gaussian processes';
 Gaussian process regression via the `GpRegressor <GpRegressor>`_ class, and Gaussian process
 optimisation as the `GpOptimiser <GpOptimiser>`_ class.
 

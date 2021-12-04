@@ -1,5 +1,5 @@
 import numpy as np
-from inference.gp_tools import (
+from inference.gp import (
     GpOptimiser,
     ExpectedImprovement,
     UpperConfidenceBound,

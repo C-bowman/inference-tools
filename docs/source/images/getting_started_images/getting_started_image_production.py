@@ -1,159 +1,173 @@
 
+from numpy import array, exp, linspace, sqrt, pi
+from numpy.random import seed
 import matplotlib.pyplot as plt
-from numpy import linspace, sqrt, pi, array
-from numpy.random import normal, seed
 
-from inference.mcmc import PcaChain
+seed(7)
 
-"""
-This is a duplicate of /demos/spectroscopy_demo.py which produces
-example figures for the documentation
-"""
+# Suppose we have the following dataset, which we believe is described by a
+# Gaussian peak plus a constant background. Our goal in this example is to
+# infer the area of the Gaussian.
 
+x_data = [0.00, 0.80, 1.60, 2.40, 3.20, 4.00, 4.80, 5.60,
+          6.40, 7.20, 8.00, 8.80, 9.60, 10.4, 11.2, 12.0]
 
+y_data = [2.473, 1.329, 2.370, 1.135, 5.861, 7.045, 9.942, 7.335,
+          3.329, 5.348, 1.462, 2.476, 3.096, 0.784, 3.342, 1.877]
 
-class SpectroPosterior(object):
-    def __init__(self, wavelength, intensity, errors):
-        self.x = wavelength
-        self.y = intensity
-        self.sigma = errors
-        # Central wavelengths of the lines are known constants:
-        self.c1 = 422.
-        self.c2 = 428.
+y_error = [1., 1., 1., 1., 1., 1., 1., 1.,
+           1., 1., 1., 1., 1., 1., 1., 1.]
 
-    def __call__(self, theta):
-        return self.likelihood(theta) + self.prior(theta)
-
-    def prior(self, theta):
-        return 0.
-
-    def likelihood(self, theta):
-        return -0.5*( ((self.y - self.forward_model(self.x, theta)) / self.sigma)**2 ).sum()
-
-    def forward_model(self, x, theta):
-        # unpack the model parameters
-        A1, w1, A2, w2, bg = theta
-        # evaluate each term of the model
-        peak_1 = (A1 / (pi*w1)) / (1 + ((x - self.c1)/w1)**2)
-        peak_2 = (A2 / (pi*w2)) / (1 + ((x - self.c2)/w2)**2)
-        # return the prediction of the data
-        return peak_1 + peak_2 + bg
-
-
-
-# Create some simulated data
-seed(9)
-N = 35
-x_data = linspace(410, 440, N)
-P = SpectroPosterior(x_data, None, None)
-theta = [1000, 2, 400, 1.5, 35]
-y_data = P.forward_model(x_data, theta)
-errors = sqrt(y_data + 1) + 5
-y_data += normal(size = N) * errors
-
-
-
-
-# plot the simulated data we're going to use
-plt.errorbar(x_data, y_data, errors, marker = 'D', ls = 'none', markersize = 4)
-plt.plot(x_data, y_data, alpha = 0.5, c = 'C0', ls = 'dashed')
-plt.title('synthetic spectroscopy data')
-plt.xlabel('wavelength (nm)')
-plt.ylabel('intensity')
+plt.errorbar(x_data, y_data, yerr=y_error, ls='dashed', marker='D', c='red', markerfacecolor='none')
+plt.title('Example dataset')
+plt.ylabel('y-data value')
+plt.xlabel('x-data value')
 plt.grid()
 plt.tight_layout()
-plt.savefig('spectroscopy_data.png')
-plt.close()
-print(' # spectroscopy data plot finished')
+plt.gcf().set_size_inches([5,3.75])
+plt.savefig('gaussian_data.png')
+plt.show()
 
-# create the posterior object
-posterior = SpectroPosterior(x_data, y_data, errors)
+# The first step is to implement our model. For simple models like this one
+# this can be done using just a function, but as models become more complex
+# it is becomes useful to build them as classes.
 
-# create the markov chain object
-chain = PcaChain( posterior = posterior, start = [1000, 1, 1000, 1, 20] )
 
-# generate a sample by advancing the chain
-chain.advance(50000)
+class PeakModel(object):
+    def __init__(self, x_data):
+        """
+        The __init__ should be used to pass in any data which is required
+        by the model to produce predictions of the y-data values.
+        """
+        self.x = x_data
 
-# we can check the status of the chain using the plot_diagnostics method
-chain.plot_diagnostics(show = False, filename = 'plot_diagnostics_example.png')
-print(' # diagnostics plot finished')
-# We can automatically set sensible burn and thin values for the sample
-chain.autoselect_burn_and_thin()
+    def __call__(self, theta):
+        return self.forward_model(self.x, theta)
 
-# we can get a quick overview of the posterior using the matrix_plot
-# functionality of chain objects, which plots all possible 1D & 2D
-# marginal distributions of the full parameter set (or a chosen sub-set).
-chain.thin = 1
-labels = ['peak 1 area', 'peak 1 width', 'peak 2 area', 'peak 2 width', 'background']
-chain.matrix_plot(show = False, labels = labels, filename = 'matrix_plot_example.png')
-print(' # matrix plot finished')
+    @staticmethod
+    def forward_model(x, theta):
+        """
+        The forward model must make a prediction of the experimental data we would expect to measure
+        given a specific set model parameters 'theta'.
+        """
+        # unpack the model parameters
+        area, width, center, background = theta
+        # return the prediction of the data
+        z = (x - center) / width
+        gaussian = exp(-0.5*z**2)/(sqrt(2*pi)*width)
+        return area*gaussian + background
+
+# Inference-tools has a variety of Likelihood classes which allow you to easily construct a
+# likelihood function given the measured data and your forward-model.
+from inference.likelihoods import GaussianLikelihood
+likelihood = GaussianLikelihood(y_data=y_data, sigma=y_error, forward_model=PeakModel(x_data))
+
+# Instances of the likelihood classes can be called as functions, and return the log-likelihood
+# when passed a vector of model parameters:
+initial_guess = array([10., 2., 5., 2.])
+guess_log_likelihood = likelihood(initial_guess)
+print(guess_log_likelihood)
+
+# We could at this stage pair the likelihood object with an optimiser in order to obtain
+# the maximum-likelihood estimate of the parameters. In this example however, we want to
+# construct the posterior distribution for the model parameters, and that means we need
+# a prior.
+
+# The inference.priors module contains classes which allow for easy construction of
+# prior distributions across all model parameters.
+from inference.priors import ExponentialPrior, UniformPrior, JointPrior
+
+# If we want different model parameters to have different prior distributions, as in this
+# case where we give three variables an exponential prior and one a uniform prior, we first
+# construct each type of prior separately:
+prior_components = [
+    ExponentialPrior(beta=[50., 20., 20.], variable_indices=[0, 1, 3]),
+    UniformPrior(lower=0., upper=12., variable_indices=[2])
+]
+# Now we use the JointPrior class to combine the various components into a single prior
+# distribution which covers all the model parameters.
+prior = JointPrior(components=prior_components, n_variables=4)
+
+# As with the likelihood, prior objects can also be called as function to return a
+# log-probability value when passed a vector of model parameters. We can also draw
+# samples from the prior directly using the sample() method:
+prior_sample = prior.sample()
+print(prior_sample)
+
+# The likelihood and prior can be easily combined into a posterior distribution
+# using the Posterior class:
+from inference.posterior import Posterior
+posterior = Posterior(likelihood=likelihood, prior=prior)
+
+# Now we have constructed a posterior distribution, we can sample from it
+# using Markov-chain Monte-Carlo (MCMC).
+
+# The inference.mcmc module contains implementations of various MCMC sampling algorithms.
+# Here we import the PcaChain class and use it to create a Markov-chain object:
+from inference.mcmc import PcaChain
+chain = PcaChain(posterior=posterior, start=initial_guess)
+
+# We generate samples by advancing the chain by a chosen number of steps using the advance method:
+chain.advance(25000)
+
+# we can check the status of the chain using the plot_diagnostics method:
+chain.plot_diagnostics(filename='plot_diagnostics_example.png')
+
+# The burn-in (how many samples from the start of the chain are discarded)
+# can be chosen by setting the burn attribute of the chain object:
+chain.burn = 5000
+
+# we can get a quick overview of the posterior using the matrix_plot method
+# of chain objects, which plots all possible 1D & 2D marginal distributions
+# of the full parameter set (or a chosen sub-set).
+chain.matrix_plot(labels=['area', 'width', 'center', 'background'], filename='matrix_plot_example.png')
+
 # We can easily estimate 1D marginal distributions for any parameter
 # using the get_marginal method:
-w1_pdf = chain.get_marginal(1, unimodal = True)
-w2_pdf = chain.get_marginal(3, unimodal = True)
-
-# get_marginal returns a density estimator object, which can be called
-ax = linspace(0.2, 4., 1000)  # build an axis to evaluate the pdf estimates
-plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2)  # plot estimates of each marginal PDF
-plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
-plt.xlabel('peak width')
-plt.ylabel('probability density')
-plt.legend()
-plt.grid()
-plt.savefig('width_pdfs_example.png')
-plt.close()
-print(' # marginals plot finished')
+area_pdf = chain.get_marginal(0)
+area_pdf.plot_summary(label='Gaussian area', filename='pdf_summary_example.png')
 
 
-
-
-
-# what if instead we wanted a PDF for the ratio of the two widths?
-# get the sample for each width
-width_1 = chain.get_parameter(1)
-width_2 = chain.get_parameter(3)
-
-# make a new set of samples for the ratio
-widths_ratio = [i/j for i,j in zip(width_1, width_2)]
-
-# Use one of the density estimator objects from pdf_tools to get the PDF
-from inference.pdf_tools import UnimodalPdf
-pdf = UnimodalPdf(widths_ratio)
-
-# plot the PDF
-pdf.plot_summary(label = 'Peak widths ratio', show = False, filename = 'pdf_summary_example.png')
-print(' # widths ratio pdf plot finished')
-
-
-
-# You may also want to assess the level of uncertainty in the model predictions.
-# This can be done easily by passing each sample through the forward-model
-# and observing the distribution of model expressions that result.
+# We can assess the level of uncertainty in the model predictions by passing each sample
+# through the forward-model and observing the distribution of model expressions that result:
 
 # generate an axis on which to evaluate the model
-M = 500
-x_fits = linspace(400, 450, M)
+x_fits = linspace(0, 12, 500)
 # get the sample
 sample = chain.get_sample()
 # pass each through the forward model
-curves = array([posterior.forward_model(x_fits, theta) for theta in sample])
+curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 
-plt.figure(figsize = (8,5))
+# We could plot the predictions for each sample all on a single graph, but this is
+# often cluttered and difficult to interpret.
 
-# We can use the hdi_plot function from the plotting module to plot
+# A better option is to use the hdi_plot function from the plotting module to plot
 # highest-density intervals for each point where the model is evaluated:
 from inference.plotting import hdi_plot
-hdi_plot(x_fits, curves)
+fig = plt.figure(figsize=(8, 5))
+ax = fig.add_subplot(111)
+hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 
+# plot the MAP estimate (the sample with the single highest posterior probability)
+ax.plot(x_fits, PeakModel.forward_model(x_fits, chain.mode()), ls='dashed', lw=3, c='C0', label='MAP estimate')
 # build the rest of the plot
-plt.plot( x_data, y_data, 'D', c = 'red', label = 'data', markeredgecolor = 'black')
-plt.xlabel('wavelength (nm)')
-plt.ylabel('intensity')
-plt.xlim([410, 440])
-plt.legend()
-plt.grid()
+ax.errorbar(x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
+             marker='D', markerfacecolor='none', markeredgewidth=1.5, markersize=6)
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.legend()
+ax.grid()
 plt.tight_layout()
 plt.savefig('prediction_uncertainty_example.png')
-plt.close()
-print(' # model prediction plot finished')
+plt.show()
+
+
+
+
+
+
+
+
+
+
+

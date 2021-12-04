@@ -17,7 +17,7 @@ from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
 from scipy.linalg import eigh
 
-from inference.pdf_tools import UnimodalPdf, GaussianKDE
+from inference.pdf import UnimodalPdf, GaussianKDE
 from inference.plotting import matrix_plot, trace_plot, transition_matrix_plot
 
 

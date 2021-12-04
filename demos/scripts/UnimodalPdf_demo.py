@@ -2,7 +2,7 @@
 from numpy import linspace, log
 from numpy.random import normal
 
-from inference.pdf_tools import UnimodalPdf
+from inference.pdf import UnimodalPdf
 
 """
 Code to demonstrate the use of the UnimodalPdf class.
