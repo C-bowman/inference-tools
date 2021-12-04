@@ -137,18 +137,20 @@ curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 # A better option is to use the hdi_plot function from the plotting module to plot
 # highest-density intervals for each point where the model is evaluated:
 from inference.plotting import hdi_plot
-plt.figure(figsize=(8, 5))
-hdi_plot(x_fits, curves, intervals=[0.68, 0.95])
+fig = plt.figure(figsize=(8, 5))
+ax = fig.add_subplot(111)
+hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 
 # plot the MAP estimate (the sample with the single highest posterior probability)
-plt.plot(x_fits, PeakModel.forward_model(x_fits, chain.mode()), ls='dashed', lw=3, c='C0', label='MAP estimate')
+MAP_prediction = PeakModel.forward_model(x_fits, chain.mode())
+ax.plot(x_fits, MAP_prediction, ls='dashed', lw=3, c='C0', label='MAP estimate')
 # build the rest of the plot
-plt.errorbar(x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
+ax.errorbar(x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
              marker='D', markerfacecolor='none', markeredgewidth=1.5, markersize=6)
-plt.xlabel('x')
-plt.ylabel('y')
-plt.legend()
-plt.grid()
+ax.set_xlabel('x')
+ax.set_ylabel('y')
+ax.legend()
+ax.grid()
 plt.tight_layout()
 plt.show()
 
