@@ -116,7 +116,7 @@ We can easily estimate 1D marginal distributions for any parameter using the
    w2_pdf = chain.get_marginal(3, unimodal=True)
 
 ``get_marginal`` returns an instance of one of the `density estimator` classes from the
-``pdf_tools`` module. These objects can be called as functions to return an estimate of
+``pdf`` module. These objects can be called as functions to return an estimate of
 the pdf that best represents the sample data.
 
 .. code-block:: python
@@ -140,7 +140,7 @@ Sample data for specific parameters can be accessed using the ``get parameter`` 
    w2_sample = chain.get_parameter(3)
 
 To estimate the PDF of a quantity derived from the sample data, for example the ratio of
-the two peak widths, we can use one of the ``pdf_tools`` density estimators directly:
+the two peak widths, we can use one of the ``pdf`` density estimators directly:
 
 .. code-block:: python
 

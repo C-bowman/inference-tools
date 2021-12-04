@@ -1,4 +1,4 @@
-MCMC sampling with inference.mcmc
+Markov-chain Monte-Carlo sampling
 =================================
 This module provides Markov-Chain Monte-Carlo (MCMC) samplers which can
 be easily applied to inference problems.

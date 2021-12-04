@@ -1,4 +1,4 @@
-The Inference tools package
+The inference-tools package
 ===========================
 
 Introduction
@@ -10,11 +10,11 @@ Inference tools is not a framework for building Bayesian/probabilistic models - 
 provides tools to characterise arbitrary posterior distributions (given a function which
 maps model parameters to a log-probability) via MCMC sampling.
 
-This type of 'black-box' functionality allows for inference without the requirement of first implementing
-the problem within a modelling framework.
+This type of 'black-box' functionality allows for inference without the requirement of
+first implementing the problem within a modelling framework.
 
-Additionally, the package provides tools for analysing and plotting sampling results, as well as
-implementations of some useful applications of Gaussian processes.
+Additionally, the package provides tools for analysing and plotting sampling results, as
+well as implementations of some useful applications of Gaussian processes.
 
 Requests for features/improvements can be made via the
 `issue tracker <https://github.com/C-bowman/inference-tools/issues>`_. If you have questions
