@@ -17,10 +17,10 @@ argument as follows
 SquaredExponential
 ^^^^^^^^^^^^^^^^^^
 
-.. autoclass:: inference.gp_tools.SquaredExponential
+.. autoclass:: inference.gp.SquaredExponential
 
 
 RationalQuadratic
 ^^^^^^^^^^^^^^^^^
 
-.. autoclass:: inference.gp_tools.RationalQuadratic
+.. autoclass:: inference.gp.RationalQuadratic
