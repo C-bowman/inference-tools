@@ -6,8 +6,8 @@ Getting started
 Installation
 ------------
 
-inference-tools is available from `PyPI <https://pypi.org/project/inference-tools/>`_, so can
-be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
+inference-tools is available from `PyPI <https://pypi.org/project/inference-tools/>`_,
+so can be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
 
 .. code-block:: bash
 
@@ -19,16 +19,16 @@ or download the files from `PyPI <https://pypi.org/project/inference-tools/>`_ d
 Jupyter notebook demos
 ----------------------
 
-In addition to the example code present in the online documentation for each class/function in the
-package, there is also a set of Jupyter notebook demos which can be found in the
-`/demos/ <https://github.com/C-bowman/inference-tools/tree/PyPI-release/demos>`_ directory of the source
-code.
+In addition to the example code present in the online documentation for each class/function
+in the package, there is also a set of Jupyter notebook demos which can be found in the
+`/demos/ <https://github.com/C-bowman/inference-tools/tree/PyPI-release/demos>`_ directory
+of the source code.
 
 Example - spectroscopy data fitting
 -----------------------------------
 
-Here we work through a toy problem of fitting the following synthetic spectroscopy data, which contains two
-peaks with known centres and a constant background:
+Here we work through a toy problem of fitting the following synthetic spectroscopy data,
+which contains two peaks with known centres and a constant background:
 
 .. image:: ./images/getting_started_images/spectroscopy_data.png
 
@@ -61,8 +61,8 @@ First let's define a class to evaluate the log-posterior:
          # return the prediction of the data
          return peak_1 + peak_2 + bg
 
-Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo samplers from
-``inference.mcmc``:
+Create an instance of the posterior class, and import one of the Markov-chain Monte-Carlo
+samplers from ``inference.mcmc``:
 
 .. code-block:: python
 
@@ -91,12 +91,14 @@ sample using the ``plot_diagnostics`` method:
 
 .. image:: ./images/getting_started_images/plot_diagnostics_example.png
 
-The diagnostics plot shows the history of the chains log-probability, the convergence of tuning parameters
-such as proposal distribution widths, and effective sample size estimates for each parameter.
+The diagnostics plot shows the history of the chains log-probability, the convergence of
+tuning parameters such as proposal distribution widths, and effective sample size estimates
+for each parameter.
 
-As this problem has five free parameters, the resulting posterior distribution is five-dimensional,
-so we cannot visualise it directly. Instead, we can produce a 'matrix plot' of the posterior, which
-shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` method:
+As this problem has five free parameters, the resulting posterior distribution is
+five-dimensional, so we cannot visualise it directly. Instead, we can produce a
+'matrix plot' of the posterior, which shows all possible 1D and 2D marginal
+distributions, using the ``matrix_plot`` method:
 
 .. code-block:: python
 
@@ -105,21 +107,23 @@ shows all possible 1D and 2D marginal distributions, using the ``matrix_plot`` m
 
 .. image:: ./images/getting_started_images/matrix_plot_example.png
 
-We can easily estimate 1D marginal distributions for any parameter using the ``get_marginal`` method:
+We can easily estimate 1D marginal distributions for any parameter using the
+``get_marginal`` method:
 
 .. code-block:: python
 
-   w1_pdf = chain.get_marginal(1, unimodal = True)
-   w2_pdf = chain.get_marginal(3, unimodal = True)
+   w1_pdf = chain.get_marginal(1, unimodal=True)
+   w2_pdf = chain.get_marginal(3, unimodal=True)
 
-``get_marginal`` returns an instance of one of the `density estimator` classes from the ``pdf_tools`` module.
-These objects can be called as functions to return an estimate of the pdf that best represents the sample data.
+``get_marginal`` returns an instance of one of the `density estimator` classes from the
+``pdf_tools`` module. These objects can be called as functions to return an estimate of
+the pdf that best represents the sample data.
 
 .. code-block:: python
 
    ax = linspace(0.2, 4., 1000) # build an axis to evaluate the pdf estimates
-   plt.plot(ax, w1_pdf(ax), label = 'peak #1 width marginal', lw = 2) # plot the marginals
-   plt.plot(ax, w2_pdf(ax), label = 'peak #2 width marginal', lw = 2)
+   plt.plot(ax, w1_pdf(ax), label='peak #1 width marginal', lw=2) # plot the marginals
+   plt.plot(ax, w2_pdf(ax), label='peak #2 width marginal', lw=2)
    plt.xlabel('peak width')
    plt.ylabel('probability density')
    plt.legend()
@@ -135,27 +139,30 @@ Sample data for specific parameters can be accessed using the ``get parameter`` 
    w1_sample = chain.get_parameter(1)
    w2_sample = chain.get_parameter(3)
 
-To estimate the PDF of a quantity derived from the sample data, for example the ratio of the two peak widths,
-we can use one of the ``pdf_tools`` density estimators directly:
+To estimate the PDF of a quantity derived from the sample data, for example the ratio of
+the two peak widths, we can use one of the ``pdf_tools`` density estimators directly:
 
 .. code-block:: python
 
-   from inference.pdf_tools import UnimodalPdf
+   from inference.pdf import UnimodalPdf
    width_ratio_sample = [a/b for a,b in zip(w1_sample,w2_sample)]
    width_ratio_pdf = UnimodalPdf(widths_ratio)
 
-We can generate a plot which summaries the properties of the estimated PDF using the ``plot_summary`` method:
+We can generate a plot which summaries the properties of the estimated PDF using the
+``plot_summary`` method:
 
 .. code-block:: python
 
-   width_ratio_pdf.plot_summary(label = 'Peak widths ratio')
+   width_ratio_pdf.plot_summary(label='Peak widths ratio')
 
 .. image:: ./images/getting_started_images/pdf_summary_example.png
 
-You may also want to assess the level of uncertainty in the model predictions. This can be done easily by passing
-each sample through the forward-model and observing the distribution of model expressions that result.
+You may also want to assess the level of uncertainty in the model predictions. This can
+be done easily by passing each sample through the forward-model and observing the
+distribution of model expressions that result.
 
-We can use ``inference.plotting.hdi_plot`` to plot highest-density intervals for the sample of model predictions:
+We can use ``inference.plotting.hdi_plot`` to plot highest-density intervals for the
+sample of model predictions:
 
 .. code-block:: python
 
@@ -175,7 +182,7 @@ We can use ``inference.plotting.hdi_plot`` to plot highest-density intervals for
    hdi_plot(x_fits, curves)
 
    # build the rest of the plot
-   plt.plot( x_data, y_data, 'D', c = 'red', label = 'data', markeredgecolor = 'black')
+   plt.plot( x_data, y_data, 'D', c='red', label='data', markeredgecolor='black')
    plt.xlabel('wavelength (nm)')
    plt.ylabel('intensity')
    plt.xlim([410, 440])

@@ -118,7 +118,7 @@ width_2 = chain.get_parameter(3)
 widths_ratio = [i/j for i,j in zip(width_1, width_2)]
 
 # Use one of the density estimator objects from pdf_tools to get the PDF
-from inference.pdf_tools import UnimodalPdf
+from inference.pdf import UnimodalPdf
 pdf = UnimodalPdf(widths_ratio)
 
 # plot the PDF

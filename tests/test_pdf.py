@@ -1,4 +1,4 @@
-from inference.pdf_tools import GaussianKDE, UnimodalPdf, sample_hdi, BinaryTree
+from inference.pdf import GaussianKDE, UnimodalPdf, sample_hdi, BinaryTree
 from numpy.random import default_rng
 
 from numpy import isclose, linspace, concatenate

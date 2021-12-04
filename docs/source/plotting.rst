@@ -1,7 +1,8 @@
-Plotting inference results with inference.plotting
-==================================================
+Plotting and visualisation of inference results
+===============================================
 
-This module provides functions to generate common types of plots used to visualise inference results.
+This module provides functions to generate common types of plots used to visualise
+inference results.
 
 matrix_plot
 -----------

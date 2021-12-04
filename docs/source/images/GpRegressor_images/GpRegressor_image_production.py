@@ -5,7 +5,7 @@ from numpy import exp, sin, sqrt
 from numpy import linspace, zeros, array, meshgrid
 from numpy.random import multivariate_normal as mvn
 from numpy.random import normal, random, seed
-from inference.gp_tools import GpRegressor
+from inference.gp import GpRegressor
 
 seed(4)
 

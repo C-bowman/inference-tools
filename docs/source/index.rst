@@ -28,6 +28,6 @@ me at ``chris.bowman.physics@gmail.com``.
    getting_started
    mcmc
    distributions
-   pdf_tools
-   gp_tools
+   pdf
+   gp
    plotting

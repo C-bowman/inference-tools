@@ -1,6 +1,6 @@
 from numpy import array, linspace, sin, zeros
 from numpy.random import normal, seed
-from inference.gp_tools import GpRegressor
+from inference.gp import GpRegressor
 
 
 def test_marginal_likelihood_gradient():

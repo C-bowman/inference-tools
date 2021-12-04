@@ -1,4 +1,4 @@
-from inference.gp_tools import GpOptimiser
+from inference.gp import GpOptimiser
 
 import matplotlib.pyplot as plt
 import matplotlib as mpl

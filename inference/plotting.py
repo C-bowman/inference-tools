@@ -5,7 +5,7 @@
 from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray
 from itertools import product, cycle
 from warnings import warn
-from inference.pdf_tools import GaussianKDE, KDE2D, sample_hdi
+from inference.pdf import GaussianKDE, KDE2D, sample_hdi
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle

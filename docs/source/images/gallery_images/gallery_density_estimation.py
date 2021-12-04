@@ -1,7 +1,7 @@
 
 from numpy import linspace
 from numpy.random import normal, random, exponential
-from inference.pdf_tools import UnimodalPdf
+from inference.pdf import UnimodalPdf
 import matplotlib.pyplot as plt
 
 N = 5000
