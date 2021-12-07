@@ -1,8 +1,30 @@
 
+from abc import ABC, abstractmethod
 from numpy import abs, exp, eye, log
 
 
-class SquaredExponential(object):
+class CovarianceFunction(ABC):
+    """
+    Abstract base class for covariance functions.
+    """
+    @abstractmethod
+    def pass_data(self, x, y):
+        pass
+
+    @abstractmethod
+    def __call__(self, u, v, theta):
+        pass
+
+    @abstractmethod
+    def build_covariance(self, theta):
+        pass
+
+    @abstractmethod
+    def covariance_and_gradients(self, theta):
+        pass
+
+
+class SquaredExponential(CovarianceFunction):
     r"""
     ``SquaredExponential`` is a covariance-function class which can be passed to
     ``GpRegressor`` via the ``kernel`` keyword argument. It uses the 'squared-exponential'
@@ -95,7 +117,7 @@ class SquaredExponential(object):
         return self.bounds
 
 
-class RationalQuadratic(object):
+class RationalQuadratic(CovarianceFunction):
     r"""
     ``RationalQuadratic`` is a covariance-function class which can be passed to
     ``GpRegressor`` via the ``kernel`` keyword argument. It uses the 'rational quadratic'
