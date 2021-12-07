@@ -1,11 +1,10 @@
-
 from numpy import dot, zeros, ones
 
 
 class ConstantMean(object):
     def __init__(self):
         self.n_params = 1
-        self.hyperpar_labels = ['mean']
+        self.hyperpar_labels = ["mean"]
 
     def pass_data(self, x, y):
         self.n_data = y.size
@@ -36,8 +35,8 @@ class LinearMean(object):
         self.bounds = [(y.min() - 2 * w, y.max() + 2 * w)]
         self.bounds.extend([(-b, b) for b in grad_bounds])
 
-        self.hyperpar_labels = ['mean_background']
-        self.hyperpar_labels.extend([f'mean_gradient_{i}' for i in range(x.shape[1])])
+        self.hyperpar_labels = ["mean_background"]
+        self.hyperpar_labels.extend([f"mean_gradient_{i}" for i in range(x.shape[1])])
 
     def __call__(self, q, theta):
         return theta[0] + dot(q - self.x_mean, theta[1:]).squeeze()
