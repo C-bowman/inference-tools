@@ -56,7 +56,12 @@ class CompositeCovariance(CovarianceFunction):
 
         self.bounds = []
         [self.bounds.extend(comp.bounds) for comp in self.components]
-        self.n_params = len(self.bounds)
+
+        self.hyperpar_labels = []
+        for i, comp in enumerate(self.components):
+            labels = [f'K{i+1}_{s}' for s in comp.hyperpar_labels]
+            self.hyperpar_labels.extend(labels)
+        self.n_params = len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
         return sum(
@@ -124,7 +129,8 @@ class WhiteNoise(CovarianceFunction):
             s = log(y.ptp())
             self.bounds = [(s - 8, s + 2)]
 
-        self.n_params = len(self.bounds)
+        self.n_params = 1
+        self.hyperpar_labels = ['log_noise_level']
 
     def __call__(self, u, v, theta):
         return zeros([u.size, v.size])
@@ -193,7 +199,9 @@ class SquaredExponential(CovarianceFunction):
                 lwr = log(abs(dx[:, :, i]).mean()) - 4
                 upr = log(dx[:, :, i].max()) + 2
                 self.bounds.append((lwr, upr))
-        self.n_params = len(self.bounds)
+        self.n_params = x.shape[1] + 1
+        self.hyperpar_labels = ['log_amplitude']
+        self.hyperpar_labels.extend([f'log_scale_{i}' for i in range(x.shape[1])])
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -283,6 +291,9 @@ class RationalQuadratic(CovarianceFunction):
                 lwr = log(abs(dx[:, :, i]).mean()) - 4
                 upr = log(dx[:, :, i].max()) + 2
                 self.bounds.append((lwr, upr))
+        self.n_params = x.shape[1] + 2
+        self.hyperpar_labels = ['log_amplitude', 'log_alpha']
+        self.hyperpar_labels.extend([f'log_scale_{i}' for i in range(x.shape[1])])
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
