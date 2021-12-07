@@ -128,6 +128,8 @@ class GpRegressor(object):
         self.n_hyperpars = len(self.hp_bounds)
         self.mean_slice = slice(0, self.mean.n_params)
         self.cov_slice = slice(self.mean.n_params, self.n_hyperpars)
+        # collect the hyperparameter labels from the mean and covariance
+        self.hyperpar_labels = [*self.mean.hyperpar_labels, *self.cov.hyperpar_labels]
 
         if cross_val:
             self.model_selector = self.loo_likelihood
