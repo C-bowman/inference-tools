@@ -1,4 +1,3 @@
-
 from abc import ABC, abstractmethod
 from numpy import abs, exp, eye, log, zeros
 
@@ -7,6 +6,7 @@ class CovarianceFunction(ABC):
     """
     Abstract base class for covariance functions.
     """
+
     @abstractmethod
     def pass_data(self, x, y):
         pass
@@ -59,7 +59,7 @@ class CompositeCovariance(CovarianceFunction):
 
         self.hyperpar_labels = []
         for i, comp in enumerate(self.components):
-            labels = [f'K{i+1}_{s}' for s in comp.hyperpar_labels]
+            labels = [f"K{i+1}_{s}" for s in comp.hyperpar_labels]
             self.hyperpar_labels.extend(labels)
         self.n_params = len(self.hyperpar_labels)
 
@@ -114,6 +114,7 @@ class WhiteNoise(CovarianceFunction):
         However, this keyword allows the bounds to be specified manually as a length-2
         tuple giving the lower/upper bound.
     """
+
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
@@ -130,7 +131,7 @@ class WhiteNoise(CovarianceFunction):
             self.bounds = [(s - 8, s + 2)]
 
         self.n_params = 1
-        self.hyperpar_labels = ['log_noise_level']
+        self.hyperpar_labels = ["log_noise_level"]
 
     def __call__(self, u, v, theta):
         return zeros([u.size, v.size])
@@ -141,11 +142,11 @@ class WhiteNoise(CovarianceFunction):
         covariance matrix where the vectors v1 & v2 are both self.x.
         """
         sigma_sq = exp(2 * theta[0])
-        return sigma_sq*self.I
+        return sigma_sq * self.I
 
     def covariance_and_gradients(self, theta):
         sigma_sq = exp(2 * theta[0])
-        K = sigma_sq*self.I
+        K = sigma_sq * self.I
         grads = [2.0 * K]
         return K, grads
 
@@ -200,8 +201,8 @@ class SquaredExponential(CovarianceFunction):
                 upr = log(dx[:, :, i].max()) + 2
                 self.bounds.append((lwr, upr))
         self.n_params = x.shape[1] + 1
-        self.hyperpar_labels = ['log_amplitude']
-        self.hyperpar_labels.extend([f'log_scale_{i}' for i in range(x.shape[1])])
+        self.hyperpar_labels = ["log_amplitude"]
+        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -292,8 +293,8 @@ class RationalQuadratic(CovarianceFunction):
                 upr = log(dx[:, :, i].max()) + 2
                 self.bounds.append((lwr, upr))
         self.n_params = x.shape[1] + 2
-        self.hyperpar_labels = ['log_amplitude', 'log_alpha']
-        self.hyperpar_labels.extend([f'log_scale_{i}' for i in range(x.shape[1])])
+        self.hyperpar_labels = ["log_amplitude", "log_alpha"]
+        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
