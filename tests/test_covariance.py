@@ -26,7 +26,7 @@ def create_data():
     S = 0.1
     x = linspace(0, 10, N)
     y = sin(x) + 0.1 + normal(size=N) * S
-    return x.reshape([N,1]), y
+    return x.reshape([N, 1]), y
 
 
 @pytest.mark.parametrize(
@@ -35,8 +35,8 @@ def create_data():
         SquaredExponential(),
         RationalQuadratic(),
         WhiteNoise(),
-        RationalQuadratic() + WhiteNoise()
-    ]
+        RationalQuadratic() + WhiteNoise(),
+    ],
 )
 def test_covariance_and_gradients(cov):
     x, y = create_data()
@@ -46,8 +46,8 @@ def test_covariance_and_gradients(cov):
     fd_grads = covar_findiff(cov_func=cov, x0=theta)
 
     for ang, fdg in zip(grads, fd_grads):
-        zero_inds = (ang == 0.) & (fdg == 0.)
-        abs_frac_err = abs(fdg / ang - 1.)
-        abs_frac_err[zero_inds] = 0.
+        zero_inds = (ang == 0.0) & (fdg == 0.0)
+        abs_frac_err = abs(fdg / ang - 1.0)
+        abs_frac_err[zero_inds] = 0.0
         assert isfinite(abs_frac_err).all()
         assert abs_frac_err.max() < 1e-6
