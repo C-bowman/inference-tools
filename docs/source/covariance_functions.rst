@@ -24,3 +24,9 @@ RationalQuadratic
 ^^^^^^^^^^^^^^^^^
 
 .. autoclass:: inference.gp.RationalQuadratic
+
+
+WhiteNoise
+^^^^^^^^^^
+
+.. autoclass:: inference.gp.WhiteNoise
