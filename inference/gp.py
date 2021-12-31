@@ -2,11 +2,8 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import sqrt, diagonal, ndarray, arange
-from numpy import array, pi, diag, maximum, minimum
+from numpy import diagonal, arange, diag
 from numpy import sum as npsum
-from numpy.random import random
-from scipy.special import erf, erfcx
 from numpy.linalg import cholesky
 from scipy.linalg import solve_triangular
 from scipy.optimize import differential_evolution, fmin_l_bfgs_b
@@ -19,6 +16,7 @@ import matplotlib.pyplot as plt
 
 from inference.covariance import *
 from inference.mean import *
+from inference.acquisition import *
 
 
 class GpRegressor(object):
@@ -61,7 +59,7 @@ class GpRegressor(object):
 
     :param class kernel: \
         The covariance function class which will be used to model the data. The
-        covariance function classes can be imported from the ``gp_tools`` module and
+        covariance function classes can be imported from the ``gp`` module and
         then passed to ``GpRegressor`` using this keyword argument.
 
     :param bool cross_val: \
@@ -128,7 +126,7 @@ class GpRegressor(object):
         self.n_hyperpars = len(self.hp_bounds)
         self.mean_slice = slice(0, self.mean.n_params)
         self.cov_slice = slice(self.mean.n_params, self.n_hyperpars)
-        # collect the hyperparameter labels from the mean and covariance
+        # collect the hyper-parameter labels from the mean and covariance
         self.hyperpar_labels = [*self.mean.hyperpar_labels, *self.cov.hyperpar_labels]
 
         if cross_val:
@@ -144,10 +142,10 @@ class GpRegressor(object):
                 optimizer = "bfgs"
                 warn(
                     """
-                     An invalid option was passed to the 'optimizer' keyword argument.
-                     The default option 'bfgs' was used instead.
-                     Valid options are 'bfgs' and 'diffev'.
-                     """
+                    An invalid option was passed to the 'optimizer' keyword argument.
+                    The default option 'bfgs' was used instead.
+                    Valid options are 'bfgs' and 'diffev'.
+                    """
                 )
 
             if optimizer == "diffev":
@@ -326,7 +324,7 @@ class GpRegressor(object):
         with respect to the spatial coordinates at a series of specified points.
 
         :param points: \
-            The points at which the mean vector and and covariance matrix of the
+            The points at which the mean vector and covariance matrix of the
             gradient of the regression estimate are to be calculated, given as a 2D
             ``numpy.ndarray`` with shape (number of points, number of dimensions).
             Alternatively, a list of array-like objects can be given, which will be
@@ -460,7 +458,7 @@ class GpRegressor(object):
     def loo_likelihood_gradient(self, theta):
         """
         Calculates the 'leave-one out' (LOO) log-likelihood, as well as its
-        gradient with respect to the hyperparameters.
+        gradient with respect to the hyper-parameters.
 
         This implementation is based on equations (5.10, 5.11, 5.12, 5.13, 5.14)
         from Rasmussen & Williams.
@@ -468,28 +466,27 @@ class GpRegressor(object):
         K_xx, grad_K = self.cov.covariance_and_gradients(theta[self.cov_slice])
         K_xx += self.sig
         mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
+        # use the cholesky decomp to get the covariance inverse
         L = cholesky(K_xx)
-
+        iK = solve_triangular(L, eye(L.shape[0]), lower=True)
+        iK = iK.T @ iK
         # Use the Cholesky decomposition of the covariance to find its inverse
-        I = eye(len(self.x))
-        iK = solve_triangular(L.T, solve_triangular(L, I, lower=True))
-        alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
+        alpha = iK.dot(self.y - mu)
         var = 1.0 / diag(iK)
         LOO = -0.5 * (var * alpha ** 2 + log(var)).sum()
 
         cov_gradients = []
+        c1 = alpha * var
+        c2 = 0.5 * var * (1 + var * alpha ** 2)
         for dK in grad_K:
             Z = iK.dot(dK)
-            g = (
-                (alpha * Z.dot(alpha) - 0.5 * (1 + var * alpha ** 2) * diag(Z.dot(iK)))
-                * var
-            ).sum()
+            g = (c1 * Z.dot(alpha) - c2 * diag(Z.dot(iK))).sum()
             cov_gradients.append(g)
 
         mean_gradients = []
         for dmu in grad_mu:
             Z = iK.dot(dmu)
-            g = (alpha * var * Z).sum()
+            g = (c1 * Z).sum()
             mean_gradients.append(g)
 
         grad = zeros(self.n_hyperpars)
@@ -500,7 +497,7 @@ class GpRegressor(object):
 
     def marginal_likelihood(self, theta):
         """
-        returns the log-marginal likelihood for the supplied hyperparameter values.
+        returns the log-marginal likelihood for the supplied hyper-parameter values.
 
         This implementation is based on equation (5.8) from Rasmussen & Williams.
         """
@@ -526,20 +523,21 @@ class GpRegressor(object):
         mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
         # get the cholesky decomposition
         L = cholesky(K_xx)
+        iK = solve_triangular(L, eye(L.shape[0]), lower=True)
+        iK = iK.T @ iK
         # calculate the log-marginal likelihood
-        alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
+        alpha = iK.dot(self.y - mu)
         LML = -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
         # calculate the mean parameter gradients
         grad = zeros(self.n_hyperpars)
         grad[self.mean_slice] = array([(alpha * dmu).sum() for dmu in grad_mu])
         # calculate the covariance parameter gradients
-        iK = solve_triangular(L.T, solve_triangular(L, eye(L.shape[0]), lower=True))
         Q = alpha[:, None] * alpha[None, :] - iK
         grad[self.cov_slice] = array([0.5 * (Q * dK.T).sum() for dK in grad_K])
         return LML, grad
 
     def differential_evo(self):
-        # optimise the hyperparameters
+        # optimise the hyper-parameters
         opt_result = differential_evolution(
             lambda x: -self.model_selector(x), self.hp_bounds
         )
@@ -611,248 +609,6 @@ class MarginalisedGpRegressor(object):
         return grad_mu.mean(axis=0), grad_var.mean(axis=0)
 
 
-class ExpectedImprovement(object):
-    r"""
-    ``ExpectedImprovement`` is an acquisition-function class which can be passed to
-    ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
-    expected-improvement acquisition function given by
-
-    .. math::
-
-       \mathrm{EI}(\underline{x}) = \left( z F(z) + P(z) \right) \sigma(\underline{x})
-
-    where
-
-    .. math::
-
-       z = \frac{\mu(\underline{x}) - y_{\mathrm{max}}}{\sigma(\underline{x})},
-       \qquad P(z) = \frac{1}{\sqrt{2\pi}}\exp{\left(-\frac{1}{2}z^2 \right)},
-       \qquad F(z) = \frac{1}{2}\left[ 1 + \mathrm{erf}\left(\frac{z}{\sqrt{2}}\right) \right],
-
-    :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and standard
-    deviation of the Gaussian-process regression model at position :math:`\underline{x}`,
-    and :math:`y_{\mathrm{max}}` is the current maximum observed value of the objective function.
-    """
-
-    def __init__(self):
-        self.ir2pi = 1 / sqrt(2 * pi)
-        self.ir2 = 1.0 / sqrt(2)
-        self.rpi2 = sqrt(0.5 * pi)
-        self.ln2pi = log(2 * pi)
-
-        self.name = "Expected improvement"
-        self.convergence_description = r"$\mathrm{EI}_{\mathrm{max}} \; / \; (y_{\mathrm{max}} - y_{\mathrm{min}})$"
-
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
-        mu, sig = self.gp(x)
-        Z = (mu[0] - self.mu_max) / sig[0]
-        if Z < -3:
-            ln_EI = log(1 + Z * self.cdf_pdf_ratio(Z)) + self.ln_pdf(Z) + log(sig[0])
-            EI = exp(ln_EI)
-        else:
-            pdf = self.normal_pdf(Z)
-            cdf = self.normal_cdf(Z)
-            EI = sig[0] * (Z * cdf + pdf)
-        return EI
-
-    def opt_func(self, x):
-        mu, sig = self.gp(x)
-        Z = (mu[0] - self.mu_max) / sig[0]
-        if Z < -3:
-            ln_EI = log(1 + Z * self.cdf_pdf_ratio(Z)) + self.ln_pdf(Z) + log(sig[0])
-        else:
-            pdf = self.normal_pdf(Z)
-            cdf = self.normal_cdf(Z)
-            ln_EI = log(sig[0] * (Z * cdf + pdf))
-        return -ln_EI
-
-    def opt_func_gradient(self, x):
-        mu, sig = self.gp(x)
-        dmu, dvar = self.gp.spatial_derivatives(x)
-        Z = (mu[0] - self.mu_max) / sig[0]
-
-        if Z < -3:
-            R = self.cdf_pdf_ratio(Z)
-            H = 1 + Z * R
-            ln_EI = log(H) + self.ln_pdf(Z) + log(sig[0])
-            grad_ln_EI = (0.5 * dvar / sig[0] + R * dmu) / (H * sig[0])
-        else:
-            pdf = self.normal_pdf(Z)
-            cdf = self.normal_cdf(Z)
-            EI = sig[0] * (Z * cdf + pdf)
-            ln_EI = log(EI)
-            grad_ln_EI = (0.5 * pdf * dvar / sig[0] + dmu * cdf) / EI
-
-        # flip sign on the value and gradient since we're using a minimizer
-        ln_EI = -ln_EI
-        grad_ln_EI = -grad_ln_EI
-        # make sure outputs are ndarray in the 1D case
-        if type(ln_EI) is not ndarray:
-            ln_EI = array(ln_EI)
-        if type(grad_ln_EI) is not ndarray:
-            grad_ln_EI = array(grad_ln_EI)
-
-        return ln_EI, grad_ln_EI.squeeze()
-
-    def normal_pdf(self, z):
-        return exp(-0.5 * z ** 2) * self.ir2pi
-
-    def normal_cdf(self, z):
-        return 0.5 * (1.0 + erf(z * self.ir2))
-
-    def cdf_pdf_ratio(self, z):
-        return self.rpi2 * erfcx(-z * self.ir2)
-
-    def ln_pdf(self, z):
-        return -0.5 * (z ** 2 + self.ln2pi)
-
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
-        widths = upr - lwr
-
-        lwr += widths * 0.01
-        upr -= widths * 0.01
-        starts = []
-        L = len(widths)
-        for x0 in self.gp.x:
-            samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
-            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
-            samples = sorted(samples, key=self.opt_func)
-            starts.append(samples[0])
-
-        return starts
-
-    def convergence_metric(self, x):
-        return self.__call__(x) / (self.mu_max - self.gp.y.min())
-
-
-class UpperConfidenceBound(object):
-    r"""
-    ``UpperConfidenceBound`` is an acquisition-function class which can be passed to
-    ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
-    upper-confidence-bound acquisition function given by
-
-    .. math::
-
-       \mathrm{UCB}(\underline{x}) = \mu(\underline{x}) + \kappa \sigma(\underline{x})
-
-    where :math:`\mu(\underline{x}),\,\sigma(\underline{x})` are the predictive mean and
-    standard deviation of the Gaussian-process regression model at position :math:`\underline{x}`.
-
-    :param float kappa: Value of the coefficient :math:`\kappa` which scales the contribution
-        of the predictive standard deviation to the acquisition function. ``kappa`` should be
-        set so that :math:`\kappa \ge 0`.
-    """
-
-    def __init__(self, kappa=2):
-        self.kappa = kappa
-        self.name = "Upper confidence bound"
-        self.convergence_description = (
-            r"$\mathrm{UCB}_{\mathrm{max}} - y_{\mathrm{max}}$"
-        )
-
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
-        mu, sig = self.gp(x)
-        return mu[0] + self.kappa * sig[0]
-
-    def opt_func(self, x):
-        mu, sig = self.gp(x)
-        return -mu[0] - self.kappa * sig[0]
-
-    def opt_func_gradient(self, x):
-        mu, sig = self.gp(x)
-        dmu, dvar = self.gp.spatial_derivatives(x)
-        ucb = mu[0] + self.kappa * sig[0]
-        grad_ucb = dmu + 0.5 * self.kappa * dvar / sig[0]
-        # flip sign on the value and gradient since we're using a minimizer
-        ucb = -ucb
-        grad_ucb = -grad_ucb
-        # make sure outputs are ndarray in the 1D case
-        if type(ucb) is not ndarray:
-            ucb = array(ucb)
-        if type(grad_ucb) is not ndarray:
-            grad_ucb = array(grad_ucb)
-        return ucb, grad_ucb.squeeze()
-
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
-        widths = upr - lwr
-
-        lwr += widths * 0.01
-        upr -= widths * 0.01
-        starts = []
-        L = len(widths)
-        for x0 in self.gp.x:
-            samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
-            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
-            samples = sorted(samples, key=self.opt_func)
-            starts.append(samples[0])
-
-        return starts
-
-    def convergence_metric(self, x):
-        return self.__call__(x) - self.mu_max
-
-
-class MaxVariance(object):
-    r"""
-    ``MaxVariance`` is a acquisition-function class which can be passed to
-    ``GpOptimiser`` via the ``acquisition`` keyword argument. It selects new
-    evaluations of the objective function by finding the spatial position
-    :math:`\underline{x}` with the largest variance :math:`\sigma^2(\underline{x})`
-    as predicted by the Gaussian-process regression model.
-
-    This is a `pure learning' acquisition function which does not seek to find the
-    maxima of the objective function, but only to minimize uncertainty in the
-    prediction of the function.
-    """
-
-    def __init__(self):
-        self.name = "Max variance"
-        self.convergence_description = r"$\sqrt{\mathrm{Var}\left[x\right]}$"
-
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
-        _, sig = self.gp(x)
-        return sig[0] ** 2
-
-    def opt_func(self, x):
-        _, sig = self.gp(x)
-        return -sig[0] ** 2
-
-    def opt_func_gradient(self, x):
-        _, sig = self.gp(x)
-        _, dvar = self.gp.spatial_derivatives(x)
-        aq = -(sig ** 2)
-        aq_grad = -dvar
-        if type(aq) is not ndarray:
-            aq = array(aq)
-        if type(aq_grad) is not ndarray:
-            aq_grad = array(aq_grad)
-        return aq.squeeze(), aq_grad.squeeze()
-
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds]) for i in [0, 1]]
-        starts = [
-            lwr + (upr - lwr) * random(size=len(bounds)) for _ in range(len(self.gp.y))
-        ]
-        return starts
-
-    def convergence_metric(self, x):
-        return sqrt(self.__call__(x))
-
-
 class GpOptimiser(object):
     """
     A class for performing Gaussian-process optimisation in one or more dimensions.
@@ -872,17 +628,18 @@ class GpOptimiser(object):
         this should be a list or array of floats. For greater than 1 dimension,
         a list of coordinate arrays or tuples should be given.
 
-    :param list y: The y-data values as a list or array of floats.
+    :param list y: \
+        The y-data values as a list or array of floats.
+
+    :keyword bounds: \
+        An iterable containing tuples which specify the upper and lower bounds
+        for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
     :keyword y_err: \
         The error on the y-data values supplied as a list or array of floats.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
-
-    :keyword bounds: \
-        A iterable containing tuples which specify the upper and lower bounds
-        for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
     :param hyperpars: \
         An array specifying the hyper-parameter values to be used by the
@@ -894,7 +651,12 @@ class GpOptimiser(object):
 
     :param class kernel: \
         The covariance-function class which will be used to model the data. The
-        covariance-function classes can be imported from the gp_tools module and
+        covariance-function classes can be imported from the ``gp`` module and
+        then passed to ``GpOptimiser`` using this keyword argument.
+
+    :param class mean: \
+        The mean-function class which will be used to model the data. The
+        mean-function classes can be imported from the ``gp`` module and
         then passed to ``GpOptimiser`` using this keyword argument.
 
     :param bool cross_val: \
@@ -904,12 +666,12 @@ class GpOptimiser(object):
     :param class acquisition: \
         The acquisition-function class which is used to select new points at which
         the objective function is evaluated. The acquisition-function classes can be
-        imported from the ``gp_tools`` module and then passed as arguments - see their
+        imported from the ``gp`` module and then passed as arguments - see their
         documentation for the list of available acquisition functions. If left unspecified,
         the ``ExpectedImprovement`` acquisition function is used by default.
 
     :param str optimizer: \
-        Selects the optimization method used for selecting hyper-parameter values proposed
+        Selects the optimization method used for selecting hyper-parameter values and proposed
         evaluations. Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
         "diffev" for ``scipy.optimize.differential_evolution``.
 
@@ -922,10 +684,11 @@ class GpOptimiser(object):
         self,
         x,
         y,
+        bounds,
         y_err=None,
-        bounds=None,
         hyperpars=None,
         kernel=SquaredExponential,
+        mean=ConstantMean,
         cross_val=False,
         acquisition=ExpectedImprovement,
         optimizer="bfgs",
@@ -937,31 +700,28 @@ class GpOptimiser(object):
 
         if y_err is not None:
             self.y_err = list(self.y_err)
-        if bounds is None:
-            ValueError("The bounds keyword argument must be specified")
-        else:
-            self.bounds = bounds
 
+        self.bounds = bounds
         self.kernel = kernel
+        self.mean = mean
         self.cross_val = cross_val
         self.n_processes = n_processes
         self.optimizer = optimizer
+
         self.gp = GpRegressor(
             x,
             y,
             y_err=y_err,
             hyperpars=hyperpars,
             kernel=kernel,
+            mean=mean,
             cross_val=cross_val,
             optimizer=self.optimizer,
             n_processes=self.n_processes,
         )
 
         # if the class has been passed instead of an instance, create an instance
-        if isclass(acquisition):
-            self.acquisition = acquisition()
-        else:
-            self.acquisition = acquisition
+        self.acquisition = acquisition() if isclass(acquisition) else acquisition
         self.acquisition.update_gp(self.gp)
 
         # create storage for tracking
@@ -1005,6 +765,7 @@ class GpOptimiser(object):
             self.y,
             y_err=self.y_err,
             kernel=self.kernel,
+            mean=self.mean,
             cross_val=self.cross_val,
             optimizer=self.optimizer,
             n_processes=self.n_processes,
@@ -1047,19 +808,22 @@ class GpOptimiser(object):
         funcval = float(best_result[1])
         return solution, funcval
 
-    def propose_evaluation(self):
+    def propose_evaluation(self, optimizer=None):
         """
         Request a proposed location for the next evaluation. This proposal is
         selected by maximising the chosen acquisition function.
 
-        :param bool bfgs: \
-            If set as ``True``, multi-start BFGS is used to maximise used to maximise
-            the acquisition function. Otherwise, ``scipy.optimize.differential_evolution``
-            is used to maximise the acquisition function instead.
+        :param str optimizer: \
+            Selects the optimization method used for selecting the proposed evaluation.
+            Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
+            "diffev" for ``scipy.optimize.differential_evolution``. This keyword allows
+            the user to override the choice of optimizer given when ``GpOptimiser`` was
+            initialised.
 
         :return: location of the next proposed evaluation.
         """
-        if self.optimizer == "bfgs":
+        opt = optimizer if optimizer is not None else self.optimizer
+        if opt == "bfgs":
             # find the evaluation point which maximises the acquisition function
             proposed_ev, max_acq = self.multistart_bfgs()
         else:
