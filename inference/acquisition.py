@@ -5,7 +5,36 @@ from numpy.random import random
 from scipy.special import erf, erfcx
 
 
-class ExpectedImprovement(object):
+class AcquisitionFunction(object):
+    gp = None
+    opt_func = None
+
+    def starting_positions(self, bounds):
+        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
+        widths = upr - lwr
+
+        lwr += widths * 0.01
+        upr -= widths * 0.01
+        starts = []
+        L = len(widths)
+        for x0 in self.gp.x:
+            # first check if the point is inside the search bounds
+            inside = ((x0 >= lwr) & (x0 <= upr)).all()
+            if inside:
+                # a small random search around the point to find a good start
+                samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
+                samples = [minimum(upr, maximum(lwr, s)) for s in samples]
+                samples = sorted(samples, key=self.opt_func)
+                starts.append(samples[0])
+            else:
+                # draw a sample uniformly from the search bounds hypercube
+                start = lwr + (upr-lwr)*random(size=L)
+                starts.append(start)
+
+        return starts
+
+
+class ExpectedImprovement(AcquisitionFunction):
     r"""
     ``ExpectedImprovement`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
@@ -104,27 +133,11 @@ class ExpectedImprovement(object):
     def ln_pdf(self, z):
         return -0.5 * (z ** 2 + self.ln2pi)
 
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
-        widths = upr - lwr
-
-        lwr += widths * 0.01
-        upr -= widths * 0.01
-        starts = []
-        L = len(widths)
-        for x0 in self.gp.x:
-            samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
-            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
-            samples = sorted(samples, key=self.opt_func)
-            starts.append(samples[0])
-
-        return starts
-
     def convergence_metric(self, x):
         return self.__call__(x) / (self.mu_max - self.gp.y.min())
 
 
-class UpperConfidenceBound(object):
+class UpperConfidenceBound(AcquisitionFunction):
     r"""
     ``UpperConfidenceBound`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It implements the
@@ -176,27 +189,11 @@ class UpperConfidenceBound(object):
             grad_ucb = array(grad_ucb)
         return ucb, grad_ucb.squeeze()
 
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
-        widths = upr - lwr
-
-        lwr += widths * 0.01
-        upr -= widths * 0.01
-        starts = []
-        L = len(widths)
-        for x0 in self.gp.x:
-            samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
-            samples = [minimum(upr, maximum(lwr, s)) for s in samples]
-            samples = sorted(samples, key=self.opt_func)
-            starts.append(samples[0])
-
-        return starts
-
     def convergence_metric(self, x):
         return self.__call__(x) - self.mu_max
 
 
-class MaxVariance(object):
+class MaxVariance(AcquisitionFunction):
     r"""
     ``MaxVariance`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It selects new
@@ -235,13 +232,6 @@ class MaxVariance(object):
         if type(aq_grad) is not ndarray:
             aq_grad = array(aq_grad)
         return aq.squeeze(), aq_grad.squeeze()
-
-    def starting_positions(self, bounds):
-        lwr, upr = [array([k[i] for k in bounds]) for i in [0, 1]]
-        starts = [
-            lwr + (upr - lwr) * random(size=len(bounds)) for _ in range(len(self.gp.y))
-        ]
-        return starts
 
     def convergence_metric(self, x):
         return sqrt(self.__call__(x))
