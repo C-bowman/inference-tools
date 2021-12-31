@@ -61,7 +61,7 @@ class GpRegressor(object):
 
     :param class kernel: \
         The covariance function class which will be used to model the data. The
-        covariance function classes can be imported from the ``gp_tools`` module and
+        covariance function classes can be imported from the ``gp`` module and
         then passed to ``GpRegressor`` using this keyword argument.
 
     :param bool cross_val: \
@@ -128,7 +128,7 @@ class GpRegressor(object):
         self.n_hyperpars = len(self.hp_bounds)
         self.mean_slice = slice(0, self.mean.n_params)
         self.cov_slice = slice(self.mean.n_params, self.n_hyperpars)
-        # collect the hyperparameter labels from the mean and covariance
+        # collect the hyper-parameter labels from the mean and covariance
         self.hyperpar_labels = [*self.mean.hyperpar_labels, *self.cov.hyperpar_labels]
 
         if cross_val:
@@ -326,7 +326,7 @@ class GpRegressor(object):
         with respect to the spatial coordinates at a series of specified points.
 
         :param points: \
-            The points at which the mean vector and and covariance matrix of the
+            The points at which the mean vector and covariance matrix of the
             gradient of the regression estimate are to be calculated, given as a 2D
             ``numpy.ndarray`` with shape (number of points, number of dimensions).
             Alternatively, a list of array-like objects can be given, which will be
@@ -460,7 +460,7 @@ class GpRegressor(object):
     def loo_likelihood_gradient(self, theta):
         """
         Calculates the 'leave-one out' (LOO) log-likelihood, as well as its
-        gradient with respect to the hyperparameters.
+        gradient with respect to the hyper-parameters.
 
         This implementation is based on equations (5.10, 5.11, 5.12, 5.13, 5.14)
         from Rasmussen & Williams.
@@ -500,7 +500,7 @@ class GpRegressor(object):
 
     def marginal_likelihood(self, theta):
         """
-        returns the log-marginal likelihood for the supplied hyperparameter values.
+        returns the log-marginal likelihood for the supplied hyper-parameter values.
 
         This implementation is based on equation (5.8) from Rasmussen & Williams.
         """
@@ -539,7 +539,7 @@ class GpRegressor(object):
         return LML, grad
 
     def differential_evo(self):
-        # optimise the hyperparameters
+        # optimise the hyper-parameters
         opt_result = differential_evolution(
             lambda x: -self.model_selector(x), self.hp_bounds
         )
@@ -804,7 +804,7 @@ class UpperConfidenceBound(object):
 
 class MaxVariance(object):
     r"""
-    ``MaxVariance`` is a acquisition-function class which can be passed to
+    ``MaxVariance`` is an acquisition-function class which can be passed to
     ``GpOptimiser`` via the ``acquisition`` keyword argument. It selects new
     evaluations of the objective function by finding the spatial position
     :math:`\underline{x}` with the largest variance :math:`\sigma^2(\underline{x})`
@@ -872,17 +872,18 @@ class GpOptimiser(object):
         this should be a list or array of floats. For greater than 1 dimension,
         a list of coordinate arrays or tuples should be given.
 
-    :param list y: The y-data values as a list or array of floats.
+    :param list y: \
+        The y-data values as a list or array of floats.
+
+    :keyword bounds: \
+        An iterable containing tuples which specify the upper and lower bounds
+        for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
     :keyword y_err: \
         The error on the y-data values supplied as a list or array of floats.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
-
-    :keyword bounds: \
-        A iterable containing tuples which specify the upper and lower bounds
-        for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
     :param hyperpars: \
         An array specifying the hyper-parameter values to be used by the
@@ -894,7 +895,12 @@ class GpOptimiser(object):
 
     :param class kernel: \
         The covariance-function class which will be used to model the data. The
-        covariance-function classes can be imported from the gp_tools module and
+        covariance-function classes can be imported from the ``gp`` module and
+        then passed to ``GpOptimiser`` using this keyword argument.
+
+    :param class mean: \
+        The mean-function class which will be used to model the data. The
+        mean-function classes can be imported from the ``gp`` module and
         then passed to ``GpOptimiser`` using this keyword argument.
 
     :param bool cross_val: \
@@ -904,7 +910,7 @@ class GpOptimiser(object):
     :param class acquisition: \
         The acquisition-function class which is used to select new points at which
         the objective function is evaluated. The acquisition-function classes can be
-        imported from the ``gp_tools`` module and then passed as arguments - see their
+        imported from the ``gp`` module and then passed as arguments - see their
         documentation for the list of available acquisition functions. If left unspecified,
         the ``ExpectedImprovement`` acquisition function is used by default.
 
@@ -922,10 +928,11 @@ class GpOptimiser(object):
         self,
         x,
         y,
+        bounds,
         y_err=None,
-        bounds=None,
         hyperpars=None,
         kernel=SquaredExponential,
+        mean=ConstantMean,
         cross_val=False,
         acquisition=ExpectedImprovement,
         optimizer="bfgs",
@@ -937,31 +944,28 @@ class GpOptimiser(object):
 
         if y_err is not None:
             self.y_err = list(self.y_err)
-        if bounds is None:
-            ValueError("The bounds keyword argument must be specified")
-        else:
-            self.bounds = bounds
 
+        self.bounds = bounds
         self.kernel = kernel
+        self.mean = mean
         self.cross_val = cross_val
         self.n_processes = n_processes
         self.optimizer = optimizer
+
         self.gp = GpRegressor(
             x,
             y,
             y_err=y_err,
             hyperpars=hyperpars,
             kernel=kernel,
+            mean=mean,
             cross_val=cross_val,
             optimizer=self.optimizer,
             n_processes=self.n_processes,
         )
 
         # if the class has been passed instead of an instance, create an instance
-        if isclass(acquisition):
-            self.acquisition = acquisition()
-        else:
-            self.acquisition = acquisition
+        self.acquisition = acquisition() if isclass(acquisition) else acquisition
         self.acquisition.update_gp(self.gp)
 
         # create storage for tracking
@@ -1005,6 +1009,7 @@ class GpOptimiser(object):
             self.y,
             y_err=self.y_err,
             kernel=self.kernel,
+            mean=self.mean,
             cross_val=self.cross_val,
             optimizer=self.optimizer,
             n_processes=self.n_processes,
