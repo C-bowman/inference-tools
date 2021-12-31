@@ -426,7 +426,8 @@ class GpRegressor(object):
         """
         # Use the Cholesky decomposition of the covariance to find its inverse
         I = eye(len(self.x))
-        iK = solve_triangular(self.L.T, solve_triangular(self.L, I, lower=True))
+        iK = solve_triangular(self.L, eye(self.L.shape[0]), lower=True)
+        iK = iK.T @ iK
         var = 1.0 / diag(iK)
 
         mu = self.y - self.alpha * var
@@ -443,12 +444,12 @@ class GpRegressor(object):
         try:
             K_xx = self.cov.build_covariance(theta[self.cov_slice]) + self.sig
             mu = self.mean.build_mean(theta[self.mean_slice])
-            L = cholesky(K_xx)
 
             # Use the Cholesky decomposition of the covariance to find its inverse
-            I = eye(len(self.x))
-            iK = solve_triangular(L.T, solve_triangular(L, I, lower=True))
-            alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
+            L = cholesky(K_xx)
+            iK = solve_triangular(L, eye(L.shape[0]), lower=True)
+            iK = iK.T @ iK
+            alpha = iK.dot(self.y - mu)
             var = 1.0 / diag(iK)
             return -0.5 * (var * alpha ** 2 + log(var)).sum()
         except:
