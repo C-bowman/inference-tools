@@ -671,7 +671,7 @@ class GpOptimiser(object):
         the ``ExpectedImprovement`` acquisition function is used by default.
 
     :param str optimizer: \
-        Selects the optimization method used for selecting hyper-parameter values proposed
+        Selects the optimization method used for selecting hyper-parameter values and proposed
         evaluations. Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
         "diffev" for ``scipy.optimize.differential_evolution``.
 
@@ -808,19 +808,22 @@ class GpOptimiser(object):
         funcval = float(best_result[1])
         return solution, funcval
 
-    def propose_evaluation(self):
+    def propose_evaluation(self, optimizer=None):
         """
         Request a proposed location for the next evaluation. This proposal is
         selected by maximising the chosen acquisition function.
 
-        :param bool bfgs: \
-            If set as ``True``, multi-start BFGS is used to maximise used to maximise
-            the acquisition function. Otherwise, ``scipy.optimize.differential_evolution``
-            is used to maximise the acquisition function instead.
+        :param str optimizer: \
+            Selects the optimization method used for selecting the proposed evaluation.
+            Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
+            "diffev" for ``scipy.optimize.differential_evolution``. This keyword allows
+            the user to override the choice of optimizer given when ``GpOptimiser`` was
+            initialised.
 
         :return: location of the next proposed evaluation.
         """
-        if self.optimizer == "bfgs":
+        opt = optimizer if optimizer is not None else self.optimizer
+        if opt == "bfgs":
             # find the evaluation point which maximises the acquisition function
             proposed_ev, max_acq = self.multistart_bfgs()
         else:
