@@ -142,10 +142,10 @@ class GpRegressor(object):
                 optimizer = "bfgs"
                 warn(
                     """
-                     An invalid option was passed to the 'optimizer' keyword argument.
-                     The default option 'bfgs' was used instead.
-                     Valid options are 'bfgs' and 'diffev'.
-                     """
+                    An invalid option was passed to the 'optimizer' keyword argument.
+                    The default option 'bfgs' was used instead.
+                    Valid options are 'bfgs' and 'diffev'.
+                    """
                 )
 
             if optimizer == "diffev":
@@ -466,28 +466,27 @@ class GpRegressor(object):
         K_xx, grad_K = self.cov.covariance_and_gradients(theta[self.cov_slice])
         K_xx += self.sig
         mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
+        # use the cholesky decomp to get the covariance inverse
         L = cholesky(K_xx)
-
+        iK = solve_triangular(L, eye(L.shape[0]), lower=True)
+        iK = iK.T @ iK
         # Use the Cholesky decomposition of the covariance to find its inverse
-        I = eye(len(self.x))
-        iK = solve_triangular(L.T, solve_triangular(L, I, lower=True))
-        alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
+        alpha = iK.dot(self.y - mu)
         var = 1.0 / diag(iK)
         LOO = -0.5 * (var * alpha ** 2 + log(var)).sum()
 
         cov_gradients = []
+        c1 = alpha * var
+        c2 = 0.5 * var * (1 + var * alpha ** 2)
         for dK in grad_K:
             Z = iK.dot(dK)
-            g = (
-                (alpha * Z.dot(alpha) - 0.5 * (1 + var * alpha ** 2) * diag(Z.dot(iK)))
-                * var
-            ).sum()
+            g = (c1 * Z.dot(alpha) - c2 * diag(Z.dot(iK))).sum()
             cov_gradients.append(g)
 
         mean_gradients = []
         for dmu in grad_mu:
             Z = iK.dot(dmu)
-            g = (alpha * var * Z).sum()
+            g = (c1 * Z).sum()
             mean_gradients.append(g)
 
         grad = zeros(self.n_hyperpars)
@@ -524,14 +523,15 @@ class GpRegressor(object):
         mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
         # get the cholesky decomposition
         L = cholesky(K_xx)
+        iK = solve_triangular(L, eye(L.shape[0]), lower=True)
+        iK = iK.T @ iK
         # calculate the log-marginal likelihood
-        alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
+        alpha = iK.dot(self.y - mu)
         LML = -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
         # calculate the mean parameter gradients
         grad = zeros(self.n_hyperpars)
         grad[self.mean_slice] = array([(alpha * dmu).sum() for dmu in grad_mu])
         # calculate the covariance parameter gradients
-        iK = solve_triangular(L.T, solve_triangular(L, eye(L.shape[0]), lower=True))
         Q = alpha[:, None] * alpha[None, :] - iK
         grad[self.cov_slice] = array([0.5 * (Q * dK.T).sum() for dK in grad_K])
         return LML, grad
