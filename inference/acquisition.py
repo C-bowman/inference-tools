@@ -1,4 +1,3 @@
-
 from numpy import sqrt, log, exp, pi
 from numpy import array, ndarray, minimum, maximum
 from numpy.random import random
@@ -22,13 +21,15 @@ class AcquisitionFunction(object):
             inside = ((x0 >= lwr) & (x0 <= upr)).all()
             if inside:
                 # a small random search around the point to find a good start
-                samples = [x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)]
+                samples = [
+                    x0 + 0.02 * widths * (2 * random(size=L) - 1) for i in range(20)
+                ]
                 samples = [minimum(upr, maximum(lwr, s)) for s in samples]
                 samples = sorted(samples, key=self.opt_func)
                 starts.append(samples[0])
             else:
                 # draw a sample uniformly from the search bounds hypercube
-                start = lwr + (upr-lwr)*random(size=L)
+                start = lwr + (upr - lwr) * random(size=L)
                 starts.append(start)
 
         return starts
