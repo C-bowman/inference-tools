@@ -182,7 +182,7 @@ class GpRegressor(object):
 
             mu_q.append(dot(K_qx, self.alpha)[0] + self.mean(q, self.mean_hyperpars))
             v = solve_triangular(self.L, K_qx.T, lower=True)
-            errs.append(K_qq[0, 0] - npsum(v ** 2))
+            errs.append(K_qq[0, 0] - npsum(v**2))
 
         return array(mu_q), sqrt(abs(array(errs)))
 
@@ -285,7 +285,7 @@ class GpRegressor(object):
                     """
                 )
 
-            return diag(y_err ** 2)
+            return diag(y_err**2)
         else:
             return zeros([self.N_points, self.N_points])
 
@@ -451,7 +451,7 @@ class GpRegressor(object):
             iK = iK.T @ iK
             alpha = iK.dot(self.y - mu)
             var = 1.0 / diag(iK)
-            return -0.5 * (var * alpha ** 2 + log(var)).sum()
+            return -0.5 * (var * alpha**2 + log(var)).sum()
         except:
             warn("Cholesky decomposition failure in loo_likelihood")
             return -1e50
@@ -474,11 +474,11 @@ class GpRegressor(object):
         # Use the Cholesky decomposition of the covariance to find its inverse
         alpha = iK.dot(self.y - mu)
         var = 1.0 / diag(iK)
-        LOO = -0.5 * (var * alpha ** 2 + log(var)).sum()
+        LOO = -0.5 * (var * alpha**2 + log(var)).sum()
 
         cov_gradients = []
         c1 = alpha * var
-        c2 = 0.5 * var * (1 + var * alpha ** 2)
+        c2 = 0.5 * var * (1 + var * alpha**2)
         for dK in grad_K:
             Z = iK.dot(dK)
             g = (c1 * Z.dot(alpha) - c2 * diag(Z.dot(iK))).sum()

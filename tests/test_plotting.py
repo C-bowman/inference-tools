@@ -18,7 +18,7 @@ def test_matrix_plot():
     labels = ["test {}".format(i) for i in range(len(samples))]
 
     fig = matrix_plot(samples, labels=labels, show=False)
-    expected_plots = (N ** 2) - sum(range(N))
+    expected_plots = (N**2) - sum(range(N))
     assert len(fig.get_axes()) == expected_plots
 
 
@@ -99,7 +99,7 @@ def test_transition_matrix_plot():
         [child for child in ax.get_children() if filter_percent_text(child)]
     )
 
-    assert percentage_texts == N ** 2
+    assert percentage_texts == N**2
 
 
 def test_transition_matrix_plot_upper_triangle():

@@ -2084,13 +2084,13 @@ class EnsembleSampler(object):
 
     def update_summary_stats(self):
         mu = mean(self.theta, axis=0)
-        devs = sqrt(mean(self.theta ** 2, axis=0) - mu ** 2)
+        devs = sqrt(mean(self.theta**2, axis=0) - mu**2)
 
         self.means.append(mu)
         self.std_devs.append(devs)
         p_mu = mean(self.probs)
         self.prob_means.append(p_mu)
-        self.prob_devs.append(sqrt(mean(self.probs ** 2) - p_mu ** 2))
+        self.prob_devs.append(sqrt(mean(self.probs**2) - p_mu**2))
 
     def proposal(self, i):
         j = i  # randomly select walker

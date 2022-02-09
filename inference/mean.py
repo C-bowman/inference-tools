@@ -58,7 +58,7 @@ class QuadraticMean(object):
         n = x.shape[1]
         self.x_mean = x.mean(axis=0)
         self.dx = x - self.x_mean[None, :]
-        self.dx_sqr = self.dx ** 2
+        self.dx_sqr = self.dx**2
         self.n_data = y.size
         self.n_params = 1 + 2 * n
         w = y.max() - y.min()
@@ -77,7 +77,7 @@ class QuadraticMean(object):
     def __call__(self, q, theta):
         d = q - self.x_mean
         lin_term = dot(d, theta[self.lin_slc]).squeeze()
-        quad_term = dot(d ** 2, theta[self.quad_slc]).squeeze()
+        quad_term = dot(d**2, theta[self.quad_slc]).squeeze()
         return theta[0] + lin_term + quad_term
 
     def build_mean(self, theta):

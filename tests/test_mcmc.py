@@ -14,10 +14,10 @@ def rosenbrock(t):
     # This is a modified form of the rosenbrock function, which
     # is commonly used to test optimisation algorithms
     X, Y = t
-    X2 = X ** 2
+    X2 = X**2
     b = 15  # correlation strength parameter
     v = 3  # variance of the gaussian term
-    return -X2 - b * (Y - X2) ** 2 - 0.5 * (X2 + Y ** 2) / v
+    return -X2 - b * (Y - X2) ** 2 - 0.5 * (X2 + Y**2) / v
 
 
 class ToroidalGaussian(object):
@@ -28,12 +28,12 @@ class ToroidalGaussian(object):
 
     def __call__(self, theta):
         x, y, z = theta
-        r = np.sqrt(z ** 2 + (np.sqrt(x ** 2 + y ** 2) - self.R0) ** 2)
-        return -0.5 * r ** 2 / self.w2
+        r = np.sqrt(z**2 + (np.sqrt(x**2 + y**2) - self.R0) ** 2)
+        return -0.5 * r**2 / self.w2
 
     def gradient(self, theta):
         x, y, z = theta
-        R = np.sqrt(x ** 2 + y ** 2)
+        R = np.sqrt(x**2 + y**2)
         K = 1 - self.R0 / R
         g = np.array([K * x, K * y, z])
         return -g / self.w2

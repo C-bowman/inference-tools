@@ -198,8 +198,8 @@ class UnimodalPdf(DensityEstimator):
         self.n_nodes = 128
         k = linspace(1, self.n_nodes, self.n_nodes)
         t = cos(0.5 * pi * ((2 * k - 1) / self.n_nodes))
-        self.u = t / (1.0 - t ** 2)
-        self.w = (pi / self.n_nodes) * (1 + t ** 2) / (self.sd * (1 - t ** 2) ** 1.5)
+        self.u = t / (1.0 - t**2)
+        self.w = (pi / self.n_nodes) * (1 + t**2) / (self.sd * (1 - t**2) ** 1.5)
 
         # first minimise based on a slice of the sample, if it's large enough
         self.cutoff = 2000
@@ -249,10 +249,10 @@ class UnimodalPdf(DensityEstimator):
 
     def sample_moments(self):
         mu = mean(self.x)
-        x2 = self.x ** 2
+        x2 = self.x**2
         x3 = x2 * self.x
-        sig = sqrt(mean(x2) - mu ** 2)
-        skew = (mean(x3) - 3 * mu * sig ** 2 - mu ** 3) / sig ** 3
+        sig = sqrt(mean(x2) - mu**2)
+        skew = (mean(x3) - 3 * mu * sig**2 - mu**3) / sig**3
 
         return mu, sig, skew
 
@@ -313,7 +313,7 @@ class UnimodalPdf(DensityEstimator):
         mu = simps(p * x, x=x)
         var = simps(p * (x - mu) ** 2, x=x)
         skw = simps(p * (x - mu) ** 3, x=x) / var * 1.5
-        kur = (simps(p * (x - mu) ** 4, x=x) / var ** 2) - 3.0
+        kur = (simps(p * (x - mu) ** 4, x=x) / var**2) - 3.0
         return mu, var, skw, kur
 
 
@@ -382,7 +382,7 @@ class GaussianKDE(DensityEstimator):
         n = int(log((self.s[-1] - self.s[0]) / self.h) / log(2)) + 1
 
         # now generate midpoints of these regions
-        mids = linspace(self.s[0], self.s[-1], 2 ** n + 1)
+        mids = linspace(self.s[0], self.s[-1], 2**n + 1)
         mids = 0.5 * (mids[1:] + mids[:-1])
 
         # get the cutoff indices
@@ -498,7 +498,7 @@ class GaussianKDE(DensityEstimator):
     @staticmethod
     def log_kernel(x, c, h):
         z = (x - c) / h
-        return -0.5 * z ** 2 - log(h)
+        return -0.5 * z**2 - log(h)
 
     def log_evaluation(self, points, samples, width):
         # evaluate the log-pdf in a way which prevents underflow
@@ -533,7 +533,7 @@ class GaussianKDE(DensityEstimator):
         mu = simps(p * x, x=x)
         var = simps(p * (x - mu) ** 2, x=x)
         skw = simps(p * (x - mu) ** 3, x=x) / var * 1.5
-        kur = (simps(p * (x - mu) ** 4, x=x) / var ** 2) - 3.0
+        kur = (simps(p * (x - mu) ** 4, x=x) / var**2) - 3.0
         return mu, var, skw, kur
 
     def interval(self, frac=0.95):
@@ -571,7 +571,7 @@ class KDE2D(object):
     def estimate_bandwidth(self, x, y):
         S = cov(x, y)
         p = S[0, 1] / sqrt(S[0, 0] * S[1, 1])
-        return 1.06 * sqrt(S.diagonal() * (1 - p ** 2)) / (len(x) ** 0.2)
+        return 1.06 * sqrt(S.diagonal() * (1 - p**2)) / (len(x) ** 0.2)
 
 
 class BinaryTree:
@@ -587,7 +587,7 @@ class BinaryTree:
     def __init__(self, layers, limits):
         self.n = layers
         self.lims = limits
-        self.edges = linspace(limits[0], limits[1], 2 ** self.n + 1)
+        self.edges = linspace(limits[0], limits[1], 2**self.n + 1)
 
         self.p = [
             [a, b, 0.5 * (a + b)] for a, b in zip(self.edges[:-1], self.edges[1:])

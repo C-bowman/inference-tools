@@ -188,7 +188,7 @@ class SquaredExponential(CovarianceFunction):
         """
         # distributed outer subtraction using broadcasting
         dx = x[:, None, :] - x[None, :, :]
-        self.distances = -0.5 * dx ** 2
+        self.distances = -0.5 * dx**2
         # small values added to the diagonal for stability
         self.epsilon = 1e-12 * eye(dx.shape[0])
 
@@ -209,7 +209,7 @@ class SquaredExponential(CovarianceFunction):
         L = exp(theta[1:])
         D = -0.5 * (u[:, None, :] - v[None, :, :]) ** 2
         C = exp((D / L[None, None, :] ** 2).sum(axis=2))
-        return (a ** 2) * C
+        return (a**2) * C
 
     def build_covariance(self, theta):
         """
@@ -219,7 +219,7 @@ class SquaredExponential(CovarianceFunction):
         a = exp(theta[0])
         L = exp(theta[1:])
         C = exp((self.distances / L[None, None, :] ** 2).sum(axis=2)) + self.epsilon
-        return (a ** 2) * C
+        return (a**2) * C
 
     def gradient_terms(self, v, x, theta):
         """
@@ -236,10 +236,10 @@ class SquaredExponential(CovarianceFunction):
         a = exp(theta[0])
         L = exp(theta[1:])
         C = exp((self.distances / L[None, None, :] ** 2).sum(axis=2)) + self.epsilon
-        K = (a ** 2) * C
+        K = (a**2) * C
         grads = [2.0 * K]
         for i, k in enumerate(L):
-            grads.append((-2.0 / k ** 2) * self.distances[:, :, i] * K)
+            grads.append((-2.0 / k**2) * self.distances[:, :, i] * K)
         return K, grads
 
     def get_bounds(self):
@@ -280,7 +280,7 @@ class RationalQuadratic(CovarianceFunction):
         """
         # distributed outer subtraction using broadcasting
         dx = x[:, None, :] - x[None, :, :]
-        self.distances = 0.5 * dx ** 2
+        self.distances = 0.5 * dx**2
         # small values added to the diagonal for stability
         self.epsilon = 1e-12 * eye(dx.shape[0])
 
@@ -302,14 +302,14 @@ class RationalQuadratic(CovarianceFunction):
         L = exp(theta[2:])
         D = 0.5 * (u[:, None, :] - v[None, :, :]) ** 2
         Z = (D / L[None, None, :] ** 2).sum(axis=2)
-        return (a ** 2) * (1 + Z / k) ** (-k)
+        return (a**2) * (1 + Z / k) ** (-k)
 
     def build_covariance(self, theta):
         a = exp(theta[0])
         k = exp(theta[1])
         L = exp(theta[2:])
         Z = (self.distances / L[None, None, :] ** 2).sum(axis=2)
-        return (a ** 2) * ((1 + Z / k) ** (-k) + self.epsilon)
+        return (a**2) * ((1 + Z / k) ** (-k) + self.epsilon)
 
     def covariance_and_gradients(self, theta):
         a = exp(theta[0])
@@ -321,11 +321,11 @@ class RationalQuadratic(CovarianceFunction):
         ln_F = log(F)
         C = exp(-q * ln_F) + self.epsilon
 
-        K = (a ** 2) * C
+        K = (a**2) * C
         grads = [2.0 * K, -K * (ln_F * q - Z / F)]
         G = 2 * K / F
         for i, l in enumerate(L):
-            grads.append(G * (self.distances[:, :, i] / l ** 2))
+            grads.append(G * (self.distances[:, :, i] / l**2))
         return K, grads
 
     def get_bounds(self):

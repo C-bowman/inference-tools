@@ -19,7 +19,7 @@ def test_gaussian_kde_moments():
     tolerance = 0.2
     assert isclose(pdf.mode, expected_mu, rtol=tolerance, atol=tolerance)
     assert isclose(mu, expected_mu, rtol=tolerance, atol=tolerance)
-    assert isclose(variance, expected_sigma ** 2, rtol=tolerance, atol=tolerance)
+    assert isclose(variance, expected_sigma**2, rtol=tolerance, atol=tolerance)
     assert isclose(skew, 0.0, rtol=tolerance, atol=tolerance)
     assert isclose(kurt, 0.0, rtol=tolerance, atol=tolerance)
 
@@ -35,10 +35,10 @@ def test_gaussian_kde_interval():
 
     tolerance = 0.2
     assert isclose(
-        left, expected_mu - (expected_sigma ** 2), rtol=tolerance, atol=tolerance
+        left, expected_mu - (expected_sigma**2), rtol=tolerance, atol=tolerance
     )
     assert isclose(
-        right, expected_mu + (expected_sigma ** 2), rtol=tolerance, atol=tolerance
+        right, expected_mu + (expected_sigma**2), rtol=tolerance, atol=tolerance
     )
 
 
@@ -98,10 +98,10 @@ def test_sample_hdi_95():
 
     tolerance = 0.2
     assert isclose(
-        left, expected_mu - (expected_sigma ** 2), rtol=tolerance, atol=tolerance
+        left, expected_mu - (expected_sigma**2), rtol=tolerance, atol=tolerance
     )
     assert isclose(
-        right, expected_mu + (expected_sigma ** 2), rtol=tolerance, atol=tolerance
+        right, expected_mu + (expected_sigma**2), rtol=tolerance, atol=tolerance
     )
 
 

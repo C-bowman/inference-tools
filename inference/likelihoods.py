@@ -115,7 +115,7 @@ class GaussianLikelihood(Likelihood):
         # pre-calculate some quantities as an optimisation
         self.n_data = self.y.size
         self.inv_sigma = 1.0 / self.sigma
-        self.inv_sigma_sqr = self.inv_sigma ** 2
+        self.inv_sigma_sqr = self.inv_sigma**2
         self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_data
 
     def __call__(self, theta):
@@ -130,7 +130,7 @@ class GaussianLikelihood(Likelihood):
         """
         prediction = self.model(theta)
         z = (self.y - prediction) * self.inv_sigma
-        return -0.5 * (z ** 2).sum() + self.normalisation
+        return -0.5 * (z**2).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -194,7 +194,7 @@ class CauchyLikelihood(Likelihood):
         """
         prediction = self.model(theta)
         z = (self.y - prediction) * self.inv_gamma
-        return -log(1 + z ** 2).sum() + self.normalisation
+        return -log(1 + z**2).sum() + self.normalisation
 
     def gradient(self, theta):
         """
@@ -212,7 +212,7 @@ class CauchyLikelihood(Likelihood):
         prediction = self.model(theta)
         dF_dt = self.model_jacobian(theta)
         z = (self.y - prediction) * self.inv_gamma
-        dL_dF = 2 * self.inv_gamma * z / (1 + z ** 2)
+        dL_dF = 2 * self.inv_gamma * z / (1 + z**2)
         return dL_dF.dot(dF_dt)
 
 

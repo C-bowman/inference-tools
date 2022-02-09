@@ -90,7 +90,7 @@ def test_gradient():
     N = 10
     S = 1.1
     x = linspace(0, 10, N)
-    y = 0.3 * x + 0.02 * x ** 3 + 5.0 + normal(size=N) * S
+    y = 0.3 * x + 0.02 * x**3 + 5.0 + normal(size=N) * S
     err = zeros(N) + S
 
     gp = GpRegressor(x, y, y_err=err)
@@ -113,7 +113,7 @@ def test_spatial_derivatives():
     N = 10
     S = 1.1
     x = linspace(0, 10, N)
-    y = 0.3 * x + 0.02 * x ** 3 + 5.0 + normal(size=N) * S
+    y = 0.3 * x + 0.02 * x**3 + 5.0 + normal(size=N) * S
     err = zeros(N) + S
 
     gp = GpRegressor(x, y, y_err=err)
@@ -126,7 +126,7 @@ def test_spatial_derivatives():
     mu_neg, sig_neg = gp(sample_x - delta)
 
     fd_grad_mu = (mu_pos - mu_neg) / (2 * delta)
-    fd_grad_var = (sig_pos ** 2 - sig_neg ** 2) / (2 * delta)
+    fd_grad_var = (sig_pos**2 - sig_neg**2) / (2 * delta)
 
     mu_max_frac_error = (grad_mu / fd_grad_mu - 1.0).max()
     var_max_frac_error = (grad_var / fd_grad_var - 1.0).max()

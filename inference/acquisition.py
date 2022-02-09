@@ -123,7 +123,7 @@ class ExpectedImprovement(AcquisitionFunction):
         return ln_EI, grad_ln_EI.squeeze()
 
     def normal_pdf(self, z):
-        return exp(-0.5 * z ** 2) * self.ir2pi
+        return exp(-0.5 * z**2) * self.ir2pi
 
     def normal_cdf(self, z):
         return 0.5 * (1.0 + erf(z * self.ir2))
@@ -132,7 +132,7 @@ class ExpectedImprovement(AcquisitionFunction):
         return self.rpi2 * erfcx(-z * self.ir2)
 
     def ln_pdf(self, z):
-        return -0.5 * (z ** 2 + self.ln2pi)
+        return -0.5 * (z**2 + self.ln2pi)
 
     def convergence_metric(self, x):
         return self.__call__(x) / (self.mu_max - self.gp.y.min())
@@ -226,7 +226,7 @@ class MaxVariance(AcquisitionFunction):
     def opt_func_gradient(self, x):
         _, sig = self.gp(x)
         _, dvar = self.gp.spatial_derivatives(x)
-        aq = -(sig ** 2)
+        aq = -(sig**2)
         aq_grad = -dvar
         if type(aq) is not ndarray:
             aq = array(aq)

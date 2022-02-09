@@ -192,7 +192,7 @@ class GaussianPrior(BasePrior):
 
         # pre-calculate some quantities as an optimisation
         self.inv_sigma = 1.0 / self.sigma
-        self.inv_sigma_sqr = self.inv_sigma ** 2
+        self.inv_sigma_sqr = self.inv_sigma**2
         self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_params
         self.bounds = [(None, None)] * self.n_params
 
@@ -207,7 +207,7 @@ class GaussianPrior(BasePrior):
             The prior log-probability value.
         """
         z = (self.mean - theta[self.variables]) * self.inv_sigma
-        return -0.5 * (z ** 2).sum() + self.normalisation
+        return -0.5 * (z**2).sum() + self.normalisation
 
     def gradient(self, theta):
         """
