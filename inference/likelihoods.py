@@ -1,11 +1,11 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
-
+from abc import ABC, abstractmethod
 from numpy import array, log, exp, pi, sqrt
 
 
-class Likelihood:
+class Likelihood(ABC):
     """
     Base class for likelihood functors
 
@@ -70,6 +70,20 @@ class Likelihood:
             raise ValueError(
                 f"All values in {uncertainties_name} argument must be greater than zero"
             )
+
+    @abstractmethod
+    def __call__(self, theta):
+        pass
+
+    @abstractmethod
+    def gradient(self, theta):
+        pass
+
+    def cost(self, theta):
+        return -self.__call__(theta)
+
+    def cost_gradient(self, theta):
+        return -self.gradient(theta)
 
 
 class GaussianLikelihood(Likelihood):
