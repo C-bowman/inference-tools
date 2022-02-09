@@ -289,7 +289,7 @@ class ExponentialPrior(BasePrior):
         :returns: \
             The prior log-probability value.
         """
-        if (theta < 0.0).any():
+        if (theta[self.variables] < 0.0).any():
             return -1e100
         return -(self.lam * theta[self.variables]).sum() + self.normalisation
 
