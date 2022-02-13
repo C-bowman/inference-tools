@@ -704,3 +704,50 @@ class dbl_interval_length(object):
         I1 = (self.sample[start], self.sample[start + w1])
         I2 = (self.sample[start_2], self.sample[start_2 + w2])
         return I1, I2
+
+
+def sample_hdi_mean(sample, fraction):
+    """
+    Calculate the mean of samples inside a given highest-density interval.
+
+    The highest-density interval is the shortest possible interval which contains a
+    chosen fraction of the elements in the given sample.
+
+    :param sample: \
+        The sample values as a 1D or 2D array. If a 2D array is given, the interval
+        mean is calculated along the zero'th axis.
+
+    :param float fraction: \
+        The fraction of the total probability to be contained by the interval.
+
+    :return: \
+        The mean of samples inside the given highest-density interval.
+    """
+
+    if not 0.0 < fraction < 1.0:
+        raise ValueError("fraction parameter must be between 0 and 1")
+    if not hasattr(sample, "__len__") or len(sample) < 2:
+        raise ValueError("The sample must have at least 2 elements")
+
+    # sort the sample data
+    s = array(sample)
+
+    if s.ndim > 2:
+        raise ValueError("Sample must be given as a 1D or 2D array")
+    elif s.ndim == 1:
+        s.resize([s.size, 1])
+
+    s.sort(axis=0)
+    n = s.shape[0]
+
+    L = int(fraction * n)
+    # check that we have enough samples to estimate the HDI for the chosen fraction
+    if n > L:
+        # find the optimal single HDI
+        widths = s[L:, :] - s[: n - L, :]
+        inds = widths.argmin(axis=0)
+        mean = array([s[i: i + L, :].mean() for i in inds])
+    else:
+        mean = s.mean(axis=0)
+
+    return mean.squeeze() if mean.size > 1 else mean.squeeze()[0]
