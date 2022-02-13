@@ -746,7 +746,7 @@ def sample_hdi_mean(sample, fraction):
         # find the optimal single HDI
         widths = s[L:, :] - s[: n - L, :]
         inds = widths.argmin(axis=0)
-        mean = array([s[i: i + L, :].mean() for i in inds])
+        mean = array([s[i : i + L, :].mean() for i in inds])
     else:
         mean = s.mean(axis=0)
 
