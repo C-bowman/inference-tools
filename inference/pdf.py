@@ -2,11 +2,11 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import exp, log, mean, std, sqrt, tanh, cos, cov
-from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, logaddexp
+from numpy import exp, log, mean, std, sqrt, tanh, cos, cov, logaddexp
+from numpy import array, arange, around, linspace, sort, searchsorted, pi, argmax, argsort
 from numpy.random import random
 from scipy.integrate import quad, simps
-from scipy.optimize import minimize, minimize_scalar, differential_evolution
+from scipy.optimize import minimize, minimize_scalar
 from warnings import warn
 from itertools import product
 from functools import reduce
@@ -599,9 +599,9 @@ class BinaryTree:
         return self.p[searchsorted(self.edges, val)]
 
 
-def sample_hdi(sample, fraction, allow_double=False):
+def sample_hdi(sample, fraction):
     """
-    Estimate the highest-density interval(s) for a given sample.
+    Estimate the highest-density interval for a given sample.
 
     This function computes the shortest possible interval which contains a chosen
     fraction of the elements in the given sample.
@@ -612,12 +612,8 @@ def sample_hdi(sample, fraction, allow_double=False):
     :param float fraction: \
         The fraction of the total probability to be contained by the interval.
 
-    :param bool allow_double: \
-        When set to True, a double-interval is returned instead if one exists whose
-        total length is meaningfully shorter than the optimal single interval.
-
     :return: \
-        Tuple(s) specifying the lower and upper bounds of the highest-density interval(s).
+        Tuple specifying the lower and upper bound of the highest-density interval.
     """
 
     # verify inputs are valid
@@ -627,41 +623,52 @@ def sample_hdi(sample, fraction, allow_double=False):
         raise ValueError("The sample must have at least 2 elements")
 
     s = array(sample)
-    if len(s.shape) > 1:
-        s = s.flatten()
-    s = sort(s)
-    n = len(s)
+    if s.ndim > 2:
+        raise ValueError("Sample must be given as a 1D or 2D array")
+    elif s.ndim == 1:
+        s.resize([s.size, 1])
+    s = sort(s, axis=0)
+    n = s.shape[0]
     L = int(fraction * n)
 
     # check that we have enough samples to estimate the HDI for the chosen fraction
-    if n <= L:
+    if (n - L) < 4:
         warn(
             "The number of samples is insufficient to estimate the interval for the given fraction"
         )
-        return (s[0], s[-1])
-    elif n - L < 20:
+        return s[0, :], s[-1, :]
+    elif (n - L) < 20:
         warn(
             "len(sample)*(1 - fraction) is small - calculated interval may be inaccurate"
         )
 
-    # find the optimal single HDI
-    widths = s[L:] - s[: n - L]
-    i = widths.argmin()
-    r1, w1 = (s[i], s[i + L]), s[i + L] - s[i]
+    from numpy import take_along_axis, expand_dims
+    # first find the position with the minimum width
+    widths = s[L:, :] - s[: n - L, :]
+    min_inds = widths.argmin(axis=0)
+    min_widths = take_along_axis(widths, expand_dims(min_inds, axis=0), 0)
+    min_widths.resize(min_widths.shape[1])
 
-    if allow_double:
-        # now get the best 2-interval solution
-        minfunc = dbl_interval_length(sample, fraction)
-        bounds = minfunc.get_bounds()
-        de_result = differential_evolution(minfunc, bounds)
-        I1, I2 = minfunc.return_intervals(de_result.x)
-        w2 = (I2[1] - I2[0]) + (I1[1] - I1[0])
+    # now take a weighted average of positions based on how close
+    # their width is to the minimum
+    weighting_sigma = 0.03
+    weights = widths - min_widths[None, :]
+    weights /= (sqrt(2) * weighting_sigma) * min_widths[None, :]
+    weights = exp(-weights**2)
+    weights /= weights.sum(axis=0)
+    avg = around(weights.T.dot(arange(weights.shape[0]))).astype(int)
 
-    # return the split interval if the width reduction is non-trivial:
-    if allow_double and w2 < w1 * 0.99:
-        return I1, I2
-    else:
-        return r1
+    # if the estimate gives a width which is too much larger than the minimum,
+    # then fall back on the location of the minimum itself
+    estimate_widths = take_along_axis(widths, expand_dims(avg, axis=0), 0).squeeze()
+    replace_inds = (estimate_widths > min_widths*(1 + 2*weighting_sigma)).nonzero()
+    avg[replace_inds] = min_inds[replace_inds]
+
+    # extract the lower / upper bounds of the intervals
+    result_inds = expand_dims(avg, axis=0)
+    lwr = take_along_axis(s, result_inds, 0).squeeze()
+    upr = take_along_axis(s, result_inds + L, 0).squeeze()
+    return lwr, upr
 
 
 class dbl_interval_length(object):

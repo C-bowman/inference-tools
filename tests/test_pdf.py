@@ -1,7 +1,7 @@
 from inference.pdf import GaussianKDE, UnimodalPdf, sample_hdi, BinaryTree
 from numpy.random import default_rng
 
-from numpy import isclose, linspace, concatenate
+from numpy import isclose, linspace, zeros, sin
 
 import pytest
 from hypothesis import given, strategies as st
@@ -105,6 +105,21 @@ def test_sample_hdi_95():
     )
 
 
+def test_sample_hdi_2D():
+    # generate a curve bundle
+    rng = default_rng(1234)
+    x = linspace(0, 5, 100)
+
+    curves = zeros([500, 100])
+    for i in range(500):
+        A = 2 + 0.1 * rng.normal()
+        f = 1 + 0.05 * rng.normal()
+        curves[i, :] = A * sin(f * x) + 0.1 * rng.normal()
+
+    lower, upper = sample_hdi(curves, fraction=0.68)
+    assert (upper > lower).all()
+
+
 @given(st.floats(min_value=1.0e-4, max_value=1, exclude_min=True, exclude_max=True))
 def test_sample_hdi_linear(fraction):
     N = 20000
@@ -123,19 +138,19 @@ def test_sample_hdi_linear(fraction):
     assert isclose(right - left, fraction, rtol=1e-2, atol=1e-2)
 
 
-def test_sample_hdi_double():
-    N = 20000
-    half = linspace(0, 1, N)
-    sample = concatenate((half, 1 - half))
-    fraction = 1e-4
-
-    (left_a, right_a), (left_b, right_b) = sample_hdi(
-        sample, fraction=fraction, allow_double=True
-    )
-    assert left_a <= right_a
-    assert left_b <= right_b
-    assert isclose(right_a - left_a, fraction, rtol=1e-2, atol=1e-2)
-    assert isclose(right_b - left_b, fraction, rtol=1e-2, atol=1e-2)
+# def test_sample_hdi_double():
+#     N = 20000
+#     half = linspace(0, 1, N)
+#     sample = concatenate((half, 1 - half))
+#     fraction = 1e-4
+#
+#     (left_a, right_a), (left_b, right_b) = sample_hdi(
+#         sample, fraction=fraction, allow_double=True
+#     )
+#     assert left_a <= right_a
+#     assert left_b <= right_b
+#     assert isclose(right_a - left_a, fraction, rtol=1e-2, atol=1e-2)
+#     assert isclose(right_b - left_b, fraction, rtol=1e-2, atol=1e-2)
 
 
 def test_sample_hdi_invalid_fractions():

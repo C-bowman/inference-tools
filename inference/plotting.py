@@ -295,9 +295,9 @@ def trace_plot(samples, labels=None, show=True, filename=None):
         axes[(i, j)].plot(s, ".", markersize=4, alpha=0.15, c=col)
         axes[(i, j)].set_ylabel(label)
         # get the 98% HDI to calculate plot limits, and 10% HDI to estimate the mode
-        lwr, upr = sample_hdi(s, fraction=0.99)
+        lwr, upr = sample_hdi(s, fraction=0.95)
         mid = 0.5 * sum(sample_hdi(s, fraction=0.10))
-        axes[(i, j)].set_ylim([lwr - (mid - lwr) * 0.7, upr + (upr - mid) * 0.7])
+        axes[(i, j)].set_ylim([lwr - (mid - lwr) * 0.75, upr + (upr - mid) * 0.75])
         # get the 10% HDI to estimate the mode
         axes[(i, j)].set_yticks([lwr - (mid - lwr) * 0.5, mid, upr + (upr - mid) * 0.5])
         if i < m - 1:
@@ -368,7 +368,6 @@ def hdi_plot(
 
     # sort the sample data
     s.sort(axis=0)
-    n = s.shape[0]
 
     cmap = get_cmap(colormap)
     if color_levels is None:
@@ -383,22 +382,9 @@ def hdi_plot(
     if axis is None:
         _, axis = plt.subplots()
 
-    from numpy import take_along_axis, expand_dims
-
     # iterate over the intervals and plot each
     for frac, col in zip(intervals, colors):
-        L = int(frac * n)
-
-        # check that we have enough samples to estimate the HDI for the chosen fraction
-        if n > L:
-            # find the optimal single HDI
-            widths = s[L:, :] - s[: n - L, :]
-            i = expand_dims(widths.argmin(axis=0), axis=0)
-            lwr = take_along_axis(s, i, 0).squeeze()
-            upr = take_along_axis(s, i + L, 0).squeeze()
-        else:
-            lwr = s[0, :]
-            upr = s[-1, :]
+        lwr, upr = sample_hdi(s, fraction=frac)
 
         if label_intervals:
             axis.fill_between(
