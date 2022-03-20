@@ -3,7 +3,17 @@
 """
 
 from numpy import exp, log, mean, std, sqrt, tanh, cos, cov, logaddexp
-from numpy import array, arange, around, linspace, sort, searchsorted, pi, argmax, argsort
+from numpy import (
+    array,
+    arange,
+    around,
+    linspace,
+    sort,
+    searchsorted,
+    pi,
+    argmax,
+    argsort,
+)
 from numpy.random import random
 from scipy.integrate import quad, simps
 from scipy.optimize import minimize, minimize_scalar
@@ -643,6 +653,7 @@ def sample_hdi(sample, fraction):
         )
 
     from numpy import take_along_axis, expand_dims
+
     # first find the position with the minimum width
     widths = s[L:, :] - s[: n - L, :]
     min_inds = widths.argmin(axis=0)
@@ -654,14 +665,14 @@ def sample_hdi(sample, fraction):
     weighting_sigma = 0.03
     weights = widths - min_widths[None, :]
     weights /= (sqrt(2) * weighting_sigma) * min_widths[None, :]
-    weights = exp(-weights**2)
+    weights = exp(-(weights**2))
     weights /= weights.sum(axis=0)
     avg = around(weights.T.dot(arange(weights.shape[0]))).astype(int)
 
     # if the estimate gives a width which is too much larger than the minimum,
     # then fall back on the location of the minimum itself
     estimate_widths = take_along_axis(widths, expand_dims(avg, axis=0), 0).squeeze()
-    replace_inds = (estimate_widths > min_widths*(1 + 2*weighting_sigma)).nonzero()
+    replace_inds = (estimate_widths > min_widths * (1 + 2 * weighting_sigma)).nonzero()
     avg[replace_inds] = min_inds[replace_inds]
 
     # extract the lower / upper bounds of the intervals
