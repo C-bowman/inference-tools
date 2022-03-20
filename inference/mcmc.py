@@ -10,7 +10,7 @@ from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
-from numpy import array, arange, float64, identity, linspace, zeros
+from numpy import array, arange, float64, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
@@ -2081,6 +2081,7 @@ class EnsembleSampler(object):
         self.z_upr = self.a - self.z_lwr
 
         self.max_attempts = 100
+        self.sample = None
 
     def update_summary_stats(self):
         mu = mean(self.theta, axis=0)
@@ -2149,6 +2150,20 @@ class EnsembleSampler(object):
         sys.stdout.flush()
         sys.stdout.write("\n")
 
+    def generate_sample(self, iterations=100, burn_iterations=50, thin=3):
+
+        for k in range(burn_iterations):
+            self.advance_all()
+
+        sample_arrays = [] if self.sample is None else [self.sample]
+        for g in range(iterations):
+            for k in range(thin):
+                self.advance_all()
+            sample_arrays.append(self.theta.copy())
+
+        self.sample = concatenate(sample_arrays)
+        return self.sample
+    
     def impose_boundaries(self, prop):
         d = prop - self.lower
         n = (d // self.width) % 2
