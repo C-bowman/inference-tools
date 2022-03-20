@@ -2163,7 +2163,7 @@ class EnsembleSampler(object):
 
         self.sample = concatenate(sample_arrays)
         return self.sample
-    
+
     def impose_boundaries(self, prop):
         d = prop - self.lower
         n = (d // self.width) % 2
