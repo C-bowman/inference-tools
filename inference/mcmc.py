@@ -2150,14 +2150,32 @@ class EnsembleSampler(object):
         sys.stdout.flush()
         sys.stdout.write("\n")
 
-    def generate_sample(self, iterations=100, burn_iterations=50, thin=3):
+    def generate_sample(self, iterations=100, burn_iterations=50, sampling_interval=1):
+        """
+        Runs the ensemble sampling process.
 
+        :param int iterations: \
+            The number of sets of walker positions which will be stored as samples.
+            The total number of samples generated is therefore ``iterations`` times
+            the number of walkers.
+
+        :param int burn_iterations: \
+            The initial number of iterations the walkers are advanced before any samples
+            are recorded.
+
+        :param int sampling_interval: \
+            Sets how many times the walkers are updated between recording their
+            positions as samples.
+
+        :return: \
+            The samples as a 2D numpy array.
+        """
         for k in range(burn_iterations):
             self.advance_all()
 
         sample_arrays = [] if self.sample is None else [self.sample]
         for g in range(iterations):
-            for k in range(thin):
+            for k in range(sampling_interval):
                 self.advance_all()
             sample_arrays.append(self.theta.copy())
 
@@ -2239,12 +2257,28 @@ class EnsembleSampler(object):
         plt.show()
 
     def matrix_plot(self, **kwargs):
-        params = [k for k in self.theta.T]
-        matrix_plot(samples=params, **kwargs)
+        if self.sample is not None:
+            params = [k for k in self.sample.T]
+            matrix_plot(samples=params, **kwargs)
+        else:
+            warn(
+                """
+                [ EnsembleSampler warning ]
+                >> Cannot generate matrix plot as no samples have been produced.
+                """
+            )
 
     def trace_plot(self, **kwargs):
-        params = [k for k in self.theta.T]
-        trace_plot(samples=params, **kwargs)
+        if self.sample is not None:
+            params = [k for k in self.sample.T]
+            trace_plot(samples=params, **kwargs)
+        else:
+            warn(
+                """
+                [ EnsembleSampler warning ]
+                >> Cannot generate trace plot as no samples have been produced.
+                """
+            )
 
     def save(self, filename):
         D = {
