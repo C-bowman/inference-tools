@@ -2055,7 +2055,10 @@ class EnsembleSampler(object):
         A list of length-2 tuples specifying the lower and upper bounds to be set on
         each parameter, in the form (lower, upper).
     """
-    def __init__(self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None):
+
+    def __init__(
+        self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None
+    ):
         self.posterior = posterior
 
         if starting_positions is not None:
@@ -2096,7 +2099,7 @@ class EnsembleSampler(object):
             self.bounded = False
 
         # proposal settings
-        if not alpha > 1.:
+        if not alpha > 1.0:
             raise ValueError(
                 """
                 The given value of the 'alpha' parameter must be greater than 1.
@@ -2104,8 +2107,8 @@ class EnsembleSampler(object):
             )
         self.alpha = alpha
         # uniform sampling in 'x' where z = 0.5*x**2 yields the correct PDF for z
-        self.x_lwr = sqrt(2. / self.alpha)
-        self.x_width = sqrt(2. * self.alpha) - self.x_lwr
+        self.x_lwr = sqrt(2.0 / self.alpha)
+        self.x_width = sqrt(2.0 * self.alpha) - self.x_lwr
 
         self.max_attempts = 100
         self.sample = None
@@ -2125,7 +2128,9 @@ class EnsembleSampler(object):
         j = i  # randomly select walker
         while i == j:
             j = randint(self.n_walkers)
-        z = 0.5*(self.x_lwr + self.x_width * random())**2  # sample the stretch distance
+        z = (
+            0.5 * (self.x_lwr + self.x_width * random()) ** 2
+        )  # sample the stretch distance
         prop = self.process_proposal(
             self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :])
         )
@@ -2143,9 +2148,7 @@ class EnsembleSampler(object):
                 break
         else:
             self.total_proposals[i].append(self.max_attempts)
-            warn(
-                f"Walker #{i} failed to advance within the maximum allowed attempts"
-            )
+            warn(f"Walker #{i} failed to advance within the maximum allowed attempts")
 
     def advance_all(self):
         for i in range(self.n_walkers):
@@ -2366,7 +2369,7 @@ class EnsembleSampler(object):
             "alpha": self.alpha,
             "x_lwr": self.x_lwr,
             "x_width": self.x_width,
-            "max_attempts": self.max_attempts
+            "max_attempts": self.max_attempts,
         }
 
         if self.bounded:
