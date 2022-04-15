@@ -704,12 +704,12 @@ class MarkovChain(object):
 
         :param int burn: \
             Number of samples to discard from the start of the chain. If not
-            specified, the value of self.burn is used instead.
+            specified, the value of ``self.burn`` is used instead.
 
         :param int thin: \
             Rather than using every sample which is not discarded as part of the
             burn-in, every *m*'th sample is used for a specified integer *m*. If
-            not specified, the value of self.thin is used instead, which has
+            not specified, the value of ``self.thin`` is used instead, which has
             a default value of 1.
         """
         burn = burn if burn is not None else self.burn
@@ -2035,32 +2035,52 @@ class ParallelTempering(object):
 
 
 class EnsembleSampler(object):
-    def __init__(self, posterior=None, starting_positions=None, alpha=2.0, bounds=None):
+    """
+    EnsembleSampler is an implementation of the affine-invariant ensemble sampler.
+
+    :param callable posterior: \
+        A callable which takes a ``numpy.ndarray`` of the model parameters as
+        its only argument, and returns the posterior log-probability.
+
+    :param starting_positions: \
+        A list containing a series of parameter arrays corresponding to the starting
+        positions of the 'walkers' which make up the ensemble.
+
+    :param float alpha: \
+        Parameter controlling the width of the distribution of stretch-move
+        jump distances. A larger value of ``alpha`` results in a larger
+        average jump distance, and therefore a lower jump acceptance rate.
+
+    :param parameter_boundaries: \
+        A list of length-2 tuples specifying the lower and upper bounds to be set on
+        each parameter, in the form (lower, upper).
+    """
+    def __init__(self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None):
         self.posterior = posterior
 
         if starting_positions is not None:
             # store core data
-            self.N_params = len(starting_positions[0])
-            self.N_walkers = len(starting_positions)
-            self.theta = zeros([self.N_walkers, self.N_params])
+            self.n_params = len(starting_positions[0])
+            self.n_walkers = len(starting_positions)
+            self.theta = zeros([self.n_walkers, self.n_params])
             for i, v in enumerate(starting_positions):
                 self.theta[i, :] = array(v)
             self.probs = array([self.posterior(t) for t in self.theta])
 
             # storage for diagnostic information
             self.L = 1  # total number of steps taken
-            self.total_proposals = [[1.0] for i in range(self.N_walkers)]
-            self.means = []
-            self.std_devs = []
+            self.total_proposals = [[1] for i in range(self.n_walkers)]
+            self.param_means = []
+            self.param_devs = []
             self.prob_means = []
             self.prob_devs = []
             self.update_summary_stats()
 
-        if bounds is not None:
-            if len(bounds) == self.N_params:
+        if parameter_boundaries is not None:
+            if len(parameter_boundaries) == self.n_params:
                 self.bounded = True
-                self.lower = array([k[0] for k in bounds])
-                self.upper = array([k[1] for k in bounds])
+                self.lower = array([k[0] for k in parameter_boundaries])
+                self.upper = array([k[1] for k in parameter_boundaries])
                 self.width = self.upper - self.lower
                 self.process_proposal = self.impose_boundaries
             else:
@@ -2076,19 +2096,27 @@ class EnsembleSampler(object):
             self.bounded = False
 
         # proposal settings
-        self.a = alpha
-        self.z_lwr = 1.0 / self.a
-        self.z_upr = self.a - self.z_lwr
+        if not alpha > 1.:
+            raise ValueError(
+                """
+                The given value of the 'alpha' parameter must be greater than 1.
+                """
+            )
+        self.alpha = alpha
+        # uniform sampling in 'x' where z = 0.5*x**2 yields the correct PDF for z
+        self.x_lwr = sqrt(2. / self.alpha)
+        self.x_width = sqrt(2. * self.alpha) - self.x_lwr
 
         self.max_attempts = 100
         self.sample = None
+        self.sample_probs = None
 
     def update_summary_stats(self):
         mu = mean(self.theta, axis=0)
         devs = sqrt(mean(self.theta**2, axis=0) - mu**2)
 
-        self.means.append(mu)
-        self.std_devs.append(devs)
+        self.param_means.append(mu)
+        self.param_devs.append(devs)
         p_mu = mean(self.probs)
         self.prob_means.append(p_mu)
         self.prob_devs.append(sqrt(mean(self.probs**2) - p_mu**2))
@@ -2096,8 +2124,8 @@ class EnsembleSampler(object):
     def proposal(self, i):
         j = i  # randomly select walker
         while i == j:
-            j = randint(self.N_walkers)
-        z = self.z_lwr + self.z_upr * random()  # sample the stretch distance
+            j = randint(self.n_walkers)
+        z = 0.5*(self.x_lwr + self.x_width * random())**2  # sample the stretch distance
         prop = self.process_proposal(
             self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :])
         )
@@ -2107,21 +2135,20 @@ class EnsembleSampler(object):
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.proposal(i)
             p = self.posterior(Y)
-            q = exp((self.N_params - 1) * log(z) + p - self.probs[i])
+            q = exp((self.n_params - 1) * log(z) + p - self.probs[i])
             if random() <= q:
                 self.theta[i, :] = Y
                 self.probs[i] = p
                 self.total_proposals[i].append(attempts)
                 break
-
-            if attempts == self.max_attempts:
-                self.total_proposals[i].append(attempts)
-                warn(
-                    f"Walker #{i} failed to advance within the maximum allowed attempts"
-                )
+        else:
+            self.total_proposals[i].append(self.max_attempts)
+            warn(
+                f"Walker #{i} failed to advance within the maximum allowed attempts"
+            )
 
     def advance_all(self):
-        for i in range(self.N_walkers):
+        for i in range(self.n_walkers):
             self.advance_walker(i)
         self.L += 1
         self.update_summary_stats()
@@ -2174,12 +2201,15 @@ class EnsembleSampler(object):
             self.advance_all()
 
         sample_arrays = [] if self.sample is None else [self.sample]
+        prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
         for g in range(iterations):
             for k in range(sampling_interval):
                 self.advance_all()
             sample_arrays.append(self.theta.copy())
+            prob_arrays.append(self.probs.copy())
 
         self.sample = concatenate(sample_arrays)
+        self.sample_probs = concatenate(prob_arrays)
         return self.sample
 
     def impose_boundaries(self, prop):
@@ -2203,8 +2233,8 @@ class EnsembleSampler(object):
         fig = plt.figure(figsize=(12, 7))
 
         ax1 = fig.add_subplot(221)
-        alpha = max(0.01, min(1, 20.0 / float(self.N_walkers)))
-        for i in range(self.N_walkers):
+        alpha = max(0.01, min(1, 20.0 / float(self.n_walkers)))
+        for i in range(self.n_walkers):
             ax1.plot(x, rates[i, :], lw=0.5, c="C0", alpha=alpha)
         ax1.plot(x, avg_rate, lw=2, c="red", label="mean rate of all walkers")
         ax1.set_ylim([0, 1])
@@ -2225,10 +2255,10 @@ class EnsembleSampler(object):
         ax2.set_xlabel("iteration")
         ax2.set_ylabel("normalised mean difference")
 
-        devs = array(self.std_devs).T
+        devs = array(self.param_devs).T
         ax3 = fig.add_subplot(223)
-        alpha = max(0.02, min(1, 20.0 / float(self.N_params)))
-        for i in range(self.N_params):
+        alpha = max(0.02, min(1, 20.0 / float(self.n_params)))
+        for i in range(self.n_params):
             ax3.plot(x, (devs[i, :] / devs[i, -1]) - 1.0, lw=0.5, c="C0", alpha=alpha)
         ax3.set_ylim([-0.6, 0.6])
         ax3.grid()
@@ -2236,10 +2266,10 @@ class EnsembleSampler(object):
         ax3.set_xlabel("iteration")
         ax3.set_ylabel("standard-dev difference")
 
-        means = array(self.means).T
+        means = array(self.param_means).T
         ax4 = fig.add_subplot(224)
-        alpha = max(0.02, min(1, 20.0 / float(self.N_params)))
-        for i in range(self.N_params):
+        alpha = max(0.02, min(1, 20.0 / float(self.n_params)))
+        for i in range(self.n_params):
             ax4.plot(
                 x,
                 (means[i, :] - means[i, -1]) / devs[i, -1],
@@ -2256,10 +2286,30 @@ class EnsembleSampler(object):
         plt.tight_layout()
         plt.show()
 
-    def matrix_plot(self, **kwargs):
+    def matrix_plot(self, params=None, burn=0, thin=1, **kwargs):
+        """
+        Construct a 'matrix plot' of the parameters (or a subset) which displays
+        all 1D and 2D marginal distributions. See the documentation of
+        ``inference.plotting.matrix_plot`` for a description of other allowed
+        keyword arguments.
+
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted.
+
+        :param int burn: \
+            Sets the number of samples from the beginning of the chain which are
+            ignored when generating the plot.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before generating the
+            plot. If ``thin`` is set to some integer value *m*, then only every
+            *m*'th sample is used, and the remainder are ignored.
+        """
         if self.sample is not None:
-            params = [k for k in self.sample.T]
-            matrix_plot(samples=params, **kwargs)
+            params = range(self.n_params) if params is None else params
+            samples = [self.sample[burn::thin, p] for p in params]
+            matrix_plot(samples=samples, **kwargs)
         else:
             warn(
                 """
@@ -2268,10 +2318,30 @@ class EnsembleSampler(object):
                 """
             )
 
-    def trace_plot(self, **kwargs):
+    def trace_plot(self, params=None, burn=0, thin=1, **kwargs):
+        """
+        Construct a 'trace plot' of the parameters (or a subset) which displays
+        the value of the parameters as a function of step number in the chain.
+        See the documentation of ``inference.plotting.trace_plot`` for a description
+        of other allowed keyword arguments.
+
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted.
+
+        :param int burn: \
+            Sets the number of samples from the beginning of the chain which are
+            ignored when generating the plot.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before generating the
+            plot. If ``thin`` is set to some integer value *m*, then only every
+            *m*'th sample is used, and the remainder are ignored.
+        """
         if self.sample is not None:
-            params = [k for k in self.sample.T]
-            trace_plot(samples=params, **kwargs)
+            params = range(self.n_params) if params is None else params
+            samples = [self.sample[burn::thin, p] for p in params]
+            trace_plot(samples=samples, **kwargs)
         else:
             warn(
                 """
@@ -2283,26 +2353,30 @@ class EnsembleSampler(object):
     def save(self, filename):
         D = {
             "theta": self.theta,
-            "N_params": self.N_params,
-            "N_walkers": self.N_walkers,
+            "n_params": self.n_params,
+            "n_walkers": self.n_walkers,
             "probs": self.probs,
             "L": self.L,
             "total_proposals": array(self.total_proposals),
-            "means": array(self.means),
-            "std_devs": array(self.std_devs),
+            "param_means": array(self.param_means),
+            "param_devs": array(self.param_devs),
             "prob_means": array(self.prob_means),
             "prob_devs": array(self.prob_devs),
             "bounded": self.bounded,
-            "a": self.a,
-            "z_lwr": self.z_lwr,
-            "z_upr": self.z_upr,
-            "max_attempts": self.max_attempts,
+            "alpha": self.alpha,
+            "x_lwr": self.x_lwr,
+            "x_width": self.x_width,
+            "max_attempts": self.max_attempts
         }
 
         if self.bounded:
             D["lower"] = self.lower
             D["upper"] = self.upper
             D["width"] = self.width
+
+        if self.sample is not None:
+            D["sample"] = self.sample
+            D["sample_probs"] = self.sample_probs
 
         savez(filename, **D)
 
@@ -2312,19 +2386,19 @@ class EnsembleSampler(object):
         D = load(filename)
 
         sampler.theta = D["theta"]
-        sampler.N_params = int(D["N_params"])
-        sampler.N_walkers = int(D["N_walkers"])
+        sampler.n_params = int(D["n_params"])
+        sampler.n_walkers = int(D["n_walkers"])
         sampler.probs = D["probs"]
         sampler.L = int(D["L"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
-        sampler.means = [v for v in D["means"]]
-        sampler.std_devs = [v for v in D["std_devs"]]
+        sampler.param_means = [v for v in D["means"]]
+        sampler.param_devs = [v for v in D["std_devs"]]
         sampler.prob_means = list(D["prob_means"])
         sampler.prob_devs = list(D["prob_devs"])
         sampler.bounded = D["bounded"]
-        sampler.a = D["a"]
-        sampler.z_lwr = D["z_lwr"]
-        sampler.z_upr = D["z_upr"]
+        sampler.alpha = D["alpha"]
+        sampler.x_lwr = D["x_lwr"]
+        sampler.x_width = D["x_width"]
         sampler.max_attempts = int(D["max_attempts"])
 
         if sampler.bounded:
@@ -2332,6 +2406,10 @@ class EnsembleSampler(object):
             sampler.upper = D["upper"]
             sampler.width = D["width"]
             sampler.process_proposal = sampler.impose_boundaries
+
+        if "sample" in D:
+            sampler.sample = D["sample"]
+            sampler.sample_probs = D["sample_probs"]
 
         return sampler
 
