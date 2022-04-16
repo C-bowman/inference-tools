@@ -11,7 +11,7 @@ from random import choice
 
 import matplotlib.pyplot as plt
 from numpy import array, arange, float64, identity, linspace, zeros, concatenate
-from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile
+from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile, median
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
@@ -2055,7 +2055,6 @@ class EnsembleSampler(object):
         A list of length-2 tuples specifying the lower and upper bounds to be set on
         each parameter, in the form (lower, upper).
     """
-
     def __init__(
         self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None
     ):
@@ -2089,7 +2088,7 @@ class EnsembleSampler(object):
             else:
                 warn(
                     """
-                     # 'bounds' keyword error #
+                     [ EnsembleSampler warning ]
                      The number of given lower/upper bounds pairs does not match
                      the number of model parameters - bounds were not imposed.
                      """
@@ -2128,9 +2127,8 @@ class EnsembleSampler(object):
         j = i  # randomly select walker
         while i == j:
             j = randint(self.n_walkers)
-        z = (
-            0.5 * (self.x_lwr + self.x_width * random()) ** 2
-        )  # sample the stretch distance
+        # sample the stretch distance
+        z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
         prop = self.process_proposal(
             self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :])
         )
@@ -2156,64 +2154,43 @@ class EnsembleSampler(object):
         self.L += 1
         self.update_summary_stats()
 
-    def advance(self, n):
-        t_start = time()
-        sys.stdout.write("\n")
-        sys.stdout.write(f"\r  EnsembleSampler:   [ 0 / {n} iterations completed ]")
-        sys.stdout.flush()
-
-        for k in range(n):
-            self.advance_all()
-
-            # display the progress status message
-            dt = time() - t_start
-            eta = int(dt * (n / (k + 1) - 1))
-            sys.stdout.write(
-                f"\r  EnsembleSampler:   [ {k + 1} / {n} iterations completed  |  ETA: {eta} sec ]"
-            )
-            sys.stdout.flush()
-
-        # display completion message
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ {n} / {n} iterations completed ]                  "
-        )
-        sys.stdout.flush()
-        sys.stdout.write("\n")
-
-    def generate_sample(self, iterations=100, burn_iterations=50, sampling_interval=1):
+    def advance(self, iterations):
         """
-        Runs the ensemble sampling process.
+        Advance the ensemble sampler a chosen number
 
         :param int iterations: \
             The number of sets of walker positions which will be stored as samples.
             The total number of samples generated is therefore ``iterations`` times
             the number of walkers.
-
-        :param int burn_iterations: \
-            The initial number of iterations the walkers are advanced before any samples
-            are recorded.
-
-        :param int sampling_interval: \
-            Sets how many times the walkers are updated between recording their
-            positions as samples.
-
-        :return: \
-            The samples as a 2D numpy array.
         """
-        for k in range(burn_iterations):
-            self.advance_all()
+        t_start = time()
+        sys.stdout.write("\n")
+        sys.stdout.write(f"\r  EnsembleSampler:   [ 0 / {iterations} iterations completed ]")
+        sys.stdout.flush()
 
         sample_arrays = [] if self.sample is None else [self.sample]
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
-        for g in range(iterations):
-            for k in range(sampling_interval):
-                self.advance_all()
+        for k in range(iterations):
+            self.advance_all()
             sample_arrays.append(self.theta.copy())
             prob_arrays.append(self.probs.copy())
 
+            # display the progress status message
+            dt = time() - t_start
+            eta = int(dt * (iterations / (k + 1) - 1))
+            sys.stdout.write(
+                f"\r  EnsembleSampler:   [ {k + 1} / {iterations} iterations completed  |  ETA: {eta} sec ]"
+            )
+            sys.stdout.flush()
+
+        # display completion message
+        sys.stdout.write(
+            f"\r  EnsembleSampler:   [ {iterations} / {iterations} iterations completed ]                  "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
-        return self.sample
 
     def impose_boundaries(self, prop):
         d = prop - self.lower
@@ -2223,19 +2200,20 @@ class EnsembleSampler(object):
     def pass_through(self, prop):
         return prop
 
-    def mode(self):
-        return self.theta[self.probs.argmax(), :]
-
     def plot_diagnostics(self):
+        """
+        Plot the acceptance rate and log-probability of each walker
+        as a function of the number of iterations.
+        """
         x = linspace(1, self.L, self.L)
 
         rates = x / array(self.total_proposals).cumsum(axis=1)
 
         avg_rate = rates.mean(axis=0)
 
-        fig = plt.figure(figsize=(12, 7))
+        fig = plt.figure(figsize=(10, 4))
 
-        ax1 = fig.add_subplot(221)
+        ax1 = fig.add_subplot(121)
         alpha = max(0.01, min(1, 20.0 / float(self.n_walkers)))
         for i in range(self.n_walkers):
             ax1.plot(x, rates[i, :], lw=0.5, c="C0", alpha=alpha)
@@ -2249,42 +2227,18 @@ class EnsembleSampler(object):
 
         del rates, avg_rate
 
-        p_mu = array(self.prob_means)
-        ax2 = fig.add_subplot(222)
-        ax2.plot(x, (p_mu - p_mu[-1]) / self.prob_devs[-1], lw=2, c="C0")
-        ax2.set_ylim([-0.6, 0.6])
+        itr_probs = self.sample_probs.reshape([self.L-1, self.n_walkers])
+        lowest_prob = itr_probs[self.L // 2:, :].min()
+
+        ax2 = fig.add_subplot(122)
+        ax2.plot(x[1:], itr_probs, marker='.', ls='none', c="C0", alpha=0.05)
+        ax2.plot(x[1:], median(itr_probs, axis=1), c='red', lw=2, label='median walker log-probability')
+        ax2.set_ylim([lowest_prob, self.sample_probs.max() * 1.1 - 0.1 * lowest_prob])
         ax2.grid()
-        ax2.set_title("log-probabilities normalised mean difference")
+        ax2.legend()
+        ax2.set_title("walker log-probabilities")
         ax2.set_xlabel("iteration")
-        ax2.set_ylabel("normalised mean difference")
-
-        devs = array(self.param_devs).T
-        ax3 = fig.add_subplot(223)
-        alpha = max(0.02, min(1, 20.0 / float(self.n_params)))
-        for i in range(self.n_params):
-            ax3.plot(x, (devs[i, :] / devs[i, -1]) - 1.0, lw=0.5, c="C0", alpha=alpha)
-        ax3.set_ylim([-0.6, 0.6])
-        ax3.grid()
-        ax3.set_title("parameter standard-dev difference")
-        ax3.set_xlabel("iteration")
-        ax3.set_ylabel("standard-dev difference")
-
-        means = array(self.param_means).T
-        ax4 = fig.add_subplot(224)
-        alpha = max(0.02, min(1, 20.0 / float(self.n_params)))
-        for i in range(self.n_params):
-            ax4.plot(
-                x,
-                (means[i, :] - means[i, -1]) / devs[i, -1],
-                lw=0.5,
-                c="C0",
-                alpha=alpha,
-            )
-        ax4.set_ylim([-0.6, 0.6])
-        ax4.grid()
-        ax4.set_title("parameters normalised mean difference")
-        ax4.set_xlabel("iteration")
-        ax4.set_ylabel("normalised mean difference")
+        ax2.set_ylabel("walker log-probability")
 
         plt.tight_layout()
         plt.show()
@@ -2352,6 +2306,71 @@ class EnsembleSampler(object):
                 >> Cannot generate trace plot as no samples have been produced.
                 """
             )
+
+    def mode(self):
+        """
+        Return the sample with the current highest posterior probability.
+
+        :return: \
+            The model parameters corresponding to the highest observed
+            posterior probability as a ``numpy.ndarray``.
+        """
+        return self.sample[self.sample_probs.argmax(), :]
+
+    def get_parameter(self, index, burn=0, thin=1):
+        """
+        Return sample values for a chosen parameter.
+
+        :param int index: \
+            Index of the parameter for which samples are to be returned.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before returning
+            the parameter values. If ``thin`` is set to some integer value *m*,
+            then only every *m*'th sample is used, and the remainder are ignored.
+
+        :return: \
+            Samples for the chosen parameter as a ``numpy.ndarray``.
+        """
+        return self.sample[burn::thin, index]
+
+    def get_probabilities(self, burn=0, thin=1):
+        """
+        Return the log-probability values for each step in the chain.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before returning
+            corresponding log-probabilities. If ``thin`` is set to some integer
+            value *m*, then only every *m*'th sample is used, and the remainder
+            are ignored.
+
+        :return: \
+            Log-probability values as a ``numpy.ndarray``.
+        """
+        return self.sample_probs[burn::thin]
+
+    def get_sample(self, burn=0, thin=1):
+        """
+        Return the sample as a 2D ``numpy.ndarray``.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before being returned.
+            If ``thin`` is set to some integer value *m*, then only every *m*'th
+            sample is used, and the remainder are ignored.
+
+        :return: \
+            The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
+        """
+        return self.sample[burn::thin, :]
 
     def save(self, filename):
         D = {
