@@ -2073,11 +2073,6 @@ class EnsembleSampler(object):
             # storage for diagnostic information
             self.L = 1  # total number of steps taken
             self.total_proposals = [[1] for i in range(self.n_walkers)]
-            self.param_means = []
-            self.param_devs = []
-            self.prob_means = []
-            self.prob_devs = []
-            self.update_summary_stats()
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
@@ -2114,16 +2109,6 @@ class EnsembleSampler(object):
         self.sample = None
         self.sample_probs = None
 
-    def update_summary_stats(self):
-        mu = mean(self.theta, axis=0)
-        devs = sqrt(mean(self.theta**2, axis=0) - mu**2)
-
-        self.param_means.append(mu)
-        self.param_devs.append(devs)
-        p_mu = mean(self.probs)
-        self.prob_means.append(p_mu)
-        self.prob_devs.append(sqrt(mean(self.probs**2) - p_mu**2))
-
     def proposal(self, i):
         j = i  # randomly select walker
         while i == j:
@@ -2153,11 +2138,10 @@ class EnsembleSampler(object):
         for i in range(self.n_walkers):
             self.advance_walker(i)
         self.L += 1
-        self.update_summary_stats()
 
     def advance(self, iterations):
         """
-        Advance the ensemble sampler a chosen number
+        Advance the ensemble sampler a chosen number of iterations.
 
         :param int iterations: \
             The number of sets of walker positions which will be stored as samples.
