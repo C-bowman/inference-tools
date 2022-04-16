@@ -2055,6 +2055,7 @@ class EnsembleSampler(object):
         A list of length-2 tuples specifying the lower and upper bounds to be set on
         each parameter, in the form (lower, upper).
     """
+
     def __init__(
         self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None
     ):
@@ -2165,7 +2166,9 @@ class EnsembleSampler(object):
         """
         t_start = time()
         sys.stdout.write("\n")
-        sys.stdout.write(f"\r  EnsembleSampler:   [ 0 / {iterations} iterations completed ]")
+        sys.stdout.write(
+            f"\r  EnsembleSampler:   [ 0 / {iterations} iterations completed ]"
+        )
         sys.stdout.flush()
 
         sample_arrays = [] if self.sample is None else [self.sample]
@@ -2227,12 +2230,18 @@ class EnsembleSampler(object):
 
         del rates, avg_rate
 
-        itr_probs = self.sample_probs.reshape([self.L-1, self.n_walkers])
-        lowest_prob = itr_probs[self.L // 2:, :].min()
+        itr_probs = self.sample_probs.reshape([self.L - 1, self.n_walkers])
+        lowest_prob = itr_probs[self.L // 2 :, :].min()
 
         ax2 = fig.add_subplot(122)
-        ax2.plot(x[1:], itr_probs, marker='.', ls='none', c="C0", alpha=0.05)
-        ax2.plot(x[1:], median(itr_probs, axis=1), c='red', lw=2, label='median walker log-probability')
+        ax2.plot(x[1:], itr_probs, marker=".", ls="none", c="C0", alpha=0.05)
+        ax2.plot(
+            x[1:],
+            median(itr_probs, axis=1),
+            c="red",
+            lw=2,
+            label="median walker log-probability",
+        )
         ax2.set_ylim([lowest_prob, self.sample_probs.max() * 1.1 - 0.1 * lowest_prob])
         ax2.grid()
         ax2.legend()
