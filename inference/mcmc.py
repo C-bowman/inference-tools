@@ -2376,10 +2376,6 @@ class EnsembleSampler(object):
             "probs": self.probs,
             "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
-            "param_means": array(self.param_means),
-            "param_devs": array(self.param_devs),
-            "prob_means": array(self.prob_means),
-            "prob_devs": array(self.prob_devs),
             "bounded": self.bounded,
             "alpha": self.alpha,
             "x_lwr": self.x_lwr,
@@ -2409,10 +2405,6 @@ class EnsembleSampler(object):
         sampler.probs = D["probs"]
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
-        sampler.param_means = [v for v in D["means"]]
-        sampler.param_devs = [v for v in D["std_devs"]]
-        sampler.prob_means = list(D["prob_means"])
-        sampler.prob_devs = list(D["prob_devs"])
         sampler.bounded = D["bounded"]
         sampler.alpha = D["alpha"]
         sampler.x_lwr = D["x_lwr"]
