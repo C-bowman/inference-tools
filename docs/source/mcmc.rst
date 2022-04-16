@@ -10,4 +10,5 @@ be easily applied to inference problems.
    GibbsChain
    PcaChain
    HamiltonianChain
+   EnsembleSampler
    ParallelTempering
