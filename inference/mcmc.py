@@ -2050,6 +2050,8 @@ class EnsembleSampler(object):
         Parameter controlling the width of the distribution of stretch-move
         jump distances. A larger value of ``alpha`` results in a larger
         average jump distance, and therefore a lower jump acceptance rate.
+        ``alpha`` must be greater than 1, as the jump distance becomes
+        zero when ``alpha = 1``.
 
     :param parameter_boundaries: \
         A list of length-2 tuples specifying the lower and upper bounds to be set on
@@ -2071,7 +2073,7 @@ class EnsembleSampler(object):
             self.probs = array([self.posterior(t) for t in self.theta])
 
             # storage for diagnostic information
-            self.L = 1  # total number of steps taken
+            self.n_iterations = 1
             self.total_proposals = [[1] for i in range(self.n_walkers)]
 
         if parameter_boundaries is not None:
@@ -2085,8 +2087,8 @@ class EnsembleSampler(object):
                 warn(
                     """
                      [ EnsembleSampler warning ]
-                     The number of given lower/upper bounds pairs does not match
-                     the number of model parameters - bounds were not imposed.
+                     >> The number of given lower/upper bounds pairs does not match
+                     >> the number of model parameters - bounds were not imposed.
                      """
                 )
         else:
@@ -2097,7 +2099,8 @@ class EnsembleSampler(object):
         if not alpha > 1.0:
             raise ValueError(
                 """
-                The given value of the 'alpha' parameter must be greater than 1.
+                [ EnsembleSampler error ]
+                >> The given value of the 'alpha' parameter must be greater than 1.
                 """
             )
         self.alpha = alpha
@@ -2137,7 +2140,7 @@ class EnsembleSampler(object):
     def advance_all(self):
         for i in range(self.n_walkers):
             self.advance_walker(i)
-        self.L += 1
+        self.n_iterations += 1
 
     def advance(self, iterations):
         """
@@ -2192,7 +2195,7 @@ class EnsembleSampler(object):
         Plot the acceptance rate and log-probability of each walker
         as a function of the number of iterations.
         """
-        x = linspace(1, self.L, self.L)
+        x = linspace(1, self.n_iterations, self.n_iterations)
 
         rates = x / array(self.total_proposals).cumsum(axis=1)
 
@@ -2214,8 +2217,8 @@ class EnsembleSampler(object):
 
         del rates, avg_rate
 
-        itr_probs = self.sample_probs.reshape([self.L - 1, self.n_walkers])
-        lowest_prob = itr_probs[self.L // 2 :, :].min()
+        itr_probs = self.sample_probs.reshape([self.n_iterations - 1, self.n_walkers])
+        lowest_prob = itr_probs[self.n_iterations // 2:, :].min()
 
         ax2 = fig.add_subplot(122)
         ax2.plot(x[1:], itr_probs, marker=".", ls="none", c="C0", alpha=0.05)
@@ -2371,7 +2374,7 @@ class EnsembleSampler(object):
             "n_params": self.n_params,
             "n_walkers": self.n_walkers,
             "probs": self.probs,
-            "L": self.L,
+            "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
             "param_means": array(self.param_means),
             "param_devs": array(self.param_devs),
@@ -2404,7 +2407,7 @@ class EnsembleSampler(object):
         sampler.n_params = int(D["n_params"])
         sampler.n_walkers = int(D["n_walkers"])
         sampler.probs = D["probs"]
-        sampler.L = int(D["L"])
+        sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
         sampler.param_means = [v for v in D["means"]]
         sampler.param_devs = [v for v in D["std_devs"]]
