@@ -2073,8 +2073,8 @@ class EnsembleSampler(object):
             self.probs = array([self.posterior(t) for t in self.theta])
 
             # storage for diagnostic information
-            self.n_iterations = 1
-            self.total_proposals = [[1] for i in range(self.n_walkers)]
+            self.n_iterations = 0
+            self.total_proposals = [[] for i in range(self.n_walkers)]
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
@@ -2217,13 +2217,13 @@ class EnsembleSampler(object):
 
         del rates, avg_rate
 
-        itr_probs = self.sample_probs.reshape([self.n_iterations - 1, self.n_walkers])
+        itr_probs = self.sample_probs.reshape([self.n_iterations, self.n_walkers])
         lowest_prob = itr_probs[self.n_iterations // 2 :, :].min()
 
         ax2 = fig.add_subplot(122)
-        ax2.plot(x[1:], itr_probs, marker=".", ls="none", c="C0", alpha=0.05)
+        ax2.plot(x, itr_probs, marker=".", ls="none", c="C0", alpha=0.05)
         ax2.plot(
-            x[1:],
+            x,
             median(itr_probs, axis=1),
             c="red",
             lw=2,

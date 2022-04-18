@@ -78,7 +78,7 @@ def test_gibbs_chain_get_probabilities():
     width_guesses = array([5.0, 0.05])
 
     chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    steps = 5
+    steps = 10
     chain.advance(steps)
 
     probabilities = chain.get_probabilities()
