@@ -10,10 +10,7 @@ def test_ensemble_sampler_advance(line_posterior):
     rng = default_rng(256)
     starts = [guess * rng.normal(scale=0.01, loc=1.0, size=2) for i in range(n_walkers)]
 
-    chain = EnsembleSampler(
-        posterior=line_posterior,
-        starting_positions=starts
-    )
+    chain = EnsembleSampler(posterior=line_posterior, starting_positions=starts)
 
     assert chain.n_walkers == n_walkers
     assert chain.n_params == 2
@@ -36,12 +33,9 @@ def test_ensemble_sampler_restore(line_posterior, tmp_path):
     n_walkers = 100
     guess = array([2.0, -4.0])
     rng = default_rng(256)
-    starts = [guess * rng.normal(scale=0.01, loc=1., size=2) for i in range(n_walkers)]
+    starts = [guess * rng.normal(scale=0.01, loc=1.0, size=2) for i in range(n_walkers)]
 
-    chain = EnsembleSampler(
-        posterior=line_posterior,
-        starting_positions=starts
-    )
+    chain = EnsembleSampler(posterior=line_posterior, starting_positions=starts)
 
     n_iterations = 25
     chain.advance(iterations=n_iterations)
