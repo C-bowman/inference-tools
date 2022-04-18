@@ -8,7 +8,7 @@ def test_ensemble_sampler_advance(line_posterior):
     n_walkers = 100
     guess = array([2.0, -4.0])
     rng = default_rng(256)
-    starts = [guess * rng.normal(scale=0.01, loc=1., size=2) for i in range(n_walkers)]
+    starts = [guess * rng.normal(scale=0.01, loc=1.0, size=2) for i in range(n_walkers)]
 
     chain = EnsembleSampler(
         posterior=line_posterior,
