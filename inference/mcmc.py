@@ -2218,7 +2218,7 @@ class EnsembleSampler(object):
         del rates, avg_rate
 
         itr_probs = self.sample_probs.reshape([self.n_iterations - 1, self.n_walkers])
-        lowest_prob = itr_probs[self.n_iterations // 2:, :].min()
+        lowest_prob = itr_probs[self.n_iterations // 2 :, :].min()
 
         ax2 = fig.add_subplot(122)
         ax2.plot(x[1:], itr_probs, marker=".", ls="none", c="C0", alpha=0.05)
