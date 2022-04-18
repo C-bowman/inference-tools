@@ -1,6 +1,7 @@
 from mcmc_utils import line_posterior
 from inference.mcmc import PcaChain
 
+
 def test_pca_chain_take_step(line_posterior):
     chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1])
     first_n = chain.n

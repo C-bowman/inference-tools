@@ -283,4 +283,3 @@ def test_gibbs_chain_run_for_day_hour_minute(line_posterior):
     assert end_time - start_time <= expected_delta + extra_delta
     # Probably get less due to multiple calls to `time()` per step
     assert chain.n <= expected_delta.total_seconds() // auto_tick
-
