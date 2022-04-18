@@ -166,11 +166,6 @@ def test_gibbs_chain_remove_non_negative(line_posterior):
     chain.set_non_negative(1, True)
     chain.set_non_negative(1, False)
     assert chain.params[1].non_negative is False
-    chain.advance(100)
-
-    offset = array(chain.get_parameter(1))
-
-    assert all(offset >= 0)
 
 
 def test_gibbs_chain_set_boundary(line_posterior):
