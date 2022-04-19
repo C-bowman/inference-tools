@@ -2036,7 +2036,12 @@ class ParallelTempering(object):
 
 class EnsembleSampler(object):
     """
-    EnsembleSampler is an implementation of the affine-invariant ensemble sampler.
+    EnsembleSampler is an implementation of the affine-invariant ensemble sampler
+    proposed by Goodman & Weare. This algorithm is based on an 'ensemble' of points
+    in the parameter space referred to as 'walkers'. Proposed updates to the position
+    of each walker are generated based on the positions of the other walkers in the
+    ensemble in such a way that the performance of the algorithm is unaffected by
+    affine-transformations of the parameter space.
 
     :param callable posterior: \
         A callable which takes a ``numpy.ndarray`` of the model parameters as
