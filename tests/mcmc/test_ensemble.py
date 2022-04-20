@@ -59,18 +59,20 @@ def test_ensemble_sampler_input_parsing(line_posterior):
     rng = default_rng(256)
 
     # case where both variables are co-linear
-    colinear_starts = [guess * rng.normal(scale=0.05, loc=1.0, size=1) for i in range(n_walkers)]
+    colinear_starts = [
+        guess * rng.normal(scale=0.05, loc=1.0, size=1) for i in range(n_walkers)
+    ]
     with pytest.raises(ValueError):
         chain = EnsembleSampler(
-            posterior=line_posterior,
-            starting_positions=colinear_starts
+            posterior=line_posterior, starting_positions=colinear_starts
         )
 
     # case where one of the variables has zero variance
-    scales = array([0., 0.05])
-    zero_var_starts = [guess * rng.normal(scale=scales, loc=1.0, size=2) for i in range(n_walkers)]
+    scales = array([0.0, 0.05])
+    zero_var_starts = [
+        guess * rng.normal(scale=scales, loc=1.0, size=2) for i in range(n_walkers)
+    ]
     with pytest.raises(ValueError):
         chain = EnsembleSampler(
-            posterior=line_posterior,
-            starting_positions=zero_var_starts
+            posterior=line_posterior, starting_positions=zero_var_starts
         )

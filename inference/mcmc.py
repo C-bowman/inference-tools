@@ -2153,9 +2153,6 @@ class EnsembleSampler(object):
                     """
                 )
 
-
-
-
     def proposal(self, i):
         j = i  # randomly select walker
         while i == j:
