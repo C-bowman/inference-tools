@@ -11,7 +11,8 @@ from random import choice
 
 import matplotlib.pyplot as plt
 from numpy import array, arange, float64, identity, linspace, zeros, concatenate
-from numpy import exp, log, mean, sqrt, argmax, diff, dot, cov, var, percentile, median
+from numpy import exp, log, mean, sqrt, argmax, diff, dot
+from numpy import cov, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
@@ -2036,7 +2037,7 @@ class ParallelTempering(object):
 
 class EnsembleSampler(object):
     """
-    EnsembleSampler is an implementation of the affine-invariant ensemble sampler
+    ``EnsembleSampler`` is an implementation of the affine-invariant ensemble sampler
     proposed by Goodman & Weare. This algorithm is based on an 'ensemble' of points
     in the parameter space referred to as 'walkers'. Proposed updates to the position
     of each walker are generated based on the positions of the other walkers in the
@@ -2048,7 +2049,7 @@ class EnsembleSampler(object):
         its only argument, and returns the posterior log-probability.
 
     :param starting_positions: \
-        A list containing a series of parameter arrays corresponding to the starting
+        An iterable containing a series of parameter arrays corresponding to the starting
         positions of the 'walkers' which make up the ensemble.
 
     :param float alpha: \
@@ -2076,7 +2077,7 @@ class EnsembleSampler(object):
             for i, v in enumerate(starting_positions):
                 self.theta[i, :] = array(v)
             self.probs = array([self.posterior(t) for t in self.theta])
-
+            self.__starting_positions_check()
             # storage for diagnostic information
             self.n_iterations = 0
             self.total_proposals = [[] for i in range(self.n_walkers)]
@@ -2116,6 +2117,44 @@ class EnsembleSampler(object):
         self.max_attempts = 100
         self.sample = None
         self.sample_probs = None
+
+    def __starting_positions_check(self):
+        if self.n_params == 1:
+            # only need to check the variance for the one-parameter case
+            if var(self.theta) == 0:
+                raise ValueError(
+                    """
+                    [ EnsembleSampler error ]
+                    >> The values given in starting_positions have zero variance,
+                    >> and therefore the walkers are unable to move.
+                    """
+                )
+        else:
+            covar = cov(self.theta.T)
+            std_dev = sqrt(diag(covar))  # get the standard devs
+            if (std_dev == 0).any():
+                raise ValueError(
+                    """
+                    [ EnsembleSampler error ]
+                    >> For one or more variables, The values given in starting_positions 
+                    >> have zero variance, and therefore the walkers are unable to move
+                    >> in those variables.
+                    """
+                )
+            # now check if any pairs of variables are approximately co-linear
+            correlation = covar / (std_dev[:, None] * std_dev[None, :])
+            if (abs(triu(correlation, k=1)) > 0.999).any():
+                raise ValueError(
+                    """
+                    [ EnsembleSampler error ]
+                    >> The values given in starting_positions are approximately
+                    >> co-linear for one or more pair of variables. This will
+                    >> prevent the walkers from moving properly in those variables.
+                    """
+                )
+
+
+
 
     def proposal(self, i):
         j = i  # randomly select walker
