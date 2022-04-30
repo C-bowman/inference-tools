@@ -103,9 +103,11 @@ def matrix_plot(
     # check that given plot style is valid, else default to a histogram
     if plot_style not in ["contour", "hdi", "histogram", "scatter"]:
         plot_style = "contour"
-        warn("'plot_style' must be set as either 'contour', 'hdi', 'histogram' or 'scatter'")
+        warn(
+            "'plot_style' must be set as either 'contour', 'hdi', 'histogram' or 'scatter'"
+        )
 
-    iterable = hasattr(hdi_fractions, '__iter__')
+    iterable = hasattr(hdi_fractions, "__iter__")
     if not iterable or not all(0 < f < 1 for f in hdi_fractions):
         raise ValueError(
             """
@@ -207,7 +209,7 @@ def matrix_plot(
                 # Filled contour plotting using 2D gaussian KDE
                 pdf = KDE2D(x=x, y=y)
                 sample_probs = pdf(x, y)
-                pcts = [100*(1-f) for f in hdi_fractions]
+                pcts = [100 * (1 - f) for f in hdi_fractions]
                 levels = [l for l in percentile(sample_probs, pcts)]
 
                 x_ax = axis_arrays[j][::4]

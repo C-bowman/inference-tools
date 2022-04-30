@@ -23,18 +23,18 @@ def test_matrix_plot(gp_samples):
     labels = [f"test {i}" for i in range(n)]
 
     fig = matrix_plot(gp_samples, labels=labels, show=False)
-    expected_plots = n**2 - n*(n+1)/2
+    expected_plots = n**2 - n * (n + 1) / 2
     assert len(fig.get_axes()) == expected_plots
 
 
 def test_matrix_plot_input_parsing(gp_samples):
     n = len(gp_samples)
 
-    labels = [f"test {i}" for i in range(n+1)]
+    labels = [f"test {i}" for i in range(n + 1)]
     with pytest.raises(ValueError):
         matrix_plot(gp_samples, labels=labels, show=False)
 
-    ref_vals = [i for i in range(n+1)]
+    ref_vals = [i for i in range(n + 1)]
     with pytest.raises(ValueError):
         matrix_plot(gp_samples, reference=ref_vals, show=False)
 
