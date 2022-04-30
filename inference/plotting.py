@@ -2,7 +2,7 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray
+from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray, percentile
 from itertools import product, cycle
 from warnings import warn
 from inference.pdf import GaussianKDE, KDE2D, sample_hdi
@@ -24,6 +24,7 @@ def matrix_plot(
     colormap="Blues",
     show_ticks=None,
     point_colors=None,
+    hdi_fractions=(0.35, 0.65, 0.95),
     point_size=1,
     label_size=10,
 ):
@@ -48,8 +49,9 @@ def matrix_plot(
 
     :keyword str plot_style: \
         Specifies the type of plot used to display the 2D marginal distributions.
-        Available styles are 'contour' for filled contour plotting, 'histogram' for
-        hexagonal-bin histogram, and 'scatter' for scatterplot.
+        Available styles are 'contour' for filled contour plotting, 'hdi' for
+        highest-density interval contouring, 'histogram' for hexagonal-bin histogram,
+        and 'scatter' for scatterplot.
 
     :keyword bool show_ticks: \
         By default, axis ticks are only shown when plotting less than 6 variables.
@@ -64,6 +66,11 @@ def matrix_plot(
         An array containing data which will be used to set the size of the points
         if the plot_style argument is set to 'scatter'.
 
+    :keyword hdi_fractions: \
+        The highest-density intervals used for contouring, specified in terms of
+        the fraction of the total probability contained in each interval. Should
+        be given as an iterable of floats, each in the range [0, 1].
+
     :keyword int label_size: \
         The font-size used for axis labels.
     """
@@ -76,17 +83,39 @@ def matrix_plot(
             labels = [f"param {i}" for i in range(N_par)]
     else:
         if len(labels) != N_par:
-            raise ValueError("number of labels must match number of plotted parameters")
+            raise ValueError(
+                """
+                [ matrix_plot error ]
+                >> The number of labels given does not match
+                >> the number of plotted parameters.
+                """
+            )
 
     if reference is not None:
         if len(reference) != N_par:
             raise ValueError(
-                "number of reference values must match number of plotted parameters"
+                """
+                [ matrix_plot error ]
+                >> The number of reference values given does not match
+                >> the number of plotted parameters.
+                """
             )
     # check that given plot style is valid, else default to a histogram
-    if plot_style not in ["contour", "histogram", "scatter"]:
-        plot_style = "histogram"
-        warn("'plot_style' must be set as either 'contour', 'histogram' or 'scatter'")
+    if plot_style not in ["contour", "hdi", "histogram", "scatter"]:
+        plot_style = "contour"
+        warn(
+            "'plot_style' must be set as either 'contour', 'hdi', 'histogram' or 'scatter'"
+        )
+
+    iterable = hasattr(hdi_fractions, "__iter__")
+    if not iterable or not all(0 < f < 1 for f in hdi_fractions):
+        raise ValueError(
+            """
+            [ matrix_plot error ]
+            >> The 'hdi_fractions' argument must be given as an
+            >> iterable of floats, each in the range [0, 1].
+            """
+        )
 
     # by default, we suppress axis ticks if there are 6 parameters or more to keep things tidy
     if show_ticks is None:
@@ -176,6 +205,21 @@ def matrix_plot(
                 prob = array(pdf(X.flatten(), Y.flatten())).reshape([L // 4, L // 4])
                 ax.set_facecolor(cmap(256 // 20))
                 ax.contourf(X, Y, prob, 10, cmap=cmap)
+            elif plot_style == "hdi":
+                # Filled contour plotting using 2D gaussian KDE
+                pdf = KDE2D(x=x, y=y)
+                sample_probs = pdf(x, y)
+                pcts = [100 * (1 - f) for f in hdi_fractions]
+                levels = [l for l in percentile(sample_probs, pcts)]
+
+                x_ax = axis_arrays[j][::4]
+                y_ax = axis_arrays[i][::4]
+                X, Y = meshgrid(x_ax, y_ax)
+                prob = array(pdf(X.flatten(), Y.flatten())).reshape([L // 4, L // 4])
+                levels.append(prob.max())
+                levels = sorted(levels)
+                ax.contourf(X, Y, prob, levels=levels, cmap=cmap)
+                ax.contour(X, Y, prob, levels=levels, alpha=0.2)
             elif plot_style == "histogram":
                 # hexagonal-bin histogram
                 ax.set_facecolor(cmap(0))
