@@ -617,7 +617,7 @@ class MarkovChain(object):
         step_ax = [i * 1e-3 for i in range(len(self.probs))]
         ax1.plot(step_ax, self.probs, marker=".", ls="none", markersize=3)
         ax1.set_xlabel("chain step number ($10^3$)", fontsize=12)
-        ax1.set_ylabel("log posterior probability", fontsize=12)
+        ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
             min(self.probs[self.n // 2 :]),
@@ -1434,12 +1434,11 @@ class HamiltonianChain(MarkovChain):
 
         # probability history plot
         ax1 = fig.add_subplot(221)
-        step_ax = [
-            i * 1e-3 for i in range(len(self.probs))
-        ]  # TODO - avoid making this axis but preserve figure form
+        # TODO - avoid making this axis but preserve figure form
+        step_ax = [i * 1e-3 for i in range(len(self.probs))]
         ax1.plot(step_ax, self.probs, marker=".", ls="none", markersize=3)
         ax1.set_xlabel("chain step number ($10^3$)", fontsize=12)
-        ax1.set_ylabel("log posterior probability", fontsize=12)
+        ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
             min(self.probs[self.n // 2 :]),
@@ -1608,9 +1607,7 @@ class EpsilonSelector(object):
         # settings for epsilon adjustment algorithm
         self.accept_rate = 0.65
         self.chk_int = 15  # interval of steps at which proposal widths are adjusted
-        self.growth_factor = (
-            1.4  # factor by which self.chk_int grows when sigma is modified
-        )
+        self.growth_factor = 1.4  # growth factor for self.chk_int
 
     def add_probability(self, p):
         self.num += 1
