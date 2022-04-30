@@ -7,19 +7,42 @@ import matplotlib.pyplot as plt
 import pytest
 
 
-def test_matrix_plot():
+@pytest.fixture
+def gp_samples():
     N = 5
     x = linspace(1, N, N)
     mean = zeros(N)
     covariance = exp(-0.1 * subtract.outer(x, x) ** 2)
 
     samples = default_rng(1234).multivariate_normal(mean, covariance, size=100)
-    samples = [samples[:, i] for i in range(N)]
-    labels = ["test {}".format(i) for i in range(len(samples))]
+    return [samples[:, i] for i in range(N)]
 
-    fig = matrix_plot(samples, labels=labels, show=False)
-    expected_plots = (N**2) - sum(range(N))
+
+def test_matrix_plot(gp_samples):
+    n = len(gp_samples)
+    labels = [f"test {i}" for i in range(n)]
+
+    fig = matrix_plot(gp_samples, labels=labels, show=False)
+    expected_plots = n**2 - n*(n+1)/2
     assert len(fig.get_axes()) == expected_plots
+
+
+def test_matrix_plot_input_parsing(gp_samples):
+    n = len(gp_samples)
+
+    labels = [f"test {i}" for i in range(n+1)]
+    with pytest.raises(ValueError):
+        matrix_plot(gp_samples, labels=labels, show=False)
+
+    ref_vals = [i for i in range(n+1)]
+    with pytest.raises(ValueError):
+        matrix_plot(gp_samples, reference=ref_vals, show=False)
+
+    with pytest.raises(ValueError):
+        matrix_plot(gp_samples, hdi_fractions=[0.95, 1.05], show=False)
+
+    with pytest.raises(ValueError):
+        matrix_plot(gp_samples, hdi_fractions=0.5, show=False)
 
 
 def test_trace_plot():
