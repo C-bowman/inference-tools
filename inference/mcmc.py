@@ -246,7 +246,14 @@ class MarkovChain(object):
         showing the current progress and an estimated time until completion.
     """
 
-    def __init__(self, posterior=None, start=None, widths=None, temperature=1.0, display_progress=True):
+    def __init__(
+        self,
+        posterior=None,
+        start=None,
+        widths=None,
+        temperature=1.0,
+        display_progress=True,
+    ):
 
         if start is None:
             start = []
@@ -1221,7 +1228,7 @@ class HamiltonianChain(MarkovChain):
         temperature=1,
         bounds=None,
         inv_mass=None,
-        display_progress=True
+        display_progress=True,
     ):
 
         self.posterior = posterior
@@ -1560,7 +1567,9 @@ class HamiltonianChain(MarkovChain):
     @classmethod
     def load(cls, filename, posterior=None, grad=None):
         D = load(filename)
-        chain = cls(posterior=posterior, grad=grad, display_progress=bool(D["display_progress"]))
+        chain = cls(
+            posterior=posterior, grad=grad, display_progress=bool(D["display_progress"])
+        )
 
         chain.bounded = bool(D["bounded"])
         chain.variance = array(D["inv_mass"])
@@ -2419,7 +2428,7 @@ class EnsembleSampler(object):
             "x_lwr": self.x_lwr,
             "x_width": self.x_width,
             "max_attempts": self.max_attempts,
-            "display_progress": self.display_progress
+            "display_progress": self.display_progress,
         }
 
         if self.bounded:
