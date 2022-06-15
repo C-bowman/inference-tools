@@ -2059,10 +2059,15 @@ class EnsembleSampler(object):
     :param parameter_boundaries: \
         A list of length-2 tuples specifying the lower and upper bounds to be set on
         each parameter, in the form (lower, upper).
+
+    :param bool display_progress: \
+        If set as ``True``, a progress message is displayed during sampling
+        showing how many iterations have currently been completed and an
+        estimated time until completion.
     """
 
     def __init__(
-        self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None
+        self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None, display_progress=True
     ):
         self.posterior = posterior
 
@@ -2078,6 +2083,7 @@ class EnsembleSampler(object):
             # storage for diagnostic information
             self.n_iterations = 0
             self.total_proposals = [[] for i in range(self.n_walkers)]
+            self.failed_updates = []
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
@@ -2114,6 +2120,11 @@ class EnsembleSampler(object):
         self.max_attempts = 100
         self.sample = None
         self.sample_probs = None
+        self.StatusPrinter = ChainStatusPrinter(
+            display=display_progress,
+            leading_msg="EnsembleSampler:"
+        )
+
 
     def __starting_positions_check(self):
         if self.n_params == 1:
@@ -2173,9 +2184,10 @@ class EnsembleSampler(object):
                 break
         else:
             self.total_proposals[i].append(self.max_attempts)
-            warn(f"Walker #{i} failed to advance within the maximum allowed attempts")
+            self.failed_updates[-1] += 1
 
     def advance_all(self):
+        self.failed_updates.append(0)
         for i in range(self.n_walkers):
             self.advance_walker(i)
         self.n_iterations += 1
@@ -2190,11 +2202,7 @@ class EnsembleSampler(object):
             the number of walkers.
         """
         t_start = time()
-        sys.stdout.write("\n")
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ 0 / {iterations} iterations completed ]"
-        )
-        sys.stdout.flush()
+        self.StatusPrinter.iterations_initial(iterations)
 
         sample_arrays = [] if self.sample is None else [self.sample]
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
@@ -2204,19 +2212,10 @@ class EnsembleSampler(object):
             prob_arrays.append(self.probs.copy())
 
             # display the progress status message
-            dt = time() - t_start
-            eta = int(dt * (iterations / (k + 1) - 1))
-            sys.stdout.write(
-                f"\r  EnsembleSampler:   [ {k + 1} / {iterations} iterations completed  |  ETA: {eta} sec ]"
-            )
-            sys.stdout.flush()
+            self.StatusPrinter.iterations_progress(t_start, k, iterations)
 
         # display completion message
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ {iterations} / {iterations} iterations completed ]                  "
-        )
-        sys.stdout.flush()
-        sys.stdout.write("\n")
+        self.StatusPrinter.iterations_complete(iterations)
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
 
@@ -2460,6 +2459,42 @@ class EnsembleSampler(object):
             sampler.sample_probs = D["sample_probs"]
 
         return sampler
+
+
+class ChainStatusPrinter:
+    def __init__(self, display=True, leading_msg=None):
+        self.lead = "" if leading_msg is None else leading_msg
+
+        if not display:
+            self.iterations_initial = self.__no_status
+            self.iterations_progress = self.__no_status
+            self.iterations_complete = self.__no_status
+
+    def iterations_initial(self, total_itr):
+        sys.stdout.write("\n")
+        sys.stdout.write(
+            f"\r  {self.lead}   [ 0 / {total_itr} iterations completed ]"
+        )
+        sys.stdout.flush()
+
+    def iterations_progress(self, t_start, current_itr, total_itr):
+        dt = time() - t_start
+        eta = int(dt * (total_itr / (current_itr + 1) - 1))
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {current_itr + 1} / {total_itr} iterations completed  |  ETA: {eta} sec ]"
+        )
+        sys.stdout.flush()
+
+    def iterations_complete(self, total_itr):
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {total_itr} / {total_itr} iterations completed ]                  "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+
+    @staticmethod
+    def __no_status(*args):
+        pass
 
 
 def ESS(x):
