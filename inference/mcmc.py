@@ -2067,7 +2067,12 @@ class EnsembleSampler(object):
     """
 
     def __init__(
-        self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None, display_progress=True
+        self,
+        posterior,
+        starting_positions=None,
+        alpha=2.0,
+        parameter_boundaries=None,
+        display_progress=True,
     ):
         self.posterior = posterior
 
@@ -2121,10 +2126,8 @@ class EnsembleSampler(object):
         self.sample = None
         self.sample_probs = None
         self.StatusPrinter = ChainStatusPrinter(
-            display=display_progress,
-            leading_msg="EnsembleSampler:"
+            display=display_progress, leading_msg="EnsembleSampler:"
         )
-
 
     def __starting_positions_check(self):
         if self.n_params == 1:
@@ -2472,9 +2475,7 @@ class ChainStatusPrinter:
 
     def iterations_initial(self, total_itr):
         sys.stdout.write("\n")
-        sys.stdout.write(
-            f"\r  {self.lead}   [ 0 / {total_itr} iterations completed ]"
-        )
+        sys.stdout.write(f"\r  {self.lead}   [ 0 / {total_itr} iterations completed ]")
         sys.stdout.flush()
 
     def iterations_progress(self, t_start, current_itr, total_itr):
