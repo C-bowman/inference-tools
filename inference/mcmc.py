@@ -282,7 +282,11 @@ class MarkovChain(object):
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
                     ValueError(
-                        "posterior returns a non-finite value for provided starting position"
+                        """
+                        [ MarkovChain error ]
+                        >> 'posterior' argument callable returns a non-finite value
+                        >> for the starting position given to the 'start' argument.
+                        """
                     )
 
             # add default burn and thin values
@@ -949,10 +953,10 @@ class PcaChain(MarkovChain):
             else:
                 warn(
                     """
-                     # parameter_boundaries keyword error #
-                     The number of given lower/upper bounds pairs does not match
-                     the number of model parameters - bounds were not imposed.
-                     """
+                    [ PcaChain warning ]
+                    >> The number of given lower/upper bounds pairs does not match
+                    >> the number of model parameters - bounds were not imposed.
+                    """
                 )
         else:
             self.process_proposal = self.pass_through
@@ -1227,12 +1231,18 @@ class HamiltonianChain(MarkovChain):
             self.upr_bounds = array(bounds[1])
             if any((self.lwr_bounds > array(start)) | (self.upr_bounds < array(start))):
                 raise ValueError(
-                    "starting location for the chain is outside specified bounds"
+                    """
+                    [ HamiltonianChain error ]
+                    >> Starting location for the chain is outside specified bounds.
+                    """
                 )
             self.widths = self.upr_bounds - self.lwr_bounds
             if not all(self.widths > 0):
                 raise ValueError(
-                    "specified upper bounds must be greater than lower bounds"
+                    """
+                    [ HamiltonianChain error ]
+                    >> Specified upper bounds must be greater than lower bounds.
+                    """
                 )
 
         self.temperature = temperature
@@ -2081,10 +2091,10 @@ class EnsembleSampler(object):
             else:
                 warn(
                     """
-                     [ EnsembleSampler warning ]
-                     >> The number of given lower/upper bounds pairs does not match
-                     >> the number of model parameters - bounds were not imposed.
-                     """
+                    [ EnsembleSampler warning ]
+                    >> The number of given lower/upper bounds pairs does not match
+                    >> the number of model parameters - bounds were not imposed.
+                    """
                 )
         else:
             self.process_proposal = self.pass_through
