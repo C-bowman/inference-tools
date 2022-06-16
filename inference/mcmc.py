@@ -343,30 +343,24 @@ class MarkovChain(object):
         :param int hours: number of hours for which to run the chain.
         :param int days: number of days for which to run the chain.
         """
+        update_interval = 20  # small initial guess for the update interval
+        start_length = copy(self.n)
+
         # first find the runtime in seconds:
         run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
         start_time = time()
+        current_time = start_time
         end_time = start_time + run_time
 
-        # get a rough estimate of the time per step
-        step_time = time()
-        self.posterior(self.get_last())
-        step_time = time() - step_time
-        step_time *= 2 * self.L
-        if step_time <= 0.0:
-            step_time = 0.005
-
-        # choose an update interval that should take ~2 seconds
-        update_interval = max(int(2.0 // step_time), 1)
-
-        # store the starting length of the chain
-        start_length = copy(self.n)
-
-        while time() < end_time:
+        while current_time < end_time:
             for i in range(update_interval):
                 self.take_step()
-            self.ProgressPrinter.countdown_progress(end_time, self.n - start_length)
-        self.ProgressPrinter.countdown_final(run_time, self.n - start_length)
+            # set the interval such that updates are roughly once per second
+            steps_taken = self.n - start_length
+            current_time = time()
+            update_interval = int(steps_taken / (current_time - start_time))
+            self.ProgressPrinter.countdown_progress(end_time, steps_taken)
+        self.ProgressPrinter.countdown_final(run_time, steps_taken)
 
     def get_last(self):
         return array([p.samples[-1] for p in self.params], dtype=float64)
@@ -2463,6 +2457,8 @@ class ChainProgressPrinter:
             self.iterations_final = self.__no_status
             self.percent_progress = self.__no_status
             self.percent_final = self.__no_status
+            self.countdown_progress = self.__no_status
+            self.countdown_final = self.__no_status
 
     def iterations_initial(self, total_itr):
         sys.stdout.write("\n")
