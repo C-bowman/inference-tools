@@ -365,8 +365,27 @@ class MarkovChain(object):
         while time() < end_time:
             for i in range(update_interval):
                 self.take_step()
-            self.ProgressPrinter.countdown_progress(end_time, self.n - start_length)
-        self.ProgressPrinter.countdown_final(end_time, self.n - start_length)
+
+            # display the progress status message
+            seconds_remaining = end_time - time()
+            m, s = divmod(seconds_remaining, 60)
+            h, m = divmod(m, 60)
+            time_left = "%d:%02d:%02d" % (h, m, s)
+            steps_taken = self.n - start_length
+            sys.stdout.write(
+                f"\r  advancing chain:   [ {steps_taken} steps taken, time remaining: {time_left} ]    "
+            )
+            sys.stdout.flush()
+
+        # this is a little ugly...
+        mins, secs = divmod(run_time, 60)
+        hrs, mins = divmod(mins, 60)
+        time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
+        sys.stdout.write(
+            f"\r  advancing chain:   [ complete - {self.n - start_length} steps taken in {time_taken} ]      "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
 
     def get_last(self):
         return array([p.samples[-1] for p in self.params], dtype=float64)
@@ -2497,27 +2516,9 @@ class ChainProgressPrinter:
         t_elapsed = time() - t_start
         mins, secs = divmod(t_elapsed, 60)
         hrs, mins = divmod(mins, 60)
+        time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
         sys.stdout.write(
-            f"\r  {self.lead}   [ complete - {total_itr} steps taken in {hrs}:{mins:02d}:{secs:02d} ]      "
-        )
-        sys.stdout.flush()
-        sys.stdout.write("\n")
-
-    def countdown_progress(self, t_end, current_itr):
-        seconds_remaining = t_end - time()
-        mins, secs = divmod(seconds_remaining, 60)
-        hrs, mins = divmod(mins, 60)
-        sys.stdout.write(
-            f"\r  {self.lead}   [ {current_itr} steps taken, time remaining: {hrs}:{mins:02d}:{secs:02d} ]    "
-        )
-        sys.stdout.flush()
-
-    def countdown_final(self, t_end, current_itr):
-        run_time = t_end - time()
-        mins, secs = divmod(run_time, 60)
-        hrs, mins = divmod(mins, 60)
-        sys.stdout.write(
-            f"\r  {self.lead}   [ complete - {current_itr} steps taken in {hrs}:{mins:02d}:{secs:02d} ]      "
+            f"\r  {self.lead}   [ complete - {total_itr} steps taken in {time_taken} ]      "
         )
         sys.stdout.flush()
         sys.stdout.write("\n")
