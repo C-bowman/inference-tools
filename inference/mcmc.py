@@ -240,9 +240,20 @@ class MarkovChain(object):
         Vector of standard deviations which serve as initial guesses for the widths of
         the proposal distribution for each model parameter. If not specified, the
         starting widths will be approximated as 5% of the values in 'start'.
+
+    :param bool display_progress: \
+        If set as ``True``, a message is displayed during sampling
+        showing the current progress and an estimated time until completion.
     """
 
-    def __init__(self, posterior=None, start=None, widths=None, temperature=1.0):
+    def __init__(
+        self,
+        posterior=None,
+        start=None,
+        widths=None,
+        temperature=1.0,
+        display_progress=True,
+    ):
 
         if start is None:
             start = []
@@ -278,8 +289,10 @@ class MarkovChain(object):
             self.burn = 1  # remove the starting position by default
             self.thin = 1  # no thinning by default
 
-            # flag for displaying completion of the advance() method
-            self.print_status = True
+            self.display_progress = display_progress
+            self.ProgressPrinter = ChainProgressPrinter(
+                display=self.display_progress, leading_msg="advancing chain:"
+            )
 
     def take_step(self):
         """
@@ -305,42 +318,22 @@ class MarkovChain(object):
 
     def advance(self, m):
         """
-        Advances the chain by taking *m* new steps.
+        Advances the chain by taking ``m`` new steps.
 
-        :param int m: number of steps the chain will advance.
+        :param int m: Number of steps the chain will advance.
         """
         k = 100  # divide chain steps into k groups to track progress
         t_start = time()
         for j in range(k):
             for i in range(m // k):
                 self.take_step()
-            dt = time() - t_start
-
-            # display the progress status message
-            if self.print_status:
-                pct = int(100 * (j + 1) / k)
-                eta = int(dt * (k / (j + 1) - 1))
-                sys.stdout.write(
-                    f"\r  advancing chain:   [ {pct}% complete   ETA: {eta} sec ]    "
-                )
-                sys.stdout.flush()
+            self.ProgressPrinter.percent_progress(t_start, j, k)
 
         # cleanup
         if m % k != 0:
             for i in range(m % k):
                 self.take_step()
-
-        if self.print_status:
-            # this is a little ugly...
-            t_elapsed = time() - t_start
-            mins, secs = divmod(t_elapsed, 60)
-            hrs, mins = divmod(mins, 60)
-            time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
-            sys.stdout.write(
-                f"\r  advancing chain:   [ complete - {m} steps taken in {time_taken} ]      "
-            )
-            sys.stdout.flush()
-            sys.stdout.write("\n")
+        self.ProgressPrinter.percent_final(t_start, m)
 
     def run_for(self, minutes=0, hours=0, days=0):
         """
@@ -350,49 +343,24 @@ class MarkovChain(object):
         :param int hours: number of hours for which to run the chain.
         :param int days: number of days for which to run the chain.
         """
+        update_interval = 20  # small initial guess for the update interval
+        start_length = copy(self.n)
+
         # first find the runtime in seconds:
         run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
         start_time = time()
+        current_time = start_time
         end_time = start_time + run_time
 
-        # get a rough estimate of the time per step
-        step_time = time()
-        self.posterior(self.get_last())
-        step_time = time() - step_time
-        step_time *= 2 * self.L
-        if step_time <= 0.0:
-            step_time = 0.005
-
-        # choose an update interval that should take ~2 seconds
-        update_interval = max(int(2.0 // step_time), 1)
-
-        # store the starting length of the chain
-        start_length = copy(self.n)
-
-        while time() < end_time:
+        while current_time < end_time:
             for i in range(update_interval):
                 self.take_step()
-
-            # display the progress status message
-            seconds_remaining = end_time - time()
-            m, s = divmod(seconds_remaining, 60)
-            h, m = divmod(m, 60)
-            time_left = "%d:%02d:%02d" % (h, m, s)
+            # set the interval such that updates are roughly once per second
             steps_taken = self.n - start_length
-            sys.stdout.write(
-                f"\r  advancing chain:   [ {steps_taken} steps taken, time remaining: {time_left} ]    "
-            )
-            sys.stdout.flush()
-
-        # this is a little ugly...
-        mins, secs = divmod(run_time, 60)
-        hrs, mins = divmod(mins, 60)
-        time_taken = "%d:%02d:%02d" % (hrs, mins, secs)
-        sys.stdout.write(
-            f"\r  advancing chain:   [ complete - {self.n - start_length} steps taken in {time_taken} ]      "
-        )
-        sys.stdout.flush()
-        sys.stdout.write("\n")
+            current_time = time()
+            update_interval = int(steps_taken / (current_time - start_time))
+            self.ProgressPrinter.countdown_progress(end_time, steps_taken)
+        self.ProgressPrinter.countdown_final(run_time, steps_taken)
 
     def get_last(self):
         return array([p.samples[-1] for p in self.params], dtype=float64)
@@ -755,7 +723,7 @@ class MarkovChain(object):
             "burn": self.burn,
             "thin": self.thin,
             "inv_temp": self.inv_temp,
-            "print_status": self.print_status,
+            "display_progress": self.display_progress,
         }
 
         # get the parameter attributes
@@ -779,7 +747,7 @@ class MarkovChain(object):
         """
         # load the data and create a chain instance
         D = load(filename)
-        chain = cls(posterior=posterior)
+        chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
         chain.n = int(D["n"])
@@ -788,7 +756,6 @@ class MarkovChain(object):
         chain.inv_temp = float(D["inv_temp"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
-        chain.print_status = bool(D["print_status"])
 
         # re-build all the parameter objects
         chain.params = []
@@ -941,6 +908,10 @@ class PcaChain(MarkovChain):
     :param parameter_boundaries: \
         A list of length-2 tuples specifying the lower and upper bounds to be set on each
         parameter, in the form (lower, upper).
+
+    :param bool display_progress: \
+        If set as ``True``, a message is displayed during sampling
+        showing the current progress and an estimated time until completion.
     """
 
     def __init__(self, *args, parameter_boundaries=None, **kwargs):
@@ -1084,7 +1055,7 @@ class PcaChain(MarkovChain):
             "burn": self.burn,
             "thin": self.thin,
             "inv_temp": self.inv_temp,
-            "print_status": self.print_status,
+            "display_progress": self.display_progress,
             "dir_update_interval": self.dir_update_interval,
             "dir_growth_factor": self.dir_growth_factor,
             "last_update": self.last_update,
@@ -1107,13 +1078,16 @@ class PcaChain(MarkovChain):
         """
         Load a chain object which has been previously saved using the save() method.
 
-        :param str filename: file path of the .npz file containing the chain object data.
-        :param posterior: The posterior which was sampled by the chain. This argument need \
-                          only be specified if new samples are to be added to the chain.
+        :param str filename: \
+            file path of the .npz file containing the chain object data.
+
+        :param posterior: \
+            The posterior which was sampled by the chain. This argument need only be
+            specified if new samples are to be added to the chain.
         """
         # load the data and create a chain instance
         D = load(filename)
-        chain = cls(posterior=posterior)
+        chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
         chain.n = int(D["n"])
@@ -1122,7 +1096,6 @@ class PcaChain(MarkovChain):
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
         chain.inv_temp = float(D["inv_temp"])
-        chain.print_status = bool(D["print_status"])
         chain.dir_update_interval = int(D["dir_update_interval"])
         chain.dir_growth_factor = float(D["dir_growth_factor"])
         chain.last_update = int(D["last_update"])
@@ -1215,6 +1188,10 @@ class HamiltonianChain(MarkovChain):
         inverse-mass is used to transform the momentum distribution in order to make
         the problem more isotropic. Ideally, the inverse-mass for each parameter should
         be set to the variance of the marginal distribution of that parameter.
+
+    :param bool display_progress: \
+        If set as ``True``, a message is displayed during sampling
+        showing the current progress and an estimated time until completion.
     """
 
     def __init__(
@@ -1226,6 +1203,7 @@ class HamiltonianChain(MarkovChain):
         temperature=1,
         bounds=None,
         inv_mass=None,
+        display_progress=True,
     ):
 
         self.posterior = posterior
@@ -1278,7 +1256,10 @@ class HamiltonianChain(MarkovChain):
         self.burn = 1
         self.thin = 1
 
-        self.print_status = True
+        self.display_progress = display_progress
+        self.ProgressPrinter = ChainProgressPrinter(
+            display=self.display_progress, leading_msg="advancing chain:"
+        )
 
     def take_step(self):
         """
@@ -1547,7 +1528,7 @@ class HamiltonianChain(MarkovChain):
             "steps": self.steps,
             "burn": self.burn,
             "thin": self.thin,
-            "print_status": self.print_status,
+            "display_progress": self.display_progress,
         }
 
         items.update(self.ES.get_items())
@@ -1561,7 +1542,9 @@ class HamiltonianChain(MarkovChain):
     @classmethod
     def load(cls, filename, posterior=None, grad=None):
         D = load(filename)
-        chain = cls(posterior=posterior, grad=grad)
+        chain = cls(
+            posterior=posterior, grad=grad, display_progress=bool(D["display_progress"])
+        )
 
         chain.bounded = bool(D["bounded"])
         chain.variance = array(D["inv_mass"])
@@ -1574,7 +1557,6 @@ class HamiltonianChain(MarkovChain):
         chain.steps = int(D["steps"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
-        chain.print_status = bool(D["print_status"])
         chain.n = int(D["n"])
 
         t = D["theta"]
@@ -2059,10 +2041,19 @@ class EnsembleSampler(object):
     :param parameter_boundaries: \
         A list of length-2 tuples specifying the lower and upper bounds to be set on
         each parameter, in the form (lower, upper).
+
+    :param bool display_progress: \
+        If set as ``True``, a message is displayed during sampling
+        showing the current progress and an estimated time until completion.
     """
 
     def __init__(
-        self, posterior, starting_positions=None, alpha=2.0, parameter_boundaries=None
+        self,
+        posterior,
+        starting_positions=None,
+        alpha=2.0,
+        parameter_boundaries=None,
+        display_progress=True,
     ):
         self.posterior = posterior
 
@@ -2078,6 +2069,7 @@ class EnsembleSampler(object):
             # storage for diagnostic information
             self.n_iterations = 0
             self.total_proposals = [[] for i in range(self.n_walkers)]
+            self.failed_updates = []
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
@@ -2114,6 +2106,10 @@ class EnsembleSampler(object):
         self.max_attempts = 100
         self.sample = None
         self.sample_probs = None
+        self.display_progress = display_progress
+        self.ProgressPrinter = ChainProgressPrinter(
+            display=self.display_progress, leading_msg="EnsembleSampler:"
+        )
 
     def __starting_positions_check(self):
         if self.n_params == 1:
@@ -2173,9 +2169,10 @@ class EnsembleSampler(object):
                 break
         else:
             self.total_proposals[i].append(self.max_attempts)
-            warn(f"Walker #{i} failed to advance within the maximum allowed attempts")
+            self.failed_updates[-1] += 1
 
     def advance_all(self):
+        self.failed_updates.append(0)
         for i in range(self.n_walkers):
             self.advance_walker(i)
         self.n_iterations += 1
@@ -2190,11 +2187,7 @@ class EnsembleSampler(object):
             the number of walkers.
         """
         t_start = time()
-        sys.stdout.write("\n")
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ 0 / {iterations} iterations completed ]"
-        )
-        sys.stdout.flush()
+        self.ProgressPrinter.iterations_initial(iterations)
 
         sample_arrays = [] if self.sample is None else [self.sample]
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
@@ -2204,19 +2197,10 @@ class EnsembleSampler(object):
             prob_arrays.append(self.probs.copy())
 
             # display the progress status message
-            dt = time() - t_start
-            eta = int(dt * (iterations / (k + 1) - 1))
-            sys.stdout.write(
-                f"\r  EnsembleSampler:   [ {k + 1} / {iterations} iterations completed  |  ETA: {eta} sec ]"
-            )
-            sys.stdout.flush()
+            self.ProgressPrinter.iterations_progress(t_start, k, iterations)
 
         # display completion message
-        sys.stdout.write(
-            f"\r  EnsembleSampler:   [ {iterations} / {iterations} iterations completed ]                  "
-        )
-        sys.stdout.flush()
-        sys.stdout.write("\n")
+        self.ProgressPrinter.iterations_final(iterations)
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
 
@@ -2419,6 +2403,7 @@ class EnsembleSampler(object):
             "x_lwr": self.x_lwr,
             "x_width": self.x_width,
             "max_attempts": self.max_attempts,
+            "display_progress": self.display_progress,
         }
 
         if self.bounded:
@@ -2434,8 +2419,8 @@ class EnsembleSampler(object):
 
     @classmethod
     def load(cls, filename, posterior=None):
-        sampler = cls(posterior=posterior)
         D = load(filename)
+        sampler = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         sampler.theta = D["theta"]
         sampler.n_params = int(D["n_params"])
@@ -2460,6 +2445,81 @@ class EnsembleSampler(object):
             sampler.sample_probs = D["sample_probs"]
 
         return sampler
+
+
+class ChainProgressPrinter:
+    def __init__(self, display=True, leading_msg=None):
+        self.lead = "" if leading_msg is None else leading_msg
+
+        if not display:
+            self.iterations_initial = self.__no_status
+            self.iterations_progress = self.__no_status
+            self.iterations_final = self.__no_status
+            self.percent_progress = self.__no_status
+            self.percent_final = self.__no_status
+            self.countdown_progress = self.__no_status
+            self.countdown_final = self.__no_status
+
+    def iterations_initial(self, total_itr):
+        sys.stdout.write("\n")
+        sys.stdout.write(f"\r  {self.lead}   [ 0 / {total_itr} iterations completed ]")
+        sys.stdout.flush()
+
+    def iterations_progress(self, t_start, current_itr, total_itr):
+        dt = time() - t_start
+        eta = int(dt * (total_itr / (current_itr + 1) - 1))
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {current_itr + 1} / {total_itr} iterations completed  |  ETA: {eta} sec ]"
+        )
+        sys.stdout.flush()
+
+    def iterations_final(self, total_itr):
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {total_itr} / {total_itr} iterations completed ]                  "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+
+    def percent_progress(self, t_start, current_itr, total_itr):
+        dt = time() - t_start
+        pct = int(100 * (current_itr + 1) / total_itr)
+        eta = int(dt * (total_itr / (current_itr + 1) - 1))
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {pct}% complete  |  ETA: {eta} sec ]    "
+        )
+        sys.stdout.flush()
+
+    def percent_final(self, t_start, total_itr):
+        t_elapsed = int(time() - t_start)
+        mins, secs = divmod(t_elapsed, 60)
+        hrs, mins = divmod(mins, 60)
+        sys.stdout.write(
+            f"\r  {self.lead}   [ complete - {total_itr} steps taken in {hrs}:{mins:02d}:{secs:02d} ]      "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+
+    def countdown_progress(self, t_end, steps_taken):
+        seconds_remaining = int(t_end - time())
+        mins, secs = divmod(seconds_remaining, 60)
+        hrs, mins = divmod(mins, 60)
+        sys.stdout.write(
+            f"\r  {self.lead}   [ {steps_taken} steps taken, time remaining: {hrs}:{mins:02d}:{secs:02d} ]    "
+        )
+        sys.stdout.flush()
+
+    def countdown_final(self, run_time, steps_taken):
+        mins, secs = divmod(int(run_time), 60)
+        hrs, mins = divmod(mins, 60)
+        sys.stdout.write(
+            f"\r  {self.lead}   [ complete - {steps_taken} steps taken in {hrs}:{mins:02d}:{secs:02d} ]      "
+        )
+        sys.stdout.flush()
+        sys.stdout.write("\n")
+
+    @staticmethod
+    def __no_status(*args):
+        pass
 
 
 def ESS(x):
