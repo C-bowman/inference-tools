@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from inspect import isclass
 from numpy import abs, exp, eye, log, zeros
 
 
@@ -43,25 +44,20 @@ class CompositeCovariance(CovarianceFunction):
 
     def pass_data(self, x, y):
         [comp.pass_data(x, y) for comp in self.components]
-        # here we'd need to build slices to pass parameters
-        # to each component, and construct a top-level bounds list
-        self.slices = []
-        for comp in self.components:
-            L = comp.n_params
-            if len(self.slices) == 0:
-                self.slices.append(slice(0, L))
-            else:
-                last = self.slices[-1].stop
-                self.slices.append(slice(last, last + L))
-
+        # Create slices to address the parameters of each component
+        self.slices = slice_builder([c.n_params for c in self.components])
+        # combine parameter bounds for each component
         self.bounds = []
         [self.bounds.extend(comp.bounds) for comp in self.components]
-
+        # combine hyperparameter labels for each component
         self.hyperpar_labels = []
         for i, comp in enumerate(self.components):
             labels = [f"K{i+1}_{s}" for s in comp.hyperpar_labels]
             self.hyperpar_labels.extend(labels)
-        self.n_params = len(self.hyperpar_labels)
+        # check for consistency of length of bounds, labels etc
+        self.n_params = sum(c.n_params for c in self.components)
+        assert self.n_params == len(self.bounds)
+        assert self.n_params == len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
         return sum(
@@ -330,3 +326,107 @@ class RationalQuadratic(CovarianceFunction):
 
     def get_bounds(self):
         return self.bounds
+
+
+class ChangePoint(CovarianceFunction):
+    r"""
+    ``ChangePoint`` is a covariance function ...
+
+    .. math::
+
+       K_{\mathrm{cp}}(u, v) = K_{1}(u, v) (1 - w(u))(1 - w(v)) + K_{2}(u, v) w(u) w(v)
+
+    ...
+
+    .. math::
+
+       w(x) = \frac{1}{1 + e^{-\frac{x - x_0}{l}}}
+
+    :param K1: \
+        ...
+
+    :param K2: \
+        ...
+
+    :param axis: \
+        ...
+    """
+
+    def __init__(self, K1=SquaredExponential, K2=SquaredExponential, axis=0):
+        self.cov1 = K1() if isclass(K1) else K1
+        self.cov2 = K2() if isclass(K2) else K2
+        self.axis = axis
+
+    def pass_data(self, x, y):
+        self.cov1.pass_data(x, y)
+        self.cov2.pass_data(x, y)
+        self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(
+            [self.cov1.n_params, self.cov2.n_params, 2]
+        )
+        self.hyperpar_labels = []
+        self.hyperpar_labels.extend([f"ChngPnt_K1_{l}" for l in self.cov1.hyperpar_labels])
+        self.hyperpar_labels.extend([f"ChngPnt_K2_{l}" for l in self.cov2.hyperpar_labels])
+        self.hyperpar_labels.extend(["ChngPnt_location", "ChngPnt_width"])
+        self.x_cp = x[:, self.axis]
+        dx = self.x_cp.ptp()
+
+        self.bounds = []
+        self.bounds.extend(self.cov1.bounds)
+        self.bounds.extend(self.cov2.bounds)
+        self.bounds.extend([
+            (self.x_cp.min(), self.x_cp.max()),
+            (1e-3*dx, dx)
+        ])
+        self.n_params = len(self.hyperpar_labels)
+
+    def __call__(self, u, v, theta):
+        K1 = self.cov1(u, v, theta[self.K1_slc])
+        K2 = self.cov2(u, v, theta[self.K2_slc])
+        w_u = self.logistic(u[:, self.axis], theta[self.CP_slc])
+        w_v = self.logistic(v[:, self.axis], theta[self.CP_slc])
+        w1 = (1 - w_u)[:, None] * (1 - w_v)[None, :]
+        w2 = w_u[:, None] * w_v[None, :]
+        return K1 * w1 + K2 * w2
+
+    def build_covariance(self, theta):
+        K1 = self.cov1.build_covariance(theta[self.K1_slc])
+        K2 = self.cov2.build_covariance(theta[self.K2_slc])
+        w = self.logistic(self.x_cp, theta[self.CP_slc])
+        w1 = (1 - w)[:, None] * (1 - w)[None, :]
+        w2 = w[:, None] * w[None, :]
+        return K1 * w1 + K2 * w2
+
+    def covariance_and_gradients(self, theta):
+        K1, K1_grads = self.cov1.covariance_and_gradients(theta[self.K1_slc])
+        K2, K2_grads = self.cov2.covariance_and_gradients(theta[self.K2_slc])
+        w, w_grads = self.logistic_and_gradient(self.x_cp, theta[self.CP_slc])
+        w1 = (1 - w)[:, None] * (1 - w)[None, :]
+        w2 = w[:, None] * w[None, :]
+        K = K1 * w1 + K2 * w2
+        gradients = [c * w1 for c in K1_grads]
+        gradients.extend([c * w2 for c in K2_grads])
+        for g in w_grads:
+            A = g[:, None] * (1 - w)[None, :]
+            B = g[:, None] * w[None, :]
+            gradients.append(K1 * (A + A.T) + K2 * (B + B.T))
+        return K, gradients
+
+    @staticmethod
+    def logistic(x, theta):
+        z = (x - theta[0]) / theta[1]
+        return 1. / (1. + exp(-z))
+
+    @staticmethod
+    def logistic_and_gradient(x, theta):
+        z = (x - theta[0]) / theta[1]
+        f = 1. / (1. + exp(-z))
+        dfdc = -f * (1 - f) / theta[1]
+        return f, [dfdc, dfdc * z]
+
+
+def slice_builder(lengths):
+    slices = [slice(0, lengths[0])]
+    for L in lengths[1:]:
+        last = slices[-1].stop
+        slices.append(slice(last, last + L))
+    return slices
