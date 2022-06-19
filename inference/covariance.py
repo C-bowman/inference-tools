@@ -364,8 +364,12 @@ class ChangePoint(CovarianceFunction):
             [self.cov1.n_params, self.cov2.n_params, 2]
         )
         self.hyperpar_labels = []
-        self.hyperpar_labels.extend([f"ChngPnt_K1_{l}" for l in self.cov1.hyperpar_labels])
-        self.hyperpar_labels.extend([f"ChngPnt_K2_{l}" for l in self.cov2.hyperpar_labels])
+        self.hyperpar_labels.extend(
+            [f"ChngPnt_K1_{l}" for l in self.cov1.hyperpar_labels]
+        )
+        self.hyperpar_labels.extend(
+            [f"ChngPnt_K2_{l}" for l in self.cov2.hyperpar_labels]
+        )
         self.hyperpar_labels.extend(["ChngPnt_location", "ChngPnt_width"])
         self.x_cp = x[:, self.axis]
         dx = self.x_cp.ptp()
@@ -373,10 +377,7 @@ class ChangePoint(CovarianceFunction):
         self.bounds = []
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
-        self.bounds.extend([
-            (self.x_cp.min(), self.x_cp.max()),
-            (1e-3*dx, dx)
-        ])
+        self.bounds.extend([(self.x_cp.min(), self.x_cp.max()), (1e-3 * dx, dx)])
         self.n_params = len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
@@ -414,12 +415,12 @@ class ChangePoint(CovarianceFunction):
     @staticmethod
     def logistic(x, theta):
         z = (x - theta[0]) / theta[1]
-        return 1. / (1. + exp(-z))
+        return 1.0 / (1.0 + exp(-z))
 
     @staticmethod
     def logistic_and_gradient(x, theta):
         z = (x - theta[0]) / theta[1]
-        f = 1. / (1. + exp(-z))
+        f = 1.0 / (1.0 + exp(-z))
         dfdc = -f * (1 - f) / theta[1]
         return f, [dfdc, dfdc * z]
 
