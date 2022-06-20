@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from inspect import isclass
-from numpy import abs, exp, eye, log, zeros
+from numpy import abs, exp, eye, log, zeros, ndarray
 
 
 class CovarianceFunction(ABC):
@@ -54,7 +54,7 @@ class CompositeCovariance(CovarianceFunction):
         for i, comp in enumerate(self.components):
             labels = [f"K{i+1}_{s}" for s in comp.hyperpar_labels]
             self.hyperpar_labels.extend(labels)
-        # check for consistency of length of bounds, labels etc
+        # check for consistency of length of bounds, labels
         self.n_params = sum(c.n_params for c in self.components)
         assert self.n_params == len(self.bounds)
         assert self.n_params == len(self.hyperpar_labels)
@@ -363,35 +363,60 @@ class ChangePoint(CovarianceFunction):
 
     :param int axis: \
         The spatial axis over which the transition between the two kernels occurs.
+
+    :param location_bounds: The bounds for the change-point location hyperparameter
+        :math:`x_0` as a tuple of the form ``(lower_bound, upper_bound)``.
+
+    :param location_bounds:
+        The bounds for the change-point width hyperparameter :math:`w` as a tuple
+        of the form ``(lower_bound, upper_bound)``.
     """
 
-    def __init__(self, K1=SquaredExponential, K2=SquaredExponential, axis=0):
+    def __init__(
+            self,
+            K1=SquaredExponential,
+            K2=SquaredExponential,
+            axis=0,
+            location_bounds=None,
+            width_bounds=None
+    ):
         self.cov1 = K1() if isclass(K1) else K1
         self.cov2 = K2() if isclass(K2) else K2
         self.axis = axis
+        self.location_bounds = check_bounds(location_bounds)
+        self.width_bounds = check_bounds(width_bounds)
+        self.hyperpar_labels = []
+        self.bounds = []
 
     def pass_data(self, x, y):
         self.cov1.pass_data(x, y)
         self.cov2.pass_data(x, y)
-        self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(
-            [self.cov1.n_params, self.cov2.n_params, 2]
-        )
-        self.hyperpar_labels = []
-        self.hyperpar_labels.extend(
-            [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels]
-        )
-        self.hyperpar_labels.extend(
-            [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels]
-        )
-        self.hyperpar_labels.extend(["ChngPnt_location", "ChngPnt_width"])
-        self.x_cp = x[:, self.axis]
-        dx = self.x_cp.ptp()
+        # Create slices to address the parameters of each component
+        param_counts = [self.cov1.n_params, self.cov2.n_params, 2]
+        self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(param_counts)
+        # combine hyperparameter labels for K1, K2 and the change-point
+        label_groups = [
+            [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels],
+            [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels],
+            ["ChngPnt_location", "ChngPnt_width"]
+        ]
+        [self.hyperpar_labels.extend(L) for L in label_groups]
 
-        self.bounds = []
+        # store x-data from the dimension of the change-point
+        self.x_cp = x[:, self.axis]
+        xr = self.x_cp.min(), self.x_cp.max()
+        dx = xr[1] - xr[0]
+        # combine parameter bounds for K1, K2 and the change-point
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
-        self.bounds.extend([(self.x_cp.min(), self.x_cp.max()), (5e-3 * dx, 0.5 * dx)])
-        self.n_params = len(self.hyperpar_labels)
+        self.bounds.extend([
+            xr if self.location_bounds is None else self.location_bounds,
+            (5e-3 * dx, 0.5 * dx) if self.width_bounds is None else self.width_bounds
+        ])
+        # check for consistency of length of bounds, labels
+        self.n_params = sum(param_counts)
+        assert self.n_params == len(self.bounds)
+        assert self.n_params == len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
         K1 = self.cov1(u, v, theta[self.K1_slc])
@@ -444,3 +469,11 @@ def slice_builder(lengths):
         last = slices[-1].stop
         slices.append(slice(last, last + L))
     return slices
+
+
+def check_bounds(bounds):
+    if bounds is not None:
+        assert type(bounds) in [list, tuple, ndarray]
+        assert len(bounds) == 2
+        assert bounds[1] > bounds[0]
+    return bounds
