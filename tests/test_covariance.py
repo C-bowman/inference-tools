@@ -1,7 +1,7 @@
 import pytest
 from numpy import array, linspace, sin, isfinite
 from numpy.random import default_rng
-from inference.gp import SquaredExponential, RationalQuadratic, WhiteNoise
+from inference.gp import SquaredExponential, RationalQuadratic, WhiteNoise, ChangePoint
 
 
 def covar_error_check(K, dK_analytic, dK_findiff):
@@ -46,6 +46,7 @@ def create_data():
         RationalQuadratic(),
         WhiteNoise(),
         RationalQuadratic() + WhiteNoise(),
+        ChangePoint(),
     ],
 )
 def test_covariance_and_gradients(cov):

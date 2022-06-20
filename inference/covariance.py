@@ -377,7 +377,7 @@ class ChangePoint(CovarianceFunction):
         self.bounds = []
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
-        self.bounds.extend([(self.x_cp.min(), self.x_cp.max()), (1e-3 * dx, dx)])
+        self.bounds.extend([(self.x_cp.min(), self.x_cp.max()), (5e-3 * dx, 0.5 * dx)])
         self.n_params = len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
@@ -409,7 +409,7 @@ class ChangePoint(CovarianceFunction):
         for g in w_grads:
             A = g[:, None] * (1 - w)[None, :]
             B = g[:, None] * w[None, :]
-            gradients.append(K1 * (A + A.T) + K2 * (B + B.T))
+            gradients.append(-K1 * (A + A.T) + K2 * (B + B.T))
         return K, gradients
 
     @staticmethod
