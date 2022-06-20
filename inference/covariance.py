@@ -374,12 +374,12 @@ class ChangePoint(CovarianceFunction):
     """
 
     def __init__(
-            self,
-            K1=SquaredExponential,
-            K2=SquaredExponential,
-            axis=0,
-            location_bounds=None,
-            width_bounds=None
+        self,
+        K1=SquaredExponential,
+        K2=SquaredExponential,
+        axis=0,
+        location_bounds=None,
+        width_bounds=None,
     ):
         self.cov1 = K1() if isclass(K1) else K1
         self.cov2 = K2() if isclass(K2) else K2
@@ -399,7 +399,7 @@ class ChangePoint(CovarianceFunction):
         label_groups = [
             [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels],
             [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels],
-            ["ChngPnt_location", "ChngPnt_width"]
+            ["ChngPnt_location", "ChngPnt_width"],
         ]
         [self.hyperpar_labels.extend(L) for L in label_groups]
 
@@ -410,10 +410,14 @@ class ChangePoint(CovarianceFunction):
         # combine parameter bounds for K1, K2 and the change-point
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
-        self.bounds.extend([
-            xr if self.location_bounds is None else self.location_bounds,
-            (5e-3 * dx, 0.5 * dx) if self.width_bounds is None else self.width_bounds
-        ])
+        self.bounds.extend(
+            [
+                xr if self.location_bounds is None else self.location_bounds,
+                (5e-3 * dx, 0.5 * dx)
+                if self.width_bounds is None
+                else self.width_bounds,
+            ]
+        )
         # check for consistency of length of bounds, labels
         self.n_params = sum(param_counts)
         assert self.n_params == len(self.bounds)
