@@ -104,7 +104,7 @@ class WhiteNoise(CovarianceFunction):
        from inference.gp import SquaredExponential, WhiteNoise
        composite_kernel = SquaredExponential() + WhiteNoise()
 
-    :param hyperpar_bounds: \
+    :param hyperpar_bounds:
         By default, ``WhiteNoise`` will automatically set sensible lower and
         upper bounds on the value of the log-noise-level based on the available data.
         However, this keyword allows the bounds to be specified manually as a length-2
@@ -167,7 +167,7 @@ class SquaredExponential(CovarianceFunction):
 
        \underline{\theta} = [ \ln{A}, \ln{l_1}, \ldots, \ln{l_n}]
 
-    :param hyperpar_bounds: \
+    :param hyperpar_bounds:
         By default, ``SquaredExponential`` will automatically set sensible lower and
         upper bounds on the value of the hyperparameters based on the available data.
         However, this keyword allows the bounds to be specified manually as a list of
@@ -259,7 +259,7 @@ class RationalQuadratic(CovarianceFunction):
 
        \underline{\theta} = [ \ln{A}, \ln{\alpha}, \ln{l_1}, \ldots, \ln{l_n}]
 
-    :param hyperpar_bounds: \
+    :param hyperpar_bounds:
         By default, ``RationalQuadratic`` will automatically set sensible lower and
         upper bounds on the value of the hyperparameters based on the available data.
         However, this keyword allows the bounds to be specified manually as a list of
@@ -355,19 +355,20 @@ class ChangePoint(CovarianceFunction):
     :math:`x_0` and :math:`w` are hyperparameters which are determined automatically
     (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
 
-    :param K1: \
+    :param K1:
         The covariance kernel which applies to the 'low' side of the change-point.
 
-    :param K2: \
+    :param K2:
         The covariance kernel which applies to the 'high' side of the change-point.
 
-    :param int axis: \
+    :param int axis:
         The spatial axis over which the transition between the two kernels occurs.
 
-    :param location_bounds: The bounds for the change-point location hyperparameter
+    :param location_bounds:
+        The bounds for the change-point location hyperparameter
         :math:`x_0` as a tuple of the form ``(lower_bound, upper_bound)``.
 
-    :param location_bounds:
+    :param width_bounds:
         The bounds for the change-point width hyperparameter :math:`w` as a tuple
         of the form ``(lower_bound, upper_bound)``.
     """
