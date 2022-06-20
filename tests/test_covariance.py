@@ -5,7 +5,7 @@ from inference.gp import SquaredExponential, RationalQuadratic, WhiteNoise
 
 
 def covar_error_check(K, dK_analytic, dK_findiff):
-    small_element = (abs(K / abs(K).max()) < 1e-4)
+    small_element = abs(K / abs(K).max()) < 1e-4
     zero_grads = (dK_analytic == 0.0) & (dK_findiff == 0.0)
     ignore = small_element | zero_grads
     abs_frac_err = abs((dK_findiff - dK_analytic) / K)
