@@ -330,26 +330,39 @@ class RationalQuadratic(CovarianceFunction):
 
 class ChangePoint(CovarianceFunction):
     r"""
-    ``ChangePoint`` is a covariance function ...
+    ``ChangePoint`` is a covariance function which divides the input space into two
+    regions (at some point along a chosen input dimension), allowing each of the two
+    regions to be modelled using a separate covariance function.
+
+    This is useful in cases where properties of the data (e.g. the scale-lengths
+    over which the data vary) change significantly over the input dimension which is
+    used to divide the space.
+
+    The change-point kernel :math:`K_{\mathrm{cp}}` is a weighted-sum of the two
+    input kernels :math:`K_{1}, \, K_{2}` which model each of the two regions:
 
     .. math::
 
-       K_{\mathrm{cp}}(u, v) = K_{1}(u, v) (1 - w(u))(1 - w(v)) + K_{2}(u, v) w(u) w(v)
+       K_{\mathrm{cp}}(u, v) = K_{1}(u, v) (1 - f(u))(1 - f(v)) + K_{2}(u, v) f(u) f(v)
 
-    ...
+    where the weighting :math:`f(x)` is the logistic function
 
     .. math::
 
-       w(x) = \frac{1}{1 + e^{-\frac{x - x_0}{l}}}
+       f(x) = \frac{1}{1 + e^{-(x - x_0) / w}}
+
+    and :math:`x_0, \, w` are the location and width of the change-point respectively.
+    :math:`x_0` and :math:`w` are hyperparameters which are determined automatically
+    (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
 
     :param K1: \
-        ...
+        The covariance kernel which applies to the 'low' side of the change-point.
 
     :param K2: \
-        ...
+        The covariance kernel which applies to the 'high' side of the change-point.
 
-    :param axis: \
-        ...
+    :param int axis: \
+        The spatial axis over which the transition between the two kernels occurs.
     """
 
     def __init__(self, K1=SquaredExponential, K2=SquaredExponential, axis=0):
@@ -365,10 +378,10 @@ class ChangePoint(CovarianceFunction):
         )
         self.hyperpar_labels = []
         self.hyperpar_labels.extend(
-            [f"ChngPnt_K1_{l}" for l in self.cov1.hyperpar_labels]
+            [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels]
         )
         self.hyperpar_labels.extend(
-            [f"ChngPnt_K2_{l}" for l in self.cov2.hyperpar_labels]
+            [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels]
         )
         self.hyperpar_labels.extend(["ChngPnt_location", "ChngPnt_width"])
         self.x_cp = x[:, self.axis]
@@ -407,9 +420,9 @@ class ChangePoint(CovarianceFunction):
         gradients = [c * w1 for c in K1_grads]
         gradients.extend([c * w2 for c in K2_grads])
         for g in w_grads:
-            A = g[:, None] * (1 - w)[None, :]
+            A = -g[:, None] * (1 - w)[None, :]
             B = g[:, None] * w[None, :]
-            gradients.append(-K1 * (A + A.T) + K2 * (B + B.T))
+            gradients.append(K1 * (A + A.T) + K2 * (B + B.T))
         return K, gradients
 
     @staticmethod

@@ -11,7 +11,7 @@ argument as follows
 .. code-block:: python
 
    from inference.gp import GpRegressor, SquaredExponential
-   GP = GpRegressor(x, y, kernel = SquaredExponential)
+   GP = GpRegressor(x, y, kernel=SquaredExponential)
 
 
 SquaredExponential
@@ -30,3 +30,9 @@ WhiteNoise
 ^^^^^^^^^^
 
 .. autoclass:: inference.gp.WhiteNoise
+
+
+ChangePoint
+^^^^^^^^^^^
+
+.. autoclass:: inference.gp.ChangePoint
