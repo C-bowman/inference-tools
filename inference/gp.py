@@ -4,7 +4,7 @@
 
 from numpy import diagonal, arange, diag
 from numpy import sum as npsum
-from numpy.linalg import cholesky
+from numpy.linalg import cholesky, LinAlgError
 from scipy.linalg import solve_triangular
 from scipy.optimize import differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
@@ -441,10 +441,9 @@ class GpRegressor(object):
         This implementation is based on equations (5.10, 5.11, 5.12) from
         Rasmussen & Williams.
         """
+        K_xx = self.cov.build_covariance(theta[self.cov_slice]) + self.sig
+        mu = self.mean.build_mean(theta[self.mean_slice])
         try:
-            K_xx = self.cov.build_covariance(theta[self.cov_slice]) + self.sig
-            mu = self.mean.build_mean(theta[self.mean_slice])
-
             # Use the Cholesky decomposition of the covariance to find its inverse
             L = cholesky(K_xx)
             iK = solve_triangular(L, eye(L.shape[0]), lower=True)
@@ -452,7 +451,7 @@ class GpRegressor(object):
             alpha = iK.dot(self.y - mu)
             var = 1.0 / diag(iK)
             return -0.5 * (var * alpha**2 + log(var)).sum()
-        except:
+        except LinAlgError:
             warn("Cholesky decomposition failure in loo_likelihood")
             return -1e50
 
@@ -508,7 +507,7 @@ class GpRegressor(object):
             L = cholesky(K_xx)
             alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
             return -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
-        except:
+        except LinAlgError:
             warn("Cholesky decomposition failure in marginal_likelihood")
             return -1e50
 
