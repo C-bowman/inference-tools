@@ -1,6 +1,7 @@
 from numpy import array, linspace, sin, zeros
 from numpy.random import normal, seed
 from inference.gp import GpRegressor
+import pytest
 
 
 def test_marginal_likelihood_gradient():
@@ -146,3 +147,12 @@ def test_optimizers():
     gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs")
     gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_processes=2)
     gpr = GpRegressor(x, y, y_err=errors, optimizer="diffev")
+
+
+def test_input_consistency_checking():
+    with pytest.raises(ValueError):
+        GpRegressor(x=zeros(3), y=zeros(2))
+    with pytest.raises(ValueError):
+        GpRegressor(x=zeros([4, 3]), y=zeros(3))
+    with pytest.raises(ValueError):
+        GpRegressor(x=zeros([3, 1]), y=zeros([3, 2]))
