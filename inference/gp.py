@@ -4,7 +4,7 @@
 
 from numpy import diagonal, arange, diag
 from numpy import sum as npsum
-from numpy.linalg import cholesky
+from numpy.linalg import cholesky, LinAlgError
 from scipy.linalg import solve_triangular
 from scipy.optimize import differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
@@ -91,20 +91,42 @@ class GpRegressor(object):
     ):
 
         # store the data
-        self.x = array(x)
-        self.y = array(y).squeeze()
+        self.x = x if isinstance(x, ndarray) else array(x)
+        self.y = y if isinstance(y, ndarray) else array(y)
+        self.y = self.y.squeeze()
+
+        if self.y.ndim != 1:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor error ]
+                >> 'y' argument must be a 1D array, but instead has shape {self.y.shape}
+                """
+            )
 
         # determine the number of data points and spatial dimensions
-        self.N_points = self.y.shape[0]
-        if len(self.x.shape) == 1:
-            self.N_dimensions = 1
-            self.x = self.x.reshape([self.x.shape[0], self.N_dimensions])
+        self.n_points = self.y.size
+        if self.x.ndim == 2:
+            self.n_dimensions = self.x.shape[1]
+        elif self.x.ndim <= 1:
+            self.n_dimensions = 1
+            self.x = self.x.reshape([self.x.size, self.n_dimensions])
         else:
-            self.N_dimensions = self.x.shape[1]
-
-        if self.x.shape[0] != self.N_points:
             raise ValueError(
-                "The given number of x-data points does not match the number of y-data values"
+                f"""\n
+                [ GpRegressor Error ]
+                >> 'x' argument must be a 2D array, but instead has
+                >> {self.x.ndim} dimensions and shape {self.x.shape}.
+                """
+            )
+
+        if self.x.shape[0] != self.n_points:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor Error ]
+                >> The first dimension of the 'x' array must be equal in size
+                >> to the 'y' array.
+                >> 'x' has shape {self.x.shape}, but 'y' has size {self.y.size}.
+                """
             )
 
         # build data errors covariance matrix
@@ -196,10 +218,11 @@ class GpRegressor(object):
         # check to make sure the right number of hyper-parameters were given
         if len(hyperpars) != self.n_hyperpars:
             raise ValueError(
-                f"""
+                f"""\n
                 [ GpRegressor error ]
-                An incorrect number of hyper-parameters were passed via the 'hyperpars' keyword argument:
-                There are {self.n_hyperpars} hyper-parameters but {len(hyperpars)} were given.
+                >> An incorrect number of hyper-parameter values were passed via the 
+                >> 'hyperpars' keyword argument:
+                >> There are {self.n_hyperpars} hyper-parameters but {len(hyperpars)} values were given.
                 """
             )
 
@@ -221,40 +244,42 @@ class GpRegressor(object):
             elif type(y_cov) is not ndarray:
                 # else if it isn't already an array raise an error
                 raise TypeError(
-                    f"""
+                    f"""\n
                     [ GpRegressor error ]
-                    The 'y_cov' keyword argument should be given as a numpy array:
-                    Expected type {ndarray} but type {type(y_cov)} was given.
+                    >> The 'y_cov' keyword argument should be given as a numpy array:
+                    >> Expected type {ndarray} but type {type(y_cov)} was given.
                     """
                 )
 
             # now check to make sure the given error array is a valid size
-            if y_cov.shape != (self.N_points, self.N_points):
+            if y_cov.shape != (self.n_points, self.n_points):
                 raise ValueError(
-                    """
+                    """\n
                     [ GpRegressor error ]
-                    The 'y_cov' keyword argument was passed an array with an incorrect shape.
-                    'y_cov' must be a 2D array of shape (N,N), where 'N' is the number of given 
-                    y-data values.
+                    >> The 'y_cov' keyword argument was passed an array with an incorrect
+                    >> shape. 'y_cov' must be a 2D array of shape (N,N), where 'N' is the
+                    >> number of given y-data values.
                     """
                 )
 
             # check to make sure the given matrix is symmetric
             if not (y_cov == y_cov.T).all():
                 raise ValueError(
-                    """
+                    """\n
                     [ GpRegressor error ]
-                    The covariance matrix passed to the 'y_cov' keyword argument is not symmetric.
+                    >> The covariance matrix passed to the 'y_cov' keyword argument
+                    >> is not symmetric.
                     """
                 )
 
             # raise a warning if both keywords have been specified
             if y_err is not None:
                 warn(
-                    """
+                    """\n
                     [ GpRegressor warning ]
-                    Only one of the 'y_err' and 'y_cov' keyword arguments should be specified.
-                    Only the input to 'y_cov' will be used, the input to 'y_err' will be ignored.
+                    >> Only one of the 'y_err' and 'y_cov' keyword arguments should 
+                    >> be specified. Only the input to 'y_cov' will be used - the
+                    >> input to 'y_err' will be ignored.
                     """
                 )
 
@@ -267,55 +292,53 @@ class GpRegressor(object):
             elif type(y_err) is not ndarray:
                 # else if it isn't already an array raise an error
                 raise TypeError(
-                    f"""
+                    f"""\n
                     [ GpRegressor error ]
-                    The 'y_err' keyword argument should be given as a numpy array:
-                    Expected type {ndarray} but type {type(y_err)} was given.
+                    >> The 'y_err' keyword argument should be given as a numpy array:
+                    >> Expected type {ndarray} but type {type(y_err)} was given.
                     """
                 )
 
             # now check to make sure the given error array is a valid size
-            if y_err.shape != (self.N_points,):
+            if y_err.shape != (self.n_points,):
                 raise ValueError(
-                    """
+                    """\n
                     [ GpRegressor error ]
-                    The 'y_err' keyword argument was passed an array with an incorrect shape.
-                    'y_err' must be a 1D array of length N, where 'N' is the number of given 
-                    y-data values.
+                    >> The 'y_err' keyword argument was passed an array with an
+                    >> incorrect shape. 'y_err' must be a 1D array of length 'N',
+                    >> where 'N' is the number of given y-data values.
                     """
                 )
 
             return diag(y_err**2)
         else:
-            return zeros([self.N_points, self.N_points])
+            return zeros([self.n_points, self.n_points])
 
     def process_points(self, points):
-        if type(points) is ndarray:
-            x = points
-        else:
-            x = array(points)
+        x = points if isinstance(points, ndarray) else array(points)
 
-        m = len(x.shape)
-        if self.N_dimensions == 1:
-            if m == 0:  # the case when given a float
-                x = x.reshape([1, 1])
-            elif m == 1:
-                x = x.reshape([x.shape[0], 1])
-            elif m == 2 and x.shape[1] != 1:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
-        else:
-            if m == 0:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
-            elif m == 1 and x.shape[0] == self.N_dimensions:
-                x = x.reshape([1, self.N_dimensions])
-            elif m == 2 and x.shape[1] != self.N_dimensions:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
+        if x.ndim <= 1 and self.n_dimensions == 1:
+            x = x.reshape([x.size, 1])
+        elif x.ndim == 1 and x.size == self.n_dimensions:
+            x = x.reshape([1, x.size])
+        elif x.ndim >= 2:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor error ]
+                >> 'points' argument must be a 2D array, but given array
+                >> has {x.ndim} dimensions and shape {x.shape}.
+                """
+            )
+
+        if x.shape[1] != self.n_dimensions:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor error ]
+                >> The second dimension of the 'points' array must have size
+                >> equal to the number of dimensions of the input data.
+                >> The input data have {self.n_dimensions} dimensions but 'points' has shape {x.shape}.
+                """
+            )
         return x
 
     def gradient(self, points):
@@ -339,9 +362,9 @@ class GpRegressor(object):
         mu_q = []
         vars = []
         p = self.process_points(points)
-        for q in p[:, None, :]:
-            K_qx = self.cov(q, self.x, self.cov_hyperpars)
-            A, R = self.cov.gradient_terms(q[0, :], self.x, self.cov_hyperpars)
+        for pnt in p[:, None, :]:
+            K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
+            A, R = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
 
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A * K_qx).T, lower=True)
@@ -375,9 +398,9 @@ class GpRegressor(object):
         mu_gradients = []
         var_gradients = []
         p = self.process_points(points)
-        for q in p[:, None, :]:
-            K_qx = self.cov(q, self.x, self.cov_hyperpars)
-            A, _ = self.cov.gradient_terms(q[0, :], self.x, self.cov_hyperpars)
+        for pnt in p[:, None, :]:
+            K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
+            A, _ = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower=True))
 
@@ -425,8 +448,7 @@ class GpRegressor(object):
         This implementation is based on equation (5.12) from Rasmussen & Williams.
         """
         # Use the Cholesky decomposition of the covariance to find its inverse
-        I = eye(len(self.x))
-        iK = solve_triangular(self.L, eye(self.L.shape[0]), lower=True)
+        iK = solve_triangular(self.L, eye(self.n_points), lower=True)
         iK = iK.T @ iK
         var = 1.0 / diag(iK)
 
@@ -441,10 +463,9 @@ class GpRegressor(object):
         This implementation is based on equations (5.10, 5.11, 5.12) from
         Rasmussen & Williams.
         """
+        K_xx = self.cov.build_covariance(theta[self.cov_slice]) + self.sig
+        mu = self.mean.build_mean(theta[self.mean_slice])
         try:
-            K_xx = self.cov.build_covariance(theta[self.cov_slice]) + self.sig
-            mu = self.mean.build_mean(theta[self.mean_slice])
-
             # Use the Cholesky decomposition of the covariance to find its inverse
             L = cholesky(K_xx)
             iK = solve_triangular(L, eye(L.shape[0]), lower=True)
@@ -452,7 +473,7 @@ class GpRegressor(object):
             alpha = iK.dot(self.y - mu)
             var = 1.0 / diag(iK)
             return -0.5 * (var * alpha**2 + log(var)).sum()
-        except:
+        except LinAlgError:
             warn("Cholesky decomposition failure in loo_likelihood")
             return -1e50
 
@@ -508,7 +529,7 @@ class GpRegressor(object):
             L = cholesky(K_xx)
             alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
             return -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
-        except:
+        except LinAlgError:
             warn("Cholesky decomposition failure in marginal_likelihood")
             return -1e50
 
