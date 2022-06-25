@@ -109,7 +109,7 @@ class GpRegressor(object):
             self.n_dimensions = self.x.shape[1]
         elif self.x.ndim <= 1:
             self.n_dimensions = 1
-            self.x.resize([self.x.size, self.n_dimensions])
+            self.x = self.x.reshape([self.x.size, self.n_dimensions])
         else:
             raise ValueError(
                 f"""\n
@@ -317,27 +317,28 @@ class GpRegressor(object):
     def process_points(self, points):
         x = points if isinstance(points, ndarray) else array(points)
 
-        m = len(x.shape)
-        if self.n_dimensions == 1:
-            if m == 0:  # the case when given a float
-                x = x.reshape([1, 1])
-            elif m == 1:
-                x = x.reshape([x.shape[0], 1])
-            elif m == 2 and x.shape[1] != 1:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
-        else:
-            if m == 0:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
-            elif m == 1 and x.shape[0] == self.n_dimensions:
-                x = x.reshape([1, self.n_dimensions])
-            elif m == 2 and x.shape[1] != self.n_dimensions:
-                raise ValueError(
-                    "given spatial points have an incorrect number of dimensions"
-                )
+        if x.ndim <= 1 and self.n_dimensions == 1:
+            x = x.reshape([x.size, 1])
+        elif x.ndim == 1 and x.size == self.n_dimensions:
+            x = x.reshape([1, x.size])
+        elif x.ndim >= 2:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor error ]
+                >> 'points' argument must be a 2D array, but given array
+                >> has {x.ndim} dimensions and shape {x.shape}.
+                """
+            )
+
+        if x.shape[1] != self.n_dimensions:
+            raise ValueError(
+                f"""\n
+                [ GpRegressor error ]
+                >> The second dimension of the 'points' array must have size
+                >> equal to the number of dimensions of the input data.
+                >> The input data have {self.n_dimensions} dimensions but 'points' has shape {x.shape}.
+                """
+            )
         return x
 
     def gradient(self, points):
@@ -361,9 +362,9 @@ class GpRegressor(object):
         mu_q = []
         vars = []
         p = self.process_points(points)
-        for q in p[:, None, :]:
-            K_qx = self.cov(q, self.x, self.cov_hyperpars)
-            A, R = self.cov.gradient_terms(q[0, :], self.x, self.cov_hyperpars)
+        for pnt in p[:, None, :]:
+            K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
+            A, R = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
 
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A * K_qx).T, lower=True)
@@ -397,9 +398,9 @@ class GpRegressor(object):
         mu_gradients = []
         var_gradients = []
         p = self.process_points(points)
-        for q in p[:, None, :]:
-            K_qx = self.cov(q, self.x, self.cov_hyperpars)
-            A, _ = self.cov.gradient_terms(q[0, :], self.x, self.cov_hyperpars)
+        for pnt in p[:, None, :]:
+            K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
+            A, _ = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
             B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower=True))
 
@@ -447,8 +448,7 @@ class GpRegressor(object):
         This implementation is based on equation (5.12) from Rasmussen & Williams.
         """
         # Use the Cholesky decomposition of the covariance to find its inverse
-        I = eye(len(self.x))
-        iK = solve_triangular(self.L, eye(self.L.shape[0]), lower=True)
+        iK = solve_triangular(self.L, eye(self.n_points), lower=True)
         iK = iK.T @ iK
         var = 1.0 / diag(iK)
 
