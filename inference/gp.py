@@ -527,8 +527,8 @@ class GpRegressor(object):
         mu = self.mean.build_mean(theta[self.mean_slice])
         try:  # protection against singular matrix error crash
             L = cholesky(K_xx)
-            alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
-            return -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
+            v = solve_triangular(L, self.y - mu, lower=True)
+            return -0.5 * (v @ v) - log(diagonal(L)).sum()
         except LinAlgError:
             warn("Cholesky decomposition failure in marginal_likelihood")
             return -1e50
