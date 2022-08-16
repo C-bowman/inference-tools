@@ -9,7 +9,7 @@ class CovarianceFunction(ABC):
     """
 
     @abstractmethod
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         pass
 
     @abstractmethod
@@ -42,8 +42,8 @@ class CompositeCovariance(CovarianceFunction):
     def __init__(self, covariance_components):
         self.components = covariance_components
 
-    def pass_data(self, x, y):
-        [comp.pass_data(x, y) for comp in self.components]
+    def pass_regression_data(self, x, y):
+        [comp.pass_regression_data(x, y) for comp in self.components]
         # Create slices to address the parameters of each component
         self.slices = slice_builder([c.n_params for c in self.components])
         # combine parameter bounds for each component
@@ -114,7 +114,7 @@ class WhiteNoise(CovarianceFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
         matrix as an optimisation, and sets bounds on hyperparameter values.
@@ -177,7 +177,7 @@ class SquaredExponential(CovarianceFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
         matrix as an optimisation, and sets bounds on hyperparameter values.
@@ -269,7 +269,7 @@ class RationalQuadratic(CovarianceFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
         matrix as an optimisation, and sets bounds on hyperparameter values.
@@ -389,9 +389,9 @@ class ChangePoint(CovarianceFunction):
         self.hyperpar_labels = []
         self.bounds = []
 
-    def pass_data(self, x, y):
-        self.cov1.pass_data(x, y)
-        self.cov2.pass_data(x, y)
+    def pass_regression_data(self, x, y):
+        self.cov1.pass_regression_data(x, y)
+        self.cov2.pass_regression_data(x, y)
         # Create slices to address the parameters of each component
         param_counts = [self.cov1.n_params, self.cov2.n_params, 2]
         self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(param_counts)

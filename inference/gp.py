@@ -139,8 +139,8 @@ class GpRegressor(object):
         self.mean = mean() if isclass(mean) else mean
 
         # pass the data to the mean and covariance functions for pre-calculations
-        self.cov.pass_data(self.x, self.y)
-        self.mean.pass_data(self.x, self.y)
+        self.cov.pass_regression_data(self.x, self.y)
+        self.mean.pass_regression_data(self.x, self.y)
         # collect the bounds on all the hyper-parameters
         self.hp_bounds = copy(self.mean.bounds)
         self.hp_bounds.extend(copy(self.cov.bounds))

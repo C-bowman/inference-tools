@@ -6,7 +6,7 @@ class ConstantMean(object):
         self.n_params = 1
         self.hyperpar_labels = ["mean"]
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         self.n_data = y.size
         w = y.max() - y.min()
         self.bounds = [(y.min() - w, y.max() + w)]
@@ -25,7 +25,7 @@ class LinearMean(object):
     def __init__(self):
         pass
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         self.x_mean = x.mean(axis=0)
         self.dx = x - self.x_mean[None, :]
         self.n_data = y.size
@@ -54,7 +54,7 @@ class QuadraticMean(object):
     def __init__(self):
         pass
 
-    def pass_data(self, x, y):
+    def pass_regression_data(self, x, y):
         n = x.shape[1]
         self.x_mean = x.mean(axis=0)
         self.dx = x - self.x_mean[None, :]
