@@ -5,11 +5,12 @@
 from numpy import diagonal, arange, diag
 from numpy import sum as npsum
 from numpy.linalg import cholesky, LinAlgError
-from scipy.linalg import solve_triangular
+from scipy.linalg import solve, solve_triangular
 from scipy.optimize import differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
 from warnings import warn
 from copy import copy
+from typing import Type
 from inspect import isclass
 
 import matplotlib.pyplot as plt
@@ -19,7 +20,7 @@ from inference.mean import *
 from inference.acquisition import *
 
 
-class GpRegressor(object):
+class GpRegressor:
     """
     A class for performing Gaussian-process regression in one or more dimensions.
 
@@ -139,8 +140,13 @@ class GpRegressor(object):
         self.mean = mean() if isclass(mean) else mean
 
         # pass the data to the mean and covariance functions for pre-calculations
-        self.cov.pass_regression_data(self.x, self.y)
-        self.mean.pass_regression_data(self.x, self.y)
+        self.cov.pass_spatial_data(self.x)
+        self.mean.pass_spatial_data(self.x)
+        # if bounds on the hyper-parameters were not given, estimate them
+        if self.cov.bounds is None:
+            self.cov.estimate_hyperpar_bounds(self.y)
+        if self.mean.bounds is None:
+            self.mean.estimate_hyperpar_bounds(self.y)
         # collect the bounds on all the hyper-parameters
         self.hp_bounds = copy(self.mean.bounds)
         self.hp_bounds.extend(copy(self.cov.bounds))
@@ -631,7 +637,7 @@ class MarginalisedGpRegressor(object):
         return grad_mu.mean(axis=0), grad_var.mean(axis=0)
 
 
-class GpOptimiser(object):
+class GpOptimiser:
     """
     A class for performing Gaussian-process optimisation in one or more dimensions.
 
@@ -898,3 +904,62 @@ class GpOptimiser(object):
             plt.show()
         else:
             plt.close()
+
+
+class GpLinearInverter:
+    def __init__(
+        self,
+        y: ndarray,
+        y_err: ndarray,
+        model_matrix: ndarray,
+        parameter_spatial_positions: ndarray,
+        kernel: Type[CovarianceFunction],
+    ):
+        if model_matrix.ndim != 2:
+            raise ValueError(
+                """
+                [ GpLinearInverter error ]
+                >> 'model_matrix' argument must be a 2D numpy.ndarray
+                """
+            )
+
+        if y.ndim != y_err.ndim != 1 or y.size != y_err.size:
+            raise ValueError(
+                """
+                [ GpLinearInverter error ]
+                >> 'y' and 'y_err' arguments must be 1D numpy.ndarray
+                >> of equal size.
+                """
+            )
+
+        if model_matrix.shape[0] != y.size:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> The size of the first dimension of 'model_matrix' must
+                >> equal the size of 'y', however they have shapes
+                >> {model_matrix.shape}, {y.shape}
+                >> respectively.
+                """
+            )
+
+        self.A = model_matrix
+        self.y = y
+        self.cov = kernel() if isclass(kernel) else kernel
+        self.cov.pass_spatial_data(parameter_spatial_positions)
+        self.sigma = diag(y_err**2)
+        self.inv_sigma = diag(y_err**-2)
+        self.I = eye(self.A.shape[1])
+
+    def solve(self, theta):
+        K = self.cov.build_covariance(theta)
+        W = self.A.T @ self.inv_sigma @ self.A
+        posterior_cov = solve(self.I + K @ W, K)
+        posterior_mean = posterior_cov @ (self.A.T @ (self.inv_sigma @ self.y))
+        return posterior_mean, posterior_cov
+
+    def marginal_likelihood(self, theta):
+        K = self.cov.build_covariance(theta)
+        L = cholesky(self.A @ K @ self.A.T + self.sigma)
+        v = solve_triangular(L, self.y, lower=True)
+        return -0.5 * (v @ v) - log(diagonal(L)).sum()
