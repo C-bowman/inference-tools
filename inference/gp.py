@@ -943,6 +943,29 @@ class GpLinearInverter:
                 """
             )
 
+        if parameter_spatial_positions.ndim != 2:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> 'parameter_spatial_positions' must be a 2D numpy.ndarray, with the
+                >> size of first dimension being equal to the number of model parameters
+                >> and the size of the second dimension being equal to the number of
+                >> spatial dimensions.
+                """
+            )
+
+        if model_matrix.shape[1] != parameter_spatial_positions.shape[0]:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> The size of the second dimension of 'model_matrix' must be equal
+                >> to the size of the first dimension of 'parameter_spatial_positions',
+                >> however they have shapes
+                >> {model_matrix.shape}, {parameter_spatial_positions.shape}
+                >> respectively.
+                """
+            )
+
         self.A = model_matrix
         self.y = y
         self.cov = kernel() if isclass(kernel) else kernel
