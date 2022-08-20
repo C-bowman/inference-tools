@@ -420,7 +420,7 @@ class ChangePoint(CovarianceFunction):
         self.hyperpar_labels = []
         self.bounds = []
 
-    def pass_spatial_data(self, x):
+    def pass_spatial_data(self, x: ndarray):
         self.cov1.pass_spatial_data(x)
         self.cov2.pass_spatial_data(x)
         # Create slices to address the parameters of each component
@@ -439,10 +439,14 @@ class ChangePoint(CovarianceFunction):
         self.x_cp = x[:, self.axis]
         assert self.n_params == len(self.hyperpar_labels)
 
-    def estimate_hyperpar_bounds(self, y):
+    def estimate_hyperpar_bounds(self, y: ndarray):
         xr = self.x_cp.min(), self.x_cp.max()
         dx = xr[1] - xr[0]
         # combine parameter bounds for K1, K2 and the change-point
+        if self.cov1.bounds is None:
+            self.cov1.estimate_hyperpar_bounds(y)
+        if self.cov2.bounds is None:
+            self.cov2.estimate_hyperpar_bounds(y)
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
         self.bounds.extend(
