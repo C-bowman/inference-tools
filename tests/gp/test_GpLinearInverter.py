@@ -1,7 +1,6 @@
 from numpy import sqrt, linspace, zeros, ones
 from numpy.random import normal
 from scipy.special import erfc
-from scipy.optimize import minimize
 from inference.covariance import SquaredExponential, RationalQuadratic, WhiteNoise
 from inference.gp import GpLinearInverter
 import pytest
@@ -54,18 +53,12 @@ def test_gp_linear_inverter(cov_func):
         y=y,
         y_err=y_err,
         parameter_spatial_positions=x.reshape([x.size, 1]),
-        prior_covariance=cov_func,
-    )
-
-    # optimise the hyper-parameters
-    OptResult = minimize(
-        fun=lambda t: -GLI.marginal_likelihood(t),
-        x0=ones(GLI.cov.n_params),
-        method="Nelder-Mead",
+        prior_covariance_function=cov_func,
     )
 
     # solve for the posterior mean and covariance
-    mu, cov = GLI.calculate_posterior(OptResult.x)
+    theta_opt = GLI.optimize_hyperparameters(initial_guess=ones(GLI.cov.n_params))
+    mu, cov = GLI.calculate_posterior(theta_opt)
 
     # check that the forward prediction of the solution
     # matches the testing data

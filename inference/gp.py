@@ -6,7 +6,7 @@ from numpy import diagonal, arange, diag
 from numpy import sum as npsum
 from numpy.linalg import cholesky, LinAlgError
 from scipy.linalg import solve, solve_triangular
-from scipy.optimize import differential_evolution, fmin_l_bfgs_b
+from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
 from warnings import warn
 from copy import copy
@@ -937,7 +937,7 @@ class GpLinearInverter:
         A 2D ``numpy.ndarray`` specifying the 'positions' of the model parameters
         in some space over which their values are expected to be correlated.
 
-    :param class prior_covariance: \
+    :param class prior_covariance_function: \
         A covariance function class which will be used to generate the prior
         covariance. The covariance function classes can be found in the ``gp`` module.
     """
@@ -948,7 +948,7 @@ class GpLinearInverter:
         y_err: ndarray,
         model_matrix: ndarray,
         parameter_spatial_positions: ndarray,
-        prior_covariance: Type[CovarianceFunction],
+        prior_covariance_function: Type[CovarianceFunction],
     ):
         if model_matrix.ndim != 2:
             raise ValueError(
@@ -980,7 +980,7 @@ class GpLinearInverter:
 
         if parameter_spatial_positions.ndim != 2:
             raise ValueError(
-                f"""
+                """
                 [ GpLinearInverter error ]
                 >> 'parameter_spatial_positions' must be a 2D numpy.ndarray, with the
                 >> size of first dimension being equal to the number of model parameters
@@ -1003,7 +1003,8 @@ class GpLinearInverter:
 
         self.A = model_matrix
         self.y = y
-        self.cov = prior_covariance() if isclass(prior_covariance) else prior_covariance
+        self.cov = prior_covariance_function
+        self.cov = self.cov() if isclass(self.cov) else self.cov
         self.cov.pass_spatial_data(parameter_spatial_positions)
         self.sigma = diag(y_err**2)
         self.inv_sigma = diag(y_err**-2)
@@ -1040,3 +1041,31 @@ class GpLinearInverter:
         L = cholesky(self.A @ K @ self.A.T + self.sigma)
         v = solve_triangular(L, self.y, lower=True)
         return -0.5 * (v @ v) - log(diagonal(L)).sum()
+
+    def optimize_hyperparameters(self, initial_guess: ndarray) -> ndarray:
+        """
+        Finds the hyper-parameter values which maximise the
+        marginal-likelihood.
+
+        :param initial_guess: \
+            An initial guess for the hyper-parameter values as
+            a 1D ``numpy.ndarray``.
+
+        :return: \
+            The hyper-parameters which maximise the marginal-likelihood
+            as a 1D ``numpy.ndarray``.
+        """
+        if initial_guess.size != self.cov.n_params:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> The prior covariance function has {self.cov.n_params} parameters,
+                >> but {initial_guess.size} values were given in 'initial_guess'.
+                """
+            )
+        OptResult = minimize(
+            fun=lambda t: -self.marginal_likelihood(t),
+            x0=initial_guess,
+            method="Nelder-Mead"
+        )
+        return OptResult.x
