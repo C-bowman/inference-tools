@@ -54,7 +54,7 @@ def test_gp_linear_inverter(cov_func):
         y=y,
         y_err=y_err,
         parameter_spatial_positions=x.reshape([x.size, 1]),
-        kernel=cov_func,
+        prior_covariance=cov_func,
     )
 
     # optimise the hyper-parameters
@@ -65,7 +65,7 @@ def test_gp_linear_inverter(cov_func):
     )
 
     # solve for the posterior mean and covariance
-    mu, cov = GLI.solve(OptResult.x)
+    mu, cov = GLI.calculate_posterior(OptResult.x)
 
     # check that the forward prediction of the solution
     # matches the testing data

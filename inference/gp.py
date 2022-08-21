@@ -907,13 +907,48 @@ class GpOptimiser:
 
 
 class GpLinearInverter:
+    """
+    A class for performing Gaussian-process linear inversion.
+
+    In the case where both the likelihood and prior distributions are multivariate
+    normal, and the forward-model is linear, the posterior distribution is also
+    multivariate normal, and the posterior mean and covariance can be calculated
+    directly from the likelihood and prior mean and covariance.
+
+    If each of the model parameters can be associated with a position in some
+    space (which is often the case in tomography and deconvolution problems)
+    and we expect their values to be correlated within that space, we can
+    model this behavior using a gaussian-process prior distribution.
+
+    :param y: \
+        The y-data values as a 1D ``numpy.ndarray``.
+
+    :param y_err: \
+        The error on the y-data values supplied as a 1D ``numpy.ndarray``.
+        These values are used to construct the likelihood covariance, which
+        is assumed to be diagonal.
+
+    :param model_matrix: \
+        The linear forward-model as a 2D ``numpy.ndarray``. The product of
+        this model matrix with a vector of model parameter values should
+        yield a prediction of the y-data values.
+
+    :param parameter_spatial_positions: \
+        A 2D ``numpy.ndarray`` specifying the 'positions' of the model parameters
+        in some space over which their values are expected to be correlated.
+
+    :param class prior_covariance: \
+        A covariance function class which will be used to generate the prior
+        covariance. The covariance function classes can be found in the ``gp`` module.
+    """
+
     def __init__(
         self,
         y: ndarray,
         y_err: ndarray,
         model_matrix: ndarray,
         parameter_spatial_positions: ndarray,
-        kernel: Type[CovarianceFunction],
+        prior_covariance: Type[CovarianceFunction],
     ):
         if model_matrix.ndim != 2:
             raise ValueError(
@@ -968,20 +1003,39 @@ class GpLinearInverter:
 
         self.A = model_matrix
         self.y = y
-        self.cov = kernel() if isclass(kernel) else kernel
+        self.cov = prior_covariance() if isclass(prior_covariance) else prior_covariance
         self.cov.pass_spatial_data(parameter_spatial_positions)
         self.sigma = diag(y_err**2)
         self.inv_sigma = diag(y_err**-2)
         self.I = eye(self.A.shape[1])
 
-    def solve(self, theta):
+    def calculate_posterior(self, theta: ndarray):
+        """
+        Calculate the posterior mean and covariance for the given
+        hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The posterior mean and covariance.
+        """
         K = self.cov.build_covariance(theta)
         W = self.A.T @ self.inv_sigma @ self.A
         posterior_cov = solve(self.I + K @ W, K)
         posterior_mean = posterior_cov @ (self.A.T @ (self.inv_sigma @ self.y))
         return posterior_mean, posterior_cov
 
-    def marginal_likelihood(self, theta):
+    def marginal_likelihood(self, theta: ndarray):
+        """
+        Calculate the log-marginal likelihood for the given hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The log-marginal likelihood value.
+        """
         K = self.cov.build_covariance(theta)
         L = cholesky(self.A @ K @ self.A.T + self.sigma)
         v = solve_triangular(L, self.y, lower=True)
