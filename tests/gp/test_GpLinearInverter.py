@@ -1,4 +1,4 @@
-from numpy import sqrt, linspace, zeros, ones
+from numpy import allclose, sqrt, linspace, zeros, ones
 from numpy.random import normal
 from scipy.special import erfc
 from inference.covariance import SquaredExponential, RationalQuadratic, WhiteNoise
@@ -59,6 +59,8 @@ def test_gp_linear_inverter(cov_func):
     # solve for the posterior mean and covariance
     theta_opt = GLI.optimize_hyperparameters(initial_guess=ones(GLI.cov.n_params))
     mu, cov = GLI.calculate_posterior(theta_opt)
+    mu_alt = GLI.calculate_posterior_mean(theta_opt)
+    assert allclose(mu, mu_alt)
 
     # check that the forward prediction of the solution
     # matches the testing data

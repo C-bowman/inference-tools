@@ -1027,6 +1027,22 @@ class GpLinearInverter:
         posterior_mean = posterior_cov @ (self.A.T @ (self.inv_sigma @ self.y))
         return posterior_mean, posterior_cov
 
+    def calculate_posterior_mean(self, theta: ndarray):
+        """
+        Calculate the posterior mean for the given
+        hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The posterior mean and covariance.
+        """
+        K = self.cov.build_covariance(theta)
+        u = self.A.T @ (self.inv_sigma @ self.y)
+        W = self.A.T @ self.inv_sigma @ self.A
+        return solve(self.I + K @ W, K @ u)
+
     def marginal_likelihood(self, theta: ndarray):
         """
         Calculate the log-marginal likelihood for the given hyper-parameter values.
