@@ -1066,6 +1066,6 @@ class GpLinearInverter:
         OptResult = minimize(
             fun=lambda t: -self.marginal_likelihood(t),
             x0=initial_guess,
-            method="Nelder-Mead"
+            method="Nelder-Mead",
         )
         return OptResult.x
