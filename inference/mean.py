@@ -1,7 +1,34 @@
 from numpy import dot, zeros, ones, ndarray
+from abc import ABC, abstractmethod
 
 
-class ConstantMean:
+class MeanFunction(ABC):
+    """
+    Abstract base class for mean functions.
+    """
+
+    @abstractmethod
+    def pass_spatial_data(self, x):
+        pass
+
+    @abstractmethod
+    def estimate_hyperpar_bounds(self, y):
+        pass
+
+    @abstractmethod
+    def __call__(self, q, theta):
+        pass
+
+    @abstractmethod
+    def build_mean(self, theta):
+        pass
+
+    @abstractmethod
+    def mean_and_gradients(self, theta):
+        pass
+
+
+class ConstantMean(MeanFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
         self.n_params = 1
@@ -24,7 +51,7 @@ class ConstantMean:
         return zeros(self.n_data) + theta[0], [ones(self.n_data)]
 
 
-class LinearMean:
+class LinearMean(MeanFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
@@ -54,7 +81,7 @@ class LinearMean:
         return theta[0] + dot(self.dx, theta[1:]), grads
 
 
-class QuadraticMean:
+class QuadraticMean(MeanFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
