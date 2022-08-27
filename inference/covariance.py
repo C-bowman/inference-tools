@@ -45,6 +45,7 @@ class CovarianceFunction(ABC):
 class CompositeCovariance(CovarianceFunction):
     def __init__(self, covariance_components):
         self.components = covariance_components
+        self.bounds = None
 
     def pass_spatial_data(self, x):
         """

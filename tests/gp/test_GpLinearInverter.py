@@ -57,7 +57,7 @@ def test_gp_linear_inverter(cov_func):
     )
 
     # solve for the posterior mean and covariance
-    theta_opt = GLI.optimize_hyperparameters(initial_guess=ones(GLI.cov.n_params))
+    theta_opt = GLI.optimize_hyperparameters(initial_guess=ones(GLI.n_hyperpars))
     mu, cov = GLI.calculate_posterior(theta_opt)
     mu_alt = GLI.calculate_posterior_mean(theta_opt)
     assert allclose(mu, mu_alt)

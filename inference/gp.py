@@ -948,7 +948,8 @@ class GpLinearInverter:
         y_err: ndarray,
         model_matrix: ndarray,
         parameter_spatial_positions: ndarray,
-        prior_covariance_function: Type[CovarianceFunction],
+        prior_covariance_function: Type[CovarianceFunction] = SquaredExponential,
+        prior_mean_function: Type[MeanFunction] = ConstantMean,
     ):
         if model_matrix.ndim != 2:
             raise ValueError(
@@ -1003,9 +1004,20 @@ class GpLinearInverter:
 
         self.A = model_matrix
         self.y = y
+
         self.cov = prior_covariance_function
         self.cov = self.cov() if isclass(self.cov) else self.cov
         self.cov.pass_spatial_data(parameter_spatial_positions)
+
+        self.mean = prior_mean_function
+        self.mean = self.mean() if isclass(self.mean) else self.mean
+        self.mean.pass_spatial_data(parameter_spatial_positions)
+
+        self.n_hyperpars = self.mean.n_params + self.cov.n_params
+        self.mean_slice = slice(0, self.mean.n_params)
+        self.cov_slice = slice(self.mean.n_params, self.n_hyperpars)
+        self.hyperpar_labels = [*self.mean.hyperpar_labels, *self.cov.hyperpar_labels]
+
         self.sigma = diag(y_err**2)
         self.inv_sigma = diag(y_err**-2)
         self.I = eye(self.A.shape[1])
@@ -1021,10 +1033,12 @@ class GpLinearInverter:
         :return: \
             The posterior mean and covariance.
         """
-        K = self.cov.build_covariance(theta)
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
         W = self.A.T @ self.inv_sigma @ self.A
+        u = self.A.T @ (self.inv_sigma @ (self.y - self.A @ prior_mean))
         posterior_cov = solve(self.I + K @ W, K)
-        posterior_mean = posterior_cov @ (self.A.T @ (self.inv_sigma @ self.y))
+        posterior_mean = posterior_cov @ u + prior_mean
         return posterior_mean, posterior_cov
 
     def calculate_posterior_mean(self, theta: ndarray):
@@ -1038,10 +1052,11 @@ class GpLinearInverter:
         :return: \
             The posterior mean and covariance.
         """
-        K = self.cov.build_covariance(theta)
-        u = self.A.T @ (self.inv_sigma @ self.y)
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
+        u = self.A.T @ (self.inv_sigma @ (self.y - self.A @ prior_mean))
         W = self.A.T @ self.inv_sigma @ self.A
-        return solve(self.I + K @ W, K @ u)
+        return solve(self.I + K @ W, K @ u) + prior_mean
 
     def marginal_likelihood(self, theta: ndarray):
         """
@@ -1053,9 +1068,10 @@ class GpLinearInverter:
         :return: \
             The log-marginal likelihood value.
         """
-        K = self.cov.build_covariance(theta)
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
         L = cholesky(self.A @ K @ self.A.T + self.sigma)
-        v = solve_triangular(L, self.y, lower=True)
+        v = solve_triangular(L, self.y - self.A @ prior_mean, lower=True)
         return -0.5 * (v @ v) - log(diagonal(L)).sum()
 
     def optimize_hyperparameters(self, initial_guess: ndarray) -> ndarray:
@@ -1071,11 +1087,11 @@ class GpLinearInverter:
             The hyper-parameters which maximise the marginal-likelihood
             as a 1D ``numpy.ndarray``.
         """
-        if initial_guess.size != self.cov.n_params:
+        if initial_guess.size != self.n_hyperpars:
             raise ValueError(
                 f"""
                 [ GpLinearInverter error ]
-                >> The prior covariance function has {self.cov.n_params} parameters,
+                >> There are a total of {self.n_hyperpars} hyper-parameters,
                 >> but {initial_guess.size} values were given in 'initial_guess'.
                 """
             )
