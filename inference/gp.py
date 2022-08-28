@@ -939,7 +939,14 @@ class GpLinearInverter:
 
     :param class prior_covariance_function: \
         A covariance function class which will be used to generate the prior
-        covariance. The covariance function classes can be found in the ``gp`` module.
+        covariance. Covariance function classes can be found in the ``gp`` module,
+        or custom covariance functions can be written using the ``CovarianceFunction``
+        abstract base class.
+
+    :param class prior_mean_function: \
+        A mean function class which will be used to generate the prior
+        mean. Mean function classes can be found in the ``gp`` module, or custom
+        mean functions can be written using the ``MeanFunction`` abstract base class.
     """
 
     def __init__(
