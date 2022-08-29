@@ -32,7 +32,7 @@ class ConstantMean(MeanFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
         self.n_params = 1
-        self.hyperpar_labels = ["mean"]
+        self.hyperpar_labels = ["ConstantMean"]
 
     def pass_spatial_data(self, x: ndarray):
         self.n_data = x.shape[0]
@@ -60,8 +60,8 @@ class LinearMean(MeanFunction):
         self.dx = x - self.x_mean[None, :]
         self.n_data = x.shape[0]
         self.n_params = 1 + x.shape[1]
-        self.hyperpar_labels = ["mean_background"]
-        self.hyperpar_labels.extend([f"mean_gradient_{i}" for i in range(x.shape[1])])
+        self.hyperpar_labels = ["LinearMean background"]
+        self.hyperpar_labels.extend([f"LinearMean gradient {i}" for i in range(x.shape[1])])
 
     def estimate_hyperpar_bounds(self, y: ndarray):
         w = y.max() - y.min()

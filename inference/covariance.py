@@ -58,7 +58,7 @@ class CompositeCovariance(CovarianceFunction):
         # combine hyperparameter labels for each component
         self.hyperpar_labels = []
         for i, comp in enumerate(self.components):
-            labels = [f"K{i+1}_{s}" for s in comp.hyperpar_labels]
+            labels = [f"K{i+1}: {s}" for s in comp.hyperpar_labels]
             self.hyperpar_labels.extend(labels)
         # check for consistency of length of bounds, labels
         self.n_params = sum(c.n_params for c in self.components)
@@ -133,7 +133,7 @@ class WhiteNoise(CovarianceFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
         self.n_params = 1
-        self.hyperpar_labels = ["log_noise_level"]
+        self.hyperpar_labels = ["WhiteNoise log-sigma"]
 
     def pass_spatial_data(self, x: ndarray):
         """
@@ -214,8 +214,8 @@ class SquaredExponential(CovarianceFunction):
         # small values added to the diagonal for stability
         self.epsilon = 1e-12 * eye(self.dx.shape[0])
         self.n_params = x.shape[1] + 1
-        self.hyperpar_labels = ["log_amplitude"]
-        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
+        self.hyperpar_labels = ["SqrExp log-amplitude"]
+        self.hyperpar_labels.extend([f"SqrExp log-scale {i}" for i in range(x.shape[1])])
 
     def estimate_hyperpar_bounds(self, y: ndarray):
         """
@@ -309,8 +309,8 @@ class RationalQuadratic(CovarianceFunction):
         # small values added to the diagonal for stability
         self.epsilon = 1e-12 * eye(self.dx.shape[0])
         self.n_params = x.shape[1] + 2
-        self.hyperpar_labels = ["log_amplitude", "log_alpha"]
-        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
+        self.hyperpar_labels = ["RQ log-amplitude", "RQ log-alpha"]
+        self.hyperpar_labels.extend([f"RQ log-scale {i}" for i in range(x.shape[1])])
 
     def estimate_hyperpar_bounds(self, y: ndarray):
         """
@@ -430,9 +430,9 @@ class ChangePoint(CovarianceFunction):
         self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(param_counts)
         # combine hyperparameter labels for K1, K2 and the change-point
         label_groups = [
-            [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels],
-            [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels],
-            ["ChngPnt_location", "ChngPnt_width"],
+            [f"ChngPnt K1: {lab}" for lab in self.cov1.hyperpar_labels],
+            [f"ChngPnt K2: {lab}" for lab in self.cov2.hyperpar_labels],
+            ["ChngPnt location", "ChngPnt width"],
         ]
         [self.hyperpar_labels.extend(L) for L in label_groups]
 
