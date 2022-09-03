@@ -2,7 +2,7 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import diagonal, arange, diag
+from numpy import append, diagonal, arange, diag
 from numpy import sum as npsum
 from numpy.linalg import cholesky, LinAlgError
 from scipy.linalg import solve, solve_triangular
@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from warnings import warn
 from copy import copy
 from typing import Type
-from inspect import isclass
+from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
 
@@ -37,10 +37,10 @@ class GpRegressor:
         given, which will be converted to a ``ndarray`` internally.
 
     :param y: \
-        The y-data values as a 1D array.
+        The y-data values as a 1D ``numpy.ndarray``.
 
     :param y_err: \
-        The error on the y-data values supplied as a 1D array.
+        The error on the y-data values supplied as a 1D ``numpy.ndarray``.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
@@ -79,16 +79,16 @@ class GpRegressor:
 
     def __init__(
         self,
-        x,
-        y,
-        y_err=None,
-        y_cov=None,
-        hyperpars=None,
-        kernel=SquaredExponential,
-        mean=ConstantMean,
-        cross_val=False,
-        optimizer="bfgs",
-        n_processes=1,
+        x: ndarray,
+        y: ndarray,
+        y_err: ndarray = None,
+        y_cov: ndarray = None,
+        hyperpars: ndarray = None,
+        kernel: Type[CovarianceFunction] = SquaredExponential,
+        mean: Type[MeanFunction] = ConstantMean,
+        cross_val: bool = False,
+        optimizer: str = "bfgs",
+        n_processes: int = 1,
     ):
 
         # store the data
@@ -327,7 +327,7 @@ class GpRegressor:
             x = x.reshape([x.size, 1])
         elif x.ndim == 1 and x.size == self.n_dimensions:
             x = x.reshape([1, x.size])
-        elif x.ndim >= 2:
+        elif x.ndim > 2:
             raise ValueError(
                 f"""\n
                 [ GpRegressor error ]
@@ -651,20 +651,20 @@ class GpOptimiser:
     search for the global maximum, on initialisation GpOptimiser must be provided with
     at least two evaluations of the function which is to be maximised.
 
-    :param list x: \
-        The spatial coordinates of the y-data values. For the 1-dimensional case,
-        this should be a list or array of floats. For greater than 1 dimension,
-        a list of coordinate arrays or tuples should be given.
+    :param x: \
+        The x-data points as a 2D ``numpy.ndarray`` with shape (number of points,
+        number of dimensions). Alternatively, a list of array-like objects can be
+        given, which will be converted to a ``ndarray`` internally.
 
-    :param list y: \
-        The y-data values as a list or array of floats.
+    :param y: \
+        The y-data values as a 1D ``numpy.ndarray``.
 
-    :keyword bounds: \
+    :param bounds: \
         An iterable containing tuples which specify the upper and lower bounds
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
-    :keyword y_err: \
-        The error on the y-data values supplied as a list or array of floats.
+    :param y_err: \
+        The error on the y-data values supplied as a 1D array.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
@@ -699,7 +699,7 @@ class GpOptimiser:
         the ``ExpectedImprovement`` acquisition function is used by default.
 
     :param str optimizer: \
-        Selects the optimization method used for selecting hyper-parameter values and proposed
+        Selects the optimisation method used for selecting hyper-parameter values and proposed
         evaluations. Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
         "diffev" for ``scipy.optimize.differential_evolution``.
 
@@ -710,24 +710,23 @@ class GpOptimiser:
 
     def __init__(
         self,
-        x,
-        y,
-        bounds,
-        y_err=None,
-        hyperpars=None,
-        kernel=SquaredExponential,
-        mean=ConstantMean,
-        cross_val=False,
+        x: ndarray,
+        y: ndarray,
+        bounds: Sequence,
+        y_err: ndarray = None,
+        hyperpars: ndarray = None,
+        kernel: Type[CovarianceFunction] = SquaredExponential,
+        mean: Type[MeanFunction] = ConstantMean,
+        cross_val: bool = False,
         acquisition=ExpectedImprovement,
-        optimizer="bfgs",
-        n_processes=1,
+        optimizer: str = "bfgs",
+        n_processes: int = 1,
     ):
-        self.x = list(x)
-        self.y = list(y)
-        self.y_err = y_err
-
-        if y_err is not None:
-            self.y_err = list(self.y_err)
+        self.x = x if isinstance(x, ndarray) else array(x)
+        if self.x.ndim == 1:
+            self.x.resize([self.x.size, 1])
+        self.y = y if isinstance(y, ndarray) else array(y)
+        self.y_err = y_err if isinstance(y_err, (ndarray, type(None))) else array(y_err)
 
         self.bounds = bounds
         self.kernel = kernel
@@ -737,8 +736,8 @@ class GpOptimiser:
         self.optimizer = optimizer
 
         self.gp = GpRegressor(
-            x,
-            y,
+            x=x,
+            y=y,
             y_err=y_err,
             hyperpars=hyperpars,
             kernel=kernel,
@@ -760,7 +759,7 @@ class GpOptimiser:
     def __call__(self, x):
         return self.gp(x)
 
-    def add_evaluation(self, new_x, new_y, new_y_err=None):
+    def add_evaluation(self, new_x: ndarray, new_y: ndarray, new_y_err: ndarray = None):
         """
         Add the latest evaluation to the data set and re-build the
         Gaussian process so a new proposed evaluation can be made.
@@ -769,19 +768,27 @@ class GpOptimiser:
         :param new_y: function value of the new evaluation
         :param new_y_err: Error of the new evaluation.
         """
+        new_x = new_x if isinstance(new_x, ndarray) else array(new_x)
+        if new_x.shape != (1, self.x.shape[1]):
+            new_x.resize((1, self.x.shape[1]))
+        new_y = new_y if isinstance(new_y, ndarray) else array(new_y)
+        good_type = isinstance(new_y_err, (ndarray, type(None)))
+        new_y_err = new_y_err if good_type else array(new_y_err)
+
         # store the acquisition function value of the new point
         self.acquisition_max_history.append(self.acquisition(new_x))
         self.convergence_metric_history.append(
             self.acquisition.convergence_metric(new_x)
         )
-        self.iteration_history.append(len(self.y) + 1)
+        self.iteration_history.append(self.y.size + 1)
 
         # update the data arrays
-        self.x.append(new_x)
-        self.y.append(new_y)
+        self.x = append(self.x, new_x, axis=0)
+        self.y = append(self.y, new_y)
+
         if self.y_err is not None:
             if new_y_err is not None:
-                self.y_err.append(new_y_err)
+                self.y_err = append(self.y_err, new_y_err)
             else:
                 raise ValueError(
                     "y_err must be specified for new evaluations if y_err was specified during __init__"
@@ -789,8 +796,8 @@ class GpOptimiser:
 
         # re-train the GP
         self.gp = GpRegressor(
-            self.x,
-            self.y,
+            x=self.x,
+            y=self.y,
             y_err=self.y_err,
             kernel=self.kernel,
             mean=self.mean,
@@ -798,7 +805,7 @@ class GpOptimiser:
             optimizer=self.optimizer,
             n_processes=self.n_processes,
         )
-        self.mu_max = max(self.y)
+        self.mu_max = self.y.max()
 
         # update the acquisition function info
         self.acquisition.update_gp(self.gp)
