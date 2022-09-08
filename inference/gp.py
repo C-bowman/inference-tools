@@ -2,15 +2,16 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import diagonal, arange, diag
+from numpy import append, diagonal, arange, diag
 from numpy import sum as npsum
 from numpy.linalg import cholesky, LinAlgError
-from scipy.linalg import solve_triangular
-from scipy.optimize import differential_evolution, fmin_l_bfgs_b
+from scipy.linalg import solve, solve_triangular
+from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
 from warnings import warn
 from copy import copy
-from inspect import isclass
+from typing import Type
+from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
 
@@ -19,7 +20,7 @@ from inference.mean import *
 from inference.acquisition import *
 
 
-class GpRegressor(object):
+class GpRegressor:
     """
     A class for performing Gaussian-process regression in one or more dimensions.
 
@@ -36,10 +37,10 @@ class GpRegressor(object):
         given, which will be converted to a ``ndarray`` internally.
 
     :param y: \
-        The y-data values as a 1D array.
+        The y-data values as a 1D ``numpy.ndarray``.
 
     :param y_err: \
-        The error on the y-data values supplied as a 1D array.
+        The error on the y-data values supplied as a 1D ``numpy.ndarray``.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
@@ -78,16 +79,16 @@ class GpRegressor(object):
 
     def __init__(
         self,
-        x,
-        y,
-        y_err=None,
-        y_cov=None,
-        hyperpars=None,
-        kernel=SquaredExponential,
-        mean=ConstantMean,
-        cross_val=False,
-        optimizer="bfgs",
-        n_processes=1,
+        x: ndarray,
+        y: ndarray,
+        y_err: ndarray = None,
+        y_cov: ndarray = None,
+        hyperpars: ndarray = None,
+        kernel: Type[CovarianceFunction] = SquaredExponential,
+        mean: Type[MeanFunction] = ConstantMean,
+        cross_val: bool = False,
+        optimizer: str = "bfgs",
+        n_processes: int = 1,
     ):
 
         # store the data
@@ -139,8 +140,13 @@ class GpRegressor(object):
         self.mean = mean() if isclass(mean) else mean
 
         # pass the data to the mean and covariance functions for pre-calculations
-        self.cov.pass_data(self.x, self.y)
-        self.mean.pass_data(self.x, self.y)
+        self.cov.pass_spatial_data(self.x)
+        self.mean.pass_spatial_data(self.x)
+        # if bounds on the hyper-parameters were not given, estimate them
+        if self.cov.bounds is None:
+            self.cov.estimate_hyperpar_bounds(self.y)
+        if self.mean.bounds is None:
+            self.mean.estimate_hyperpar_bounds(self.y)
         # collect the bounds on all the hyper-parameters
         self.hp_bounds = copy(self.mean.bounds)
         self.hp_bounds.extend(copy(self.cov.bounds))
@@ -321,7 +327,7 @@ class GpRegressor(object):
             x = x.reshape([x.size, 1])
         elif x.ndim == 1 and x.size == self.n_dimensions:
             x = x.reshape([1, x.size])
-        elif x.ndim >= 2:
+        elif x.ndim > 2:
             raise ValueError(
                 f"""\n
                 [ GpRegressor error ]
@@ -527,8 +533,8 @@ class GpRegressor(object):
         mu = self.mean.build_mean(theta[self.mean_slice])
         try:  # protection against singular matrix error crash
             L = cholesky(K_xx)
-            alpha = solve_triangular(L.T, solve_triangular(L, self.y - mu, lower=True))
-            return -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
+            v = solve_triangular(L, self.y - mu, lower=True)
+            return -0.5 * (v @ v) - log(diagonal(L)).sum()
         except LinAlgError:
             warn("Cholesky decomposition failure in marginal_likelihood")
             return -1e50
@@ -631,7 +637,7 @@ class MarginalisedGpRegressor(object):
         return grad_mu.mean(axis=0), grad_var.mean(axis=0)
 
 
-class GpOptimiser(object):
+class GpOptimiser:
     """
     A class for performing Gaussian-process optimisation in one or more dimensions.
 
@@ -645,20 +651,20 @@ class GpOptimiser(object):
     search for the global maximum, on initialisation GpOptimiser must be provided with
     at least two evaluations of the function which is to be maximised.
 
-    :param list x: \
-        The spatial coordinates of the y-data values. For the 1-dimensional case,
-        this should be a list or array of floats. For greater than 1 dimension,
-        a list of coordinate arrays or tuples should be given.
+    :param x: \
+        The x-data points as a 2D ``numpy.ndarray`` with shape (number of points,
+        number of dimensions). Alternatively, a list of array-like objects can be
+        given, which will be converted to a ``ndarray`` internally.
 
-    :param list y: \
-        The y-data values as a list or array of floats.
+    :param y: \
+        The y-data values as a 1D ``numpy.ndarray``.
 
-    :keyword bounds: \
+    :param bounds: \
         An iterable containing tuples which specify the upper and lower bounds
         for the optimisation in each dimension in the format (lower_bound, upper_bound).
 
-    :keyword y_err: \
-        The error on the y-data values supplied as a list or array of floats.
+    :param y_err: \
+        The error on the y-data values supplied as a 1D array.
         This technique explicitly assumes that errors are Gaussian, so the supplied
         error values represent normal distribution standard deviations. If this
         argument is not specified the errors are taken to be small but non-zero.
@@ -693,7 +699,7 @@ class GpOptimiser(object):
         the ``ExpectedImprovement`` acquisition function is used by default.
 
     :param str optimizer: \
-        Selects the optimization method used for selecting hyper-parameter values and proposed
+        Selects the optimisation method used for selecting hyper-parameter values and proposed
         evaluations. Available options are "bfgs" for ``scipy.optimize.fmin_l_bfgs_b`` or
         "diffev" for ``scipy.optimize.differential_evolution``.
 
@@ -704,24 +710,23 @@ class GpOptimiser(object):
 
     def __init__(
         self,
-        x,
-        y,
-        bounds,
-        y_err=None,
-        hyperpars=None,
-        kernel=SquaredExponential,
-        mean=ConstantMean,
-        cross_val=False,
+        x: ndarray,
+        y: ndarray,
+        bounds: Sequence,
+        y_err: ndarray = None,
+        hyperpars: ndarray = None,
+        kernel: Type[CovarianceFunction] = SquaredExponential,
+        mean: Type[MeanFunction] = ConstantMean,
+        cross_val: bool = False,
         acquisition=ExpectedImprovement,
-        optimizer="bfgs",
-        n_processes=1,
+        optimizer: str = "bfgs",
+        n_processes: int = 1,
     ):
-        self.x = list(x)
-        self.y = list(y)
-        self.y_err = y_err
-
-        if y_err is not None:
-            self.y_err = list(self.y_err)
+        self.x = x if isinstance(x, ndarray) else array(x)
+        if self.x.ndim == 1:
+            self.x.resize([self.x.size, 1])
+        self.y = y if isinstance(y, ndarray) else array(y)
+        self.y_err = y_err if isinstance(y_err, (ndarray, type(None))) else array(y_err)
 
         self.bounds = bounds
         self.kernel = kernel
@@ -731,8 +736,8 @@ class GpOptimiser(object):
         self.optimizer = optimizer
 
         self.gp = GpRegressor(
-            x,
-            y,
+            x=x,
+            y=y,
             y_err=y_err,
             hyperpars=hyperpars,
             kernel=kernel,
@@ -754,7 +759,7 @@ class GpOptimiser(object):
     def __call__(self, x):
         return self.gp(x)
 
-    def add_evaluation(self, new_x, new_y, new_y_err=None):
+    def add_evaluation(self, new_x: ndarray, new_y: ndarray, new_y_err: ndarray = None):
         """
         Add the latest evaluation to the data set and re-build the
         Gaussian process so a new proposed evaluation can be made.
@@ -763,19 +768,27 @@ class GpOptimiser(object):
         :param new_y: function value of the new evaluation
         :param new_y_err: Error of the new evaluation.
         """
+        new_x = new_x if isinstance(new_x, ndarray) else array(new_x)
+        if new_x.shape != (1, self.x.shape[1]):
+            new_x.resize((1, self.x.shape[1]))
+        new_y = new_y if isinstance(new_y, ndarray) else array(new_y)
+        good_type = isinstance(new_y_err, (ndarray, type(None)))
+        new_y_err = new_y_err if good_type else array(new_y_err)
+
         # store the acquisition function value of the new point
         self.acquisition_max_history.append(self.acquisition(new_x))
         self.convergence_metric_history.append(
             self.acquisition.convergence_metric(new_x)
         )
-        self.iteration_history.append(len(self.y) + 1)
+        self.iteration_history.append(self.y.size + 1)
 
         # update the data arrays
-        self.x.append(new_x)
-        self.y.append(new_y)
+        self.x = append(self.x, new_x, axis=0)
+        self.y = append(self.y, new_y)
+
         if self.y_err is not None:
             if new_y_err is not None:
-                self.y_err.append(new_y_err)
+                self.y_err = append(self.y_err, new_y_err)
             else:
                 raise ValueError(
                     "y_err must be specified for new evaluations if y_err was specified during __init__"
@@ -783,8 +796,8 @@ class GpOptimiser(object):
 
         # re-train the GP
         self.gp = GpRegressor(
-            self.x,
-            self.y,
+            x=self.x,
+            y=self.y,
             y_err=self.y_err,
             kernel=self.kernel,
             mean=self.mean,
@@ -792,7 +805,7 @@ class GpOptimiser(object):
             optimizer=self.optimizer,
             n_processes=self.n_processes,
         )
-        self.mu_max = max(self.y)
+        self.mu_max = self.y.max()
 
         # update the acquisition function info
         self.acquisition.update_gp(self.gp)
@@ -898,3 +911,207 @@ class GpOptimiser(object):
             plt.show()
         else:
             plt.close()
+
+
+class GpLinearInverter:
+    """
+    A class for performing Gaussian-process linear inversion.
+
+    In the case where both the likelihood and prior distributions are multivariate
+    normal, and the forward-model is linear, the posterior distribution is also
+    multivariate normal, and the posterior mean and covariance can be calculated
+    directly from the likelihood and prior mean and covariance.
+
+    If each of the model parameters can be associated with a position in some
+    space (which is often the case in tomography and deconvolution problems)
+    and we expect their values to be correlated within that space, we can
+    model this behavior using a gaussian-process prior distribution.
+
+    :param y: \
+        The y-data values as a 1D ``numpy.ndarray``.
+
+    :param y_err: \
+        The error on the y-data values supplied as a 1D ``numpy.ndarray``.
+        These values are used to construct the likelihood covariance, which
+        is assumed to be diagonal.
+
+    :param model_matrix: \
+        The linear forward-model as a 2D ``numpy.ndarray``. The product of
+        this model matrix with a vector of model parameter values should
+        yield a prediction of the y-data values.
+
+    :param parameter_spatial_positions: \
+        A 2D ``numpy.ndarray`` specifying the 'positions' of the model parameters
+        in some space over which their values are expected to be correlated.
+
+    :param class prior_covariance_function: \
+        A covariance function class which will be used to generate the prior
+        covariance. Covariance function classes can be found in the ``gp`` module,
+        or custom covariance functions can be written using the ``CovarianceFunction``
+        abstract base class.
+
+    :param class prior_mean_function: \
+        A mean function class which will be used to generate the prior
+        mean. Mean function classes can be found in the ``gp`` module, or custom
+        mean functions can be written using the ``MeanFunction`` abstract base class.
+    """
+
+    def __init__(
+        self,
+        y: ndarray,
+        y_err: ndarray,
+        model_matrix: ndarray,
+        parameter_spatial_positions: ndarray,
+        prior_covariance_function: Type[CovarianceFunction] = SquaredExponential,
+        prior_mean_function: Type[MeanFunction] = ConstantMean,
+    ):
+        if model_matrix.ndim != 2:
+            raise ValueError(
+                """
+                [ GpLinearInverter error ]
+                >> 'model_matrix' argument must be a 2D numpy.ndarray
+                """
+            )
+
+        if y.ndim != y_err.ndim != 1 or y.size != y_err.size:
+            raise ValueError(
+                """
+                [ GpLinearInverter error ]
+                >> 'y' and 'y_err' arguments must be 1D numpy.ndarray
+                >> of equal size.
+                """
+            )
+
+        if model_matrix.shape[0] != y.size:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> The size of the first dimension of 'model_matrix' must
+                >> equal the size of 'y', however they have shapes
+                >> {model_matrix.shape}, {y.shape}
+                >> respectively.
+                """
+            )
+
+        if parameter_spatial_positions.ndim != 2:
+            raise ValueError(
+                """
+                [ GpLinearInverter error ]
+                >> 'parameter_spatial_positions' must be a 2D numpy.ndarray, with the
+                >> size of first dimension being equal to the number of model parameters
+                >> and the size of the second dimension being equal to the number of
+                >> spatial dimensions.
+                """
+            )
+
+        if model_matrix.shape[1] != parameter_spatial_positions.shape[0]:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> The size of the second dimension of 'model_matrix' must be equal
+                >> to the size of the first dimension of 'parameter_spatial_positions',
+                >> however they have shapes
+                >> {model_matrix.shape}, {parameter_spatial_positions.shape}
+                >> respectively.
+                """
+            )
+
+        self.A = model_matrix
+        self.y = y
+
+        self.cov = prior_covariance_function
+        self.cov = self.cov() if isclass(self.cov) else self.cov
+        self.cov.pass_spatial_data(parameter_spatial_positions)
+
+        self.mean = prior_mean_function
+        self.mean = self.mean() if isclass(self.mean) else self.mean
+        self.mean.pass_spatial_data(parameter_spatial_positions)
+
+        self.n_hyperpars = self.mean.n_params + self.cov.n_params
+        self.mean_slice = slice(0, self.mean.n_params)
+        self.cov_slice = slice(self.mean.n_params, self.n_hyperpars)
+        self.hyperpar_labels = [*self.mean.hyperpar_labels, *self.cov.hyperpar_labels]
+
+        self.sigma = diag(y_err**2)
+        self.inv_sigma = diag(y_err**-2)
+        self.I = eye(self.A.shape[1])
+
+    def calculate_posterior(self, theta: ndarray):
+        """
+        Calculate the posterior mean and covariance for the given
+        hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The posterior mean and covariance.
+        """
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
+        W = self.A.T @ self.inv_sigma @ self.A
+        u = self.A.T @ (self.inv_sigma @ (self.y - self.A @ prior_mean))
+        posterior_cov = solve(self.I + K @ W, K)
+        posterior_mean = posterior_cov @ u + prior_mean
+        return posterior_mean, posterior_cov
+
+    def calculate_posterior_mean(self, theta: ndarray):
+        """
+        Calculate the posterior mean for the given
+        hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The posterior mean and covariance.
+        """
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
+        u = self.A.T @ (self.inv_sigma @ (self.y - self.A @ prior_mean))
+        W = self.A.T @ self.inv_sigma @ self.A
+        return solve(self.I + K @ W, K @ u) + prior_mean
+
+    def marginal_likelihood(self, theta: ndarray):
+        """
+        Calculate the log-marginal likelihood for the given hyper-parameter values.
+
+        :param theta: \
+            The hyper-parameter values as a 1D ``numpy.ndarray``.
+
+        :return: \
+            The log-marginal likelihood value.
+        """
+        K = self.cov.build_covariance(theta[self.cov_slice])
+        prior_mean = self.mean.build_mean(theta[self.mean_slice])
+        L = cholesky(self.A @ K @ self.A.T + self.sigma)
+        v = solve_triangular(L, self.y - self.A @ prior_mean, lower=True)
+        return -0.5 * (v @ v) - log(diagonal(L)).sum()
+
+    def optimize_hyperparameters(self, initial_guess: ndarray) -> ndarray:
+        """
+        Finds the hyper-parameter values which maximise the
+        marginal-likelihood.
+
+        :param initial_guess: \
+            An initial guess for the hyper-parameter values as
+            a 1D ``numpy.ndarray``.
+
+        :return: \
+            The hyper-parameters which maximise the marginal-likelihood
+            as a 1D ``numpy.ndarray``.
+        """
+        if initial_guess.size != self.n_hyperpars:
+            raise ValueError(
+                f"""
+                [ GpLinearInverter error ]
+                >> There are a total of {self.n_hyperpars} hyper-parameters,
+                >> but {initial_guess.size} values were given in 'initial_guess'.
+                """
+            )
+        OptResult = minimize(
+            fun=lambda t: -self.marginal_likelihood(t),
+            x0=initial_guess,
+            method="Nelder-Mead",
+        )
+        return OptResult.x

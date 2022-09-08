@@ -51,7 +51,8 @@ def create_data():
 )
 def test_covariance_and_gradients(cov):
     x, y = create_data()
-    cov.pass_data(x, y)
+    cov.pass_spatial_data(x)
+    cov.estimate_hyperpar_bounds(y)
     low = array([a for a, b in cov.bounds])
     high = array([b for a, b in cov.bounds])
 

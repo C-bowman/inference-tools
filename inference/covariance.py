@@ -9,7 +9,11 @@ class CovarianceFunction(ABC):
     """
 
     @abstractmethod
-    def pass_data(self, x, y):
+    def pass_spatial_data(self, x):
+        pass
+
+    @abstractmethod
+    def estimate_hyperpar_bounds(self, y):
         pass
 
     @abstractmethod
@@ -41,23 +45,38 @@ class CovarianceFunction(ABC):
 class CompositeCovariance(CovarianceFunction):
     def __init__(self, covariance_components):
         self.components = covariance_components
+        self.bounds = None
 
-    def pass_data(self, x, y):
-        [comp.pass_data(x, y) for comp in self.components]
+    def pass_spatial_data(self, x):
+        """
+        Pre-calculates hyperparameter-independent part of the data covariance
+        matrix as an optimisation.
+        """
+        [comp.pass_spatial_data(x) for comp in self.components]
         # Create slices to address the parameters of each component
         self.slices = slice_builder([c.n_params for c in self.components])
-        # combine parameter bounds for each component
-        self.bounds = []
-        [self.bounds.extend(comp.bounds) for comp in self.components]
         # combine hyperparameter labels for each component
         self.hyperpar_labels = []
         for i, comp in enumerate(self.components):
-            labels = [f"K{i+1}_{s}" for s in comp.hyperpar_labels]
+            labels = [f"K{i+1}: {s}" for s in comp.hyperpar_labels]
             self.hyperpar_labels.extend(labels)
         # check for consistency of length of bounds, labels
         self.n_params = sum(c.n_params for c in self.components)
-        assert self.n_params == len(self.bounds)
         assert self.n_params == len(self.hyperpar_labels)
+
+    def estimate_hyperpar_bounds(self, y):
+        """
+        Estimates bounds on the hyper-parameters to be
+        used during optimisation.
+        """
+        # estimate bounds for components where they were not specified
+        for comp in self.components:
+            if comp.bounds is None:
+                comp.estimate_hyperpar_bounds(y)
+        # combine parameter bounds for each component
+        self.bounds = []
+        [self.bounds.extend(comp.bounds) for comp in self.components]
+        assert self.n_params == len(self.bounds)
 
     def __call__(self, u, v, theta):
         return sum(
@@ -113,21 +132,24 @@ class WhiteNoise(CovarianceFunction):
 
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
+        self.n_params = 1
+        self.hyperpar_labels = ["WhiteNoise log-sigma"]
 
-    def pass_data(self, x, y):
+    def pass_spatial_data(self, x: ndarray):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
-        matrix as an optimisation, and sets bounds on hyperparameter values.
+        matrix as an optimisation.
         """
-        self.I = eye(y.size)
+        self.I = eye(x.shape[0])
 
+    def estimate_hyperpar_bounds(self, y: ndarray):
+        """
+        Estimates bounds on the hyper-parameters to be
+        used during optimisation.
+        """
         # construct sensible bounds on the hyperparameter values
-        if self.bounds is None:
-            s = log(y.ptp())
-            self.bounds = [(s - 8, s + 2)]
-
-        self.n_params = 1
-        self.hyperpar_labels = ["log_noise_level"]
+        s = log(y.ptp())
+        self.bounds = [(s - 8, s + 2)]
 
     def __call__(self, u, v, theta):
         return zeros([u.size, v.size])
@@ -176,29 +198,38 @@ class SquaredExponential(CovarianceFunction):
 
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
+        self.n_params: int
+        self.dx: ndarray
+        self.distances: ndarray
+        self.hyperpar_labels: list
 
-    def pass_data(self, x, y):
+    def pass_spatial_data(self, x: ndarray):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
-        matrix as an optimisation, and sets bounds on hyperparameter values.
+        matrix as an optimisation.
         """
         # distributed outer subtraction using broadcasting
-        dx = x[:, None, :] - x[None, :, :]
-        self.distances = -0.5 * dx**2
+        self.dx = x[:, None, :] - x[None, :, :]
+        self.distances = -0.5 * self.dx**2
         # small values added to the diagonal for stability
-        self.epsilon = 1e-12 * eye(dx.shape[0])
-
-        # construct sensible bounds on the hyperparameter values
-        if self.bounds is None:
-            s = log(y.std())
-            self.bounds = [(s - 4, s + 4)]
-            for i in range(x.shape[1]):
-                lwr = log(abs(dx[:, :, i]).mean()) - 4
-                upr = log(dx[:, :, i].max()) + 2
-                self.bounds.append((lwr, upr))
+        self.epsilon = 1e-12 * eye(self.dx.shape[0])
         self.n_params = x.shape[1] + 1
-        self.hyperpar_labels = ["log_amplitude"]
-        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
+        self.hyperpar_labels = ["SqrExp log-amplitude"]
+        self.hyperpar_labels.extend(
+            [f"SqrExp log-scale {i}" for i in range(x.shape[1])]
+        )
+
+    def estimate_hyperpar_bounds(self, y: ndarray):
+        """
+        Estimates bounds on the hyper-parameters to be
+        used during optimisation.
+        """
+        s = log(y.std())
+        self.bounds = [(s - 4, s + 4)]
+        for i in range(self.dx.shape[2]):
+            lwr = log(abs(self.dx[:, :, i]).mean()) - 4
+            upr = log(self.dx[:, :, i].max()) + 2
+            self.bounds.append((lwr, upr))
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -269,28 +300,31 @@ class RationalQuadratic(CovarianceFunction):
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
-    def pass_data(self, x, y):
+    def pass_spatial_data(self, x: ndarray):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
-        matrix as an optimisation, and sets bounds on hyperparameter values.
+        matrix as an optimisation.
         """
         # distributed outer subtraction using broadcasting
-        dx = x[:, None, :] - x[None, :, :]
-        self.distances = 0.5 * dx**2
+        self.dx = x[:, None, :] - x[None, :, :]
+        self.distances = 0.5 * self.dx**2
         # small values added to the diagonal for stability
-        self.epsilon = 1e-12 * eye(dx.shape[0])
-
-        # construct sensible bounds on the hyperparameter values
-        if self.bounds is None:
-            s = log(y.std())
-            self.bounds = [(s - 4, s + 4), (-2, 6)]
-            for i in range(x.shape[1]):
-                lwr = log(abs(dx[:, :, i]).mean()) - 4
-                upr = log(dx[:, :, i].max()) + 2
-                self.bounds.append((lwr, upr))
+        self.epsilon = 1e-12 * eye(self.dx.shape[0])
         self.n_params = x.shape[1] + 2
-        self.hyperpar_labels = ["log_amplitude", "log_alpha"]
-        self.hyperpar_labels.extend([f"log_scale_{i}" for i in range(x.shape[1])])
+        self.hyperpar_labels = ["RQ log-amplitude", "RQ log-alpha"]
+        self.hyperpar_labels.extend([f"RQ log-scale {i}" for i in range(x.shape[1])])
+
+    def estimate_hyperpar_bounds(self, y: ndarray):
+        """
+        Estimates bounds on the hyper-parameters to be
+        used during optimisation.
+        """
+        s = log(y.std())
+        self.bounds = [(s - 4, s + 4), (-2, 6)]
+        for i in range(self.dx.shape[2]):
+            lwr = log(abs(self.dx[:, :, i]).mean()) - 4
+            upr = log(self.dx[:, :, i].max()) + 2
+            self.bounds.append((lwr, upr))
 
     def __call__(self, u, v, theta):
         a = exp(theta[0])
@@ -389,25 +423,33 @@ class ChangePoint(CovarianceFunction):
         self.hyperpar_labels = []
         self.bounds = []
 
-    def pass_data(self, x, y):
-        self.cov1.pass_data(x, y)
-        self.cov2.pass_data(x, y)
+    def pass_spatial_data(self, x: ndarray):
+        self.cov1.pass_spatial_data(x)
+        self.cov2.pass_spatial_data(x)
         # Create slices to address the parameters of each component
         param_counts = [self.cov1.n_params, self.cov2.n_params, 2]
+        self.n_params = sum(param_counts)
         self.K1_slc, self.K2_slc, self.CP_slc = slice_builder(param_counts)
         # combine hyperparameter labels for K1, K2 and the change-point
         label_groups = [
-            [f"ChngPnt_K1_{lab}" for lab in self.cov1.hyperpar_labels],
-            [f"ChngPnt_K2_{lab}" for lab in self.cov2.hyperpar_labels],
-            ["ChngPnt_location", "ChngPnt_width"],
+            [f"ChngPnt K1: {lab}" for lab in self.cov1.hyperpar_labels],
+            [f"ChngPnt K2: {lab}" for lab in self.cov2.hyperpar_labels],
+            ["ChngPnt location", "ChngPnt width"],
         ]
         [self.hyperpar_labels.extend(L) for L in label_groups]
 
         # store x-data from the dimension of the change-point
         self.x_cp = x[:, self.axis]
+        assert self.n_params == len(self.hyperpar_labels)
+
+    def estimate_hyperpar_bounds(self, y: ndarray):
         xr = self.x_cp.min(), self.x_cp.max()
         dx = xr[1] - xr[0]
         # combine parameter bounds for K1, K2 and the change-point
+        if self.cov1.bounds is None:
+            self.cov1.estimate_hyperpar_bounds(y)
+        if self.cov2.bounds is None:
+            self.cov2.estimate_hyperpar_bounds(y)
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
         self.bounds.extend(
@@ -418,10 +460,8 @@ class ChangePoint(CovarianceFunction):
                 else self.width_bounds,
             ]
         )
-        # check for consistency of length of bounds, labels
-        self.n_params = sum(param_counts)
+        # check for consistency of length of bounds
         assert self.n_params == len(self.bounds)
-        assert self.n_params == len(self.hyperpar_labels)
 
     def __call__(self, u, v, theta):
         K1 = self.cov1(u, v, theta[self.K1_slc])
