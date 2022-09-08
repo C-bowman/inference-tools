@@ -61,7 +61,9 @@ class LinearMean(MeanFunction):
         self.n_data = x.shape[0]
         self.n_params = 1 + x.shape[1]
         self.hyperpar_labels = ["LinearMean background"]
-        self.hyperpar_labels.extend([f"LinearMean gradient {i}" for i in range(x.shape[1])])
+        self.hyperpar_labels.extend(
+            [f"LinearMean gradient {i}" for i in range(x.shape[1])]
+        )
 
     def estimate_hyperpar_bounds(self, y: ndarray):
         w = y.max() - y.min()

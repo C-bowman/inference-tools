@@ -215,7 +215,9 @@ class SquaredExponential(CovarianceFunction):
         self.epsilon = 1e-12 * eye(self.dx.shape[0])
         self.n_params = x.shape[1] + 1
         self.hyperpar_labels = ["SqrExp log-amplitude"]
-        self.hyperpar_labels.extend([f"SqrExp log-scale {i}" for i in range(x.shape[1])])
+        self.hyperpar_labels.extend(
+            [f"SqrExp log-scale {i}" for i in range(x.shape[1])]
+        )
 
     def estimate_hyperpar_bounds(self, y: ndarray):
         """
