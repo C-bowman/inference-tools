@@ -1,5 +1,5 @@
-Gaussian process regression and optimisation
-============================================
+Gaussian process regression, optimisation and inversion
+=======================================================
 The ``inference.gp`` provides implementations of some useful applications of 'Gaussian processes';
 Gaussian process regression via the `GpRegressor <GpRegressor>`_ class, Gaussian process
 optimisation via the `GpOptimiser <GpOptimiser>`_ class, and Gaussian process linear inversion
