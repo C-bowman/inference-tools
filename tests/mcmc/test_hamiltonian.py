@@ -54,8 +54,10 @@ def test_hamiltonian_chain_advance_no_gradient():
 
 def test_hamiltonian_chain_burn_in():
     posterior = ToroidalGaussian()
-    chain = HamiltonianChain(posterior=posterior, start=[1, 0.1, 0.1])
-    steps = 10
+    chain = HamiltonianChain(
+        posterior=posterior, grad=posterior.gradient, start=[2, 0.1, 0.1]
+    )
+    steps = 500
     chain.advance(steps)
     burn = chain.estimate_burn_in()
 
