@@ -75,6 +75,12 @@ class GpRegressor:
     :param int n_processes: \
         Sets the number of processes used in optimizing the hyper-parameter values.
         Multiple processes are only used when the optimizer keyword is set to "bfgs".
+
+    :param int n_starts: \
+        Sets the number of randomly-selected starting positions from which the BFGS
+        algorithm is launched during hyper-parameter optimization. If unspecified,
+        the number of starting positions is determined based on the total number
+        of hyper-parameters.
     """
 
     def __init__(
@@ -89,6 +95,7 @@ class GpRegressor:
         cross_val: bool = False,
         optimizer: str = "bfgs",
         n_processes: int = 1,
+        n_starts: int = None,
     ):
 
         # store the data
@@ -179,7 +186,9 @@ class GpRegressor:
             if optimizer == "diffev":
                 hyperpars = self.differential_evo()
             else:
-                hyperpars = self.multistart_bfgs(n_processes=n_processes)
+                hyperpars = self.multistart_bfgs(
+                    n_processes=n_processes, starts=n_starts
+                )
 
         # build the covariance matrix
         self.set_hyperparameters(hyperpars)
@@ -567,7 +576,7 @@ class GpRegressor:
     def differential_evo(self):
         # optimise the hyper-parameters
         opt_result = differential_evolution(
-            lambda x: -self.model_selector(x), self.hp_bounds
+            func=lambda x: -self.model_selector(x), bounds=self.hp_bounds
         )
         return opt_result.x
 
@@ -577,10 +586,10 @@ class GpRegressor:
 
     def launch_bfgs(self, x0):
         return fmin_l_bfgs_b(
-            self.bfgs_cost_func, x0, approx_grad=False, bounds=self.hp_bounds
+            func=self.bfgs_cost_func, x0=x0, approx_grad=False, bounds=self.hp_bounds
         )
 
-    def multistart_bfgs(self, starts=None, n_processes=1):
+    def multistart_bfgs(self, starts: int = None, n_processes: int = 1):
         if starts is None:
             starts = int(2 * sqrt(len(self.hp_bounds))) + 1
         # starting positions guesses by random sampling + one in the centre of the hypercube

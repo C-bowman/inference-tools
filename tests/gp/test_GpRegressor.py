@@ -144,7 +144,7 @@ def test_optimizers():
     y = sin(x) + 3.0 + normal(size=N) * S
     errors = zeros(N) + S
 
-    gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs")
+    gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_starts=6)
     gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_processes=2)
     gpr = GpRegressor(x, y, y_err=errors, optimizer="diffev")
 
