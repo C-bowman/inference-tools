@@ -386,13 +386,13 @@ class ChangePoint(CovarianceFunction):
         The spatial axis over which the transition between the kernels occurs (can only be one axis for now)
     :param location_bounds:
         The bounds for the change-point location hyperparameters for each kernel changeover region
-        :math:`x_0` as a tuple of tuples of the form 
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should always 
+        :math:`x_0` as a tuple of tuples of the form
+        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should always
         be M pairs of bounds where M is one less than the number of kernels specified.
     :param width_bounds:
         The bounds for the change-point width hyperparameter for each kernel changeover region
-        :math:`w` as a tuple of the form 
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should 
+        :math:`w` as a tuple of the form
+        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should
         always be M pairs of bounds where M is one less than the number of kernels specified.
     """
 
@@ -403,32 +403,36 @@ class ChangePoint(CovarianceFunction):
         location_bounds=None,
         width_bounds=None,
     ):
-        if (K is None):
+        if K is None:
             raise Exception("ChangePoint kernel needs a list of kernels")
         else:
             self.cov = []
             self.num_kernels = len(K)
             for k in K:
                 self.cov.append(k() if isclass(k) else k)
-            
-            if (location_bounds is not None):
-                if (len(location_bounds) != self.num_kernels-1):
-                    raise Exception("ChangePoint: number of location_bounds should one less than the number of kernels")
+
+            if location_bounds is not None:
+                if len(location_bounds) != self.num_kernels - 1:
+                    raise Exception(
+                        "ChangePoint: number of location_bounds should one less than the number of kernels"
+                    )
                 self.location_bounds = []
                 for lb in location_bounds:
                     self.location_bounds.append(check_bounds(lb))
             else:
                 self.location_bounds = None
 
-            if (width_bounds is not None):
-                if (len(width_bounds) != self.num_kernels-1):
-                    raise Exception("ChangePoint: number of width_bounds should be one less than the number of kernels")
+            if width_bounds is not None:
+                if len(width_bounds) != self.num_kernels - 1:
+                    raise Exception(
+                        "ChangePoint: number of width_bounds should be one less than the number of kernels"
+                    )
                 self.width_bounds = []
                 for wb in width_bounds:
                     self.width_bounds.append(check_bounds(wb))
             else:
                 self.width_bounds = None
-            
+
         self.axis = axis
         self.hyperpar_labels = []
         self.bounds = None
@@ -441,7 +445,7 @@ class ChangePoint(CovarianceFunction):
         param_counts = []
         for cov in self.cov:
             param_counts.append(cov.n_params)
-        for knum in range(self.num_kernels-1):
+        for knum in range(self.num_kernels - 1):
             param_counts.append(2)
         self.n_params = sum(param_counts)
         self.slc = slice_builder(param_counts)
@@ -450,10 +454,12 @@ class ChangePoint(CovarianceFunction):
         for knum in range(self.num_kernels):
             lb = []
             for lab in self.cov[knum].hyperpar_labels:
-                lb.append("ChngPnt K"+str(knum)+": "+lab)
+                lb.append("ChngPnt K" + str(knum) + ": " + lab)
             label_groups.append(lb)
-        for knum in range(self.num_kernels-1):
-            label_groups.append(["ChngPnt"+str(knum)+" location","ChngPnt"+str(knum)+" width"])
+        for knum in range(self.num_kernels - 1):
+            label_groups.append(
+                ["ChngPnt" + str(knum) + " location", "ChngPnt" + str(knum) + " width"]
+            )
         [self.hyperpar_labels.extend(L) for L in label_groups]
 
         # store x-data from the dimension of the change-point
@@ -469,13 +475,13 @@ class ChangePoint(CovarianceFunction):
             cov.estimate_hyperpar_bounds(y)
             self.bounds.extend(cov.bounds)
 
-        for knum in range(self.num_kernels-1):
-            if (self.location_bounds is None):
+        for knum in range(self.num_kernels - 1):
+            if self.location_bounds is None:
                 self.bounds.append(xr)
             else:
                 self.bounds.append(self.location_bounds[knum])
-            if (self.width_bounds is None):
-                self.bounds.append((5e-3*dx,0.5*dx))
+            if self.width_bounds is None:
+                self.bounds.append((5e-3 * dx, 0.5 * dx))
             else:
                 self.bounds.append(self.width_bounds[knum])
 
@@ -484,9 +490,13 @@ class ChangePoint(CovarianceFunction):
 
     def __call__(self, u, v, theta):
         kernel_coeffs = [1.0]
-        for knum in range(self.num_kernels-1):
-            w_u = self.logistic(u[:, self.axis], theta[self.slc[self.num_kernels+knum]])
-            w_v = self.logistic(v[:, self.axis], theta[self.slc[self.num_kernels+knum]])
+        for knum in range(self.num_kernels - 1):
+            w_u = self.logistic(
+                u[:, self.axis], theta[self.slc[self.num_kernels + knum]]
+            )
+            w_v = self.logistic(
+                v[:, self.axis], theta[self.slc[self.num_kernels + knum]]
+            )
 
             w1 = (1 - w_u)[:, None] * (1 - w_v)[None, :]
             w2 = w_u[:, None] * w_v[None, :]
@@ -497,14 +507,14 @@ class ChangePoint(CovarianceFunction):
         Kernel = 0.0
         for knum in range(self.num_kernels):
             K = self.cov[knum](u, v, theta[self.slc[knum]])
-            Kernel += K*kernel_coeffs[knum]
+            Kernel += K * kernel_coeffs[knum]
 
         return Kernel
 
     def build_covariance(self, theta):
         kernel_coeffs = [1.0]
-        for knum in range(self.num_kernels-1):
-            w = self.logistic(self.x_cp, theta[self.slc[self.num_kernels+knum]])
+        for knum in range(self.num_kernels - 1):
+            w = self.logistic(self.x_cp, theta[self.slc[self.num_kernels + knum]])
             w1 = (1 - w)[:, None] * (1 - w)[None, :]
             w2 = w[:, None] * w[None, :]
 
@@ -514,7 +524,7 @@ class ChangePoint(CovarianceFunction):
         Kernel = 0.0
         for knum in range(self.num_kernels):
             K = self.cov[knum].build_covariance(theta[self.slc[knum]])
-            Kernel += K*kernel_coeffs[knum]
+            Kernel += K * kernel_coeffs[knum]
 
         return Kernel
 
@@ -522,33 +532,35 @@ class ChangePoint(CovarianceFunction):
         K = []
         K_grads = []
         for knum in range(self.num_kernels):
-            k,kg = self.cov[knum].covariance_and_gradients(theta[self.slc[knum]])
+            k, kg = self.cov[knum].covariance_and_gradients(theta[self.slc[knum]])
             K.append(k)
             K_grads.append(kg)
-        
+
         kernel_coeffs = [1.0]
         w_grads = []
-        for knum in range(self.num_kernels-1):
-            w,wg = self.logistic_and_gradient(self.x_cp, theta[self.slc[knum+self.num_kernels]])
+        for knum in range(self.num_kernels - 1):
+            w, wg = self.logistic_and_gradient(
+                self.x_cp, theta[self.slc[knum + self.num_kernels]]
+            )
             w1 = (1 - w)[:, None] * (1 - w)[None, :]
             w2 = w[:, None] * w[None, :]
             kernel_coeffs[knum] *= w1
             kernel_coeffs.append(w2)
             w_grads.append(wg)
-        
+
         Kernel = 0.0
         gradients = []
         for knum in range(self.num_kernels):
             Kernel += K[knum] * kernel_coeffs[knum]
             c = K_grads[knum]
             w = kernel_coeffs[knum]
-            gradients.extend(c*w)
-        
-        for knum in range(self.num_kernels-1):
+            gradients.extend(c * w)
+
+        for knum in range(self.num_kernels - 1):
             for g in w_grads[knum]:
                 A = -g[:, None] * (1 - w)[None, :]
                 B = g[:, None] * w[None, :]
-                gradients.append(K[knum] * (A + A.T) + K[knum+1] * (B + B.T))
+                gradients.append(K[knum] * (A + A.T) + K[knum + 1] * (B + B.T))
 
         return Kernel, gradients
 
@@ -563,6 +575,7 @@ class ChangePoint(CovarianceFunction):
         f = 1.0 / (1.0 + exp(-z))
         dfdc = -f * (1 - f) / theta[1]
         return f, [dfdc, dfdc * z]
+
 
 def slice_builder(lengths):
     slices = [slice(0, lengths[0])]
