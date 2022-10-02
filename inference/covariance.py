@@ -557,8 +557,8 @@ class ChangePoint(CovarianceFunction):
             c = K_grads[knum]
             w = kernel_coeffs[knum]
             gradients.extend(c * w)
-        
-        for knum in range(self.num_kernels-1):
+
+        for knum in range(self.num_kernels - 1):
             w = wlog[knum]
             for g in w_grads[knum]:
                 A = -g[:, None] * (1 - w)[None, :]
