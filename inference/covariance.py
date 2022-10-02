@@ -538,6 +538,7 @@ class ChangePoint(CovarianceFunction):
 
         kernel_coeffs = [1.0]
         w_grads = []
+        wlog = []
         for knum in range(self.num_kernels - 1):
             w, wg = self.logistic_and_gradient(
                 self.x_cp, theta[self.slc[knum + self.num_kernels]]
@@ -547,6 +548,7 @@ class ChangePoint(CovarianceFunction):
             kernel_coeffs[knum] *= w1
             kernel_coeffs.append(w2)
             w_grads.append(wg)
+            wlog.append(w)
 
         Kernel = 0.0
         gradients = []
@@ -555,10 +557,10 @@ class ChangePoint(CovarianceFunction):
             c = K_grads[knum]
             w = kernel_coeffs[knum]
             gradients.extend(c * w)
-
-        for knum in range(self.num_kernels - 1):
+        
+        for knum in range(self.num_kernels-1):
+            w = wlog[knum]
             for g in w_grads[knum]:
-                w = kernel_coeffs[knum]
                 A = -g[:, None] * (1 - w)[None, :]
                 B = g[:, None] * w[None, :]
                 gradients.append(K[knum] * (A + A.T) + K[knum + 1] * (B + B.T))
