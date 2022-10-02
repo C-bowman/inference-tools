@@ -421,7 +421,7 @@ class ChangePoint(CovarianceFunction):
         self.location_bounds = check_bounds(location_bounds)
         self.width_bounds = check_bounds(width_bounds)
         self.hyperpar_labels = []
-        self.bounds = []
+        self.bounds = None
 
     def pass_spatial_data(self, x: ndarray):
         self.cov1.pass_spatial_data(x)
@@ -450,6 +450,7 @@ class ChangePoint(CovarianceFunction):
             self.cov1.estimate_hyperpar_bounds(y)
         if self.cov2.bounds is None:
             self.cov2.estimate_hyperpar_bounds(y)
+        self.bounds = []
         self.bounds.extend(self.cov1.bounds)
         self.bounds.extend(self.cov2.bounds)
         self.bounds.extend(
