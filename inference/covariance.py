@@ -375,11 +375,15 @@ class ChangePoint(CovarianceFunction):
 
     The change-point kernel :math:`K_{\mathrm{cp}}` is a weighted-sum of the
     input kernels :math:`K_{1}, \, K_{2}, ...` which model each of the regions:
+
     .. math::
        K_{\mathrm{cp}}(u, v) = K_{1}(u, v) (1 - f(u))(1 - f(v)) + K_{2}(u, v) f(u) f(v)
+
     where the weighting :math:`f(x)` is the logistic function
+
     .. math::
        f(x) = \frac{1}{1 + e^{-(x - x_0) / w}}
+
     and :math:`x_0, \, w` are the location and width of the change-point respectively.
     :math:`x_0` and :math:`w` are hyperparameters which are determined automatically
     (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
@@ -388,19 +392,22 @@ class ChangePoint(CovarianceFunction):
         A tuple of the kernel objects to be used ``(K1, K2, K3, ...)``
 
     :param int axis:
-        The spatial axis over which the transition between the kernels occurs (can only be one axis for now).
+        The spatial axis over which the transition between the kernels occurs
+        (can only be one axis for now).
 
     :param location_bounds:
-        The bounds for the change-point location hyperparameters for each kernel changeover region
-        :math:`x_0` as a tuple of tuples of the form
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should always
-        be M pairs of bounds where M is one less than the number of kernels specified.
+        The bounds for the change-point location hyperparameters for each kernel
+        changeover region :math:`x_0` as a tuple of tuples of the form
+        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``.
+        There should always be M pairs of bounds where M is one less than the number of
+        kernels specified.
 
     :param width_bounds:
-        The bounds for the change-point width hyperparameter for each kernel changeover region
-        :math:`w` as a tuple of the form
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There should
-        always be M pairs of bounds where M is one less than the number of kernels specified.
+        The bounds for the change-point width hyperparameter for each kernel changeover
+        region :math:`w` as a tuple of the form
+        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There
+        should always be M pairs of bounds where M is one less than the number of
+        kernels specified.
     """
 
     def __init__(
@@ -418,7 +425,7 @@ class ChangePoint(CovarianceFunction):
                 raise ValueError(
                     """
                     [ ChangePoint error ]
-                    >> The length of 'location_bounds' should one less than the number of kernels
+                    >> The length of 'location_bounds' must be one less than the number of kernels
                     """
                 )
             self.location_bounds = [check_bounds(lb) for lb in location_bounds]
@@ -430,7 +437,7 @@ class ChangePoint(CovarianceFunction):
                 raise ValueError(
                     """
                     [ ChangePoint error ]
-                    >> The length of 'width_bounds' should one less than the number of kernels
+                    >> The length of 'width_bounds' must be one less than the number of kernels
                     """
                 )
             self.width_bounds = [check_bounds(wb) for wb in width_bounds]
@@ -521,38 +528,37 @@ class ChangePoint(CovarianceFunction):
         )
 
     def covariance_and_gradients(self, theta):
-        K = []
+        K_vals = []
         K_grads = []
         for i in range(self.n_kernels):
-            k, kg = self.cov[i].covariance_and_gradients(theta[self.cov_slc[i]])
-            K.append(k)
-            K_grads.append(kg)
+            K, dK = self.cov[i].covariance_and_gradients(theta[self.cov_slc[i]])
+            K_vals.append(K)
+            K_grads.append(dK)
 
         kernel_coeffs = [1.0]
+        w_vals = []
         w_grads = []
-        wlog = []
         for slc in self.cp_slc:
-            w, wg = self.logistic_and_gradient(self.x_cp, theta[slc])
+            w, dw = self.logistic_and_gradient(self.x_cp, theta[slc])
             w1 = (1 - w)[:, None] * (1 - w)[None, :]
             w2 = w[:, None] * w[None, :]
             kernel_coeffs[-1] *= w1
             kernel_coeffs.append(w2)
-            w_grads.append(wg)
-            wlog.append(w)
+            w_grads.append(dw)
+            w_vals.append(w)
 
-        covar = sum(K[i] * kernel_coeffs[i] for i in range(self.n_kernels))
+        covar = sum(K_vals[i] * kernel_coeffs[i] for i in range(self.n_kernels))
 
         gradients = []
         for i in range(self.n_kernels):
-            gradients.extend([kgr * kernel_coeffs[i] for kgr in K_grads[i]])
+            gradients.extend([dK * kernel_coeffs[i] for dK in K_grads[i]])
 
         for i in range(self.n_kernels - 1):
-            w = wlog[i]
-            for g in w_grads[i]:
-                A = -g[:, None] * (1 - w)[None, :]
-                B = g[:, None] * w[None, :]
-                gradients.append(K[i] * (A + A.T) + K[i + 1] * (B + B.T))
-
+            w = w_vals[i]
+            for dw in w_grads[i]:
+                A = -dw[:, None] * (1 - w)[None, :]
+                B = dw[:, None] * w[None, :]
+                gradients.append(K_vals[i] * (A + A.T) + K_vals[i + 1] * (B + B.T))
         return covar, gradients
 
     @staticmethod
