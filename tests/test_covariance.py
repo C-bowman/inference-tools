@@ -46,7 +46,7 @@ def create_data():
         RationalQuadratic(),
         WhiteNoise(),
         RationalQuadratic() + WhiteNoise(),
-        ChangePoint(),
+        ChangePoint(kernels=[SquaredExponential, SquaredExponential]),
     ],
 )
 def test_covariance_and_gradients(cov):
