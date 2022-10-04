@@ -366,48 +366,55 @@ class RationalQuadratic(CovarianceFunction):
 class ChangePoint(CovarianceFunction):
     r"""
     ``ChangePoint`` is a covariance function which divides the input space into multiple
-    regions (at some points along a chosen input dimension), allowing each of the
-    regions to be modelled using a separate covariance function.
+    regions (at various points along a chosen input dimension), allowing each of the
+    regions to be modelled using a separate covariance function. The boundaries which
+    define the extent of each region are referred to as 'change-points'. The locations
+    of the change-points, and the width over which the transition between regions occurs
+    are hyperparameters determined from the data.
 
     This is useful in cases where properties of the data (e.g. the scale-lengths
     over which the data vary) change significantly over the input dimension which is
     used to divide the space.
 
     The change-point kernel :math:`K_{\mathrm{cp}}` is a weighted-sum of the
-    input kernels :math:`K_{1}, \, K_{2}, ...` which model each of the regions:
+    input kernels :math:`K_{1}, \, K_{2}, \dots , K_{n}` which model each of the
+    :math:`n` regions:
 
     .. math::
-       K_{\mathrm{cp}}(u, v) = K_{1}(u, v) (1 - f(u))(1 - f(v)) + K_{2}(u, v) f(u) f(v)
+       K_{\mathrm{cp}}(u, v) = K_1 a_1 + \left(\sum_{i=2}^{n-1} K_i a_{i+1} b_{i}\right) + K_n b_n
 
-    where the weighting :math:`f(x)` is the logistic function
+    where
 
     .. math::
-       f(x) = \frac{1}{1 + e^{-(x - x_0) / w}}
+       a_{i}(u, v) = (1 - f_i (u)) (1 - f_i (v)), \quad b_{i}(u, v) = f_i (u) f_i (v)
 
-    and :math:`x_0, \, w` are the location and width of the change-point respectively.
-    :math:`x_0` and :math:`w` are hyperparameters which are determined automatically
-    (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
+    and :math:`f_i` is the logistic weighting function associated with the :math:`i`'th
+    change-point:
+
+    .. math::
+       f_i(x) = \frac{1}{1 + e^{-(x - c_i) / w_i}}
+
+    and :math:`c_i, \, w_i` are the location and width of the :math:`i`'th change-point
+    respectively. The :math:`c_i` and :math:`w_i` are hyperparameters which are determined
+    automatically (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
 
     :param kernels:
         A tuple of the kernel objects to be used ``(K1, K2, K3, ...)``
 
     :param int axis:
-        The spatial axis over which the transition between the kernels occurs
-        (can only be one axis for now).
+        The spatial axis over which the transitions between kernels occur.
 
     :param location_bounds:
-        The bounds for the change-point location hyperparameters for each kernel
-        changeover region :math:`x_0` as a tuple of tuples of the form
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``.
-        There should always be M pairs of bounds where M is one less than the number of
-        kernels specified.
+        The bounds for the change-point location hyperparameters :math:`c_i` as a tuple
+        of the form ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``.
+        There should always be :math:`n-1` pairs of bounds where :math:`n` is the number
+        of kernels specified.
 
     :param width_bounds:
-        The bounds for the change-point width hyperparameter for each kernel changeover
-        region :math:`w` as a tuple of the form
-        ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``. There
-        should always be M pairs of bounds where M is one less than the number of
-        kernels specified.
+        The bounds for the change-point width hyperparameters :math:`w_i` as a tuple of
+        the form ``((lower_bound_0, upper_bound_0),(lower_bound_1, upper_bound_1),...)``.
+        There should always be :math:`n-1` pairs of bounds where :math:`n` is the number
+        of kernels specified.
     """
 
     def __init__(
