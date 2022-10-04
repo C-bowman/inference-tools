@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from inspect import isclass
 from itertools import chain
 from numpy import abs, exp, eye, log, zeros, ndarray
@@ -419,12 +420,27 @@ class ChangePoint(CovarianceFunction):
 
     def __init__(
         self,
-        kernels,
+        kernels: Sequence,
         axis: int = 0,
-        location_bounds=None,
-        width_bounds=None,
+        location_bounds: Sequence = None,
+        width_bounds: Sequence = None,
     ):
-        self.cov = [K() if isclass(K) else K for K in kernels]
+        # check that all the kernels are valid
+        self.cov = [
+            K() if isclass(K) and issubclass(K, CovarianceFunction) else K
+            for K in kernels
+        ]
+        for K in self.cov:
+            if not isinstance(K, CovarianceFunction):
+                raise TypeError(
+                    """
+                    [ ChangePoint error ]
+                    >> Each of the specified covariance kernels must be an instance of
+                    >> a class which inherits from the 'CovarianceFunction' abstract
+                    >> base-class.
+                    """
+                )
+
         self.n_kernels = len(kernels)
 
         if location_bounds is not None:
@@ -502,7 +518,7 @@ class ChangePoint(CovarianceFunction):
         # check for consistency of length of bounds
         assert self.n_params == len(self.bounds)
 
-    def __call__(self, u, v, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta):
         kernel_coeffs = [1.0]
         for slc in self.cp_slc:
             w_u = self.logistic(u[:, self.axis], theta[slc])
