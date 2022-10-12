@@ -503,11 +503,10 @@ class GpRegressor:
         K_xx, grad_K = self.cov.covariance_and_gradients(theta[self.cov_slice])
         K_xx += self.sig
         mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
-        # use the cholesky decomp to get the covariance inverse
+        # use the Cholesky decomp to get the covariance inverse
         L = cholesky(K_xx)
         iK = solve_triangular(L, eye(L.shape[0]), lower=True)
         iK = iK.T @ iK
-        # Use the Cholesky decomposition of the covariance to find its inverse
         alpha = iK.dot(self.y - mu)
         var = 1.0 / diag(iK)
         LOO = -0.5 * (var * alpha**2 + log(var)).sum()
@@ -610,6 +609,13 @@ class GpRegressor:
         # extract best solution
         solution = sorted(results, key=lambda x: x[1])[0][0]
         return solution
+
+    def __str__(self):
+        L_max = max([len(lb) for lb in self.hyperpar_labels])
+        strings = ["\n>>> [ GpRegressor hyperparameters ]\n"]
+        for lb, val in zip(self.hyperpar_labels, self.hyperpars):
+            strings.append(" " * (L_max - len(lb)) + f"{lb} = {val:.4}\n")
+        return "".join(strings)
 
 
 class MarginalisedGpRegressor(object):

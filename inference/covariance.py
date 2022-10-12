@@ -397,7 +397,7 @@ class ChangePoint(CovarianceFunction):
 
     and :math:`c_i, \, w_i` are the location and width of the :math:`i`'th change-point
     respectively. The :math:`c_i` and :math:`w_i` are hyperparameters which are determined
-    automatically (alongside the hyperparameters for :math:`K_{1}, \, K_{2}`).
+    automatically (alongside the hyperparameters for the kernels in each region).
 
     :param kernels:
         A tuple of the kernel objects to be used ``(K1, K2, K3, ...)``
