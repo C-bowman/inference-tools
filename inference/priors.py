@@ -8,7 +8,7 @@ from numpy.random import normal, exponential, uniform
 from itertools import chain
 
 
-class JointPrior(object):
+class JointPrior:
     """
     A class which combines multiple prior distribution objects into a single
     joint-prior distribution object.
@@ -117,7 +117,7 @@ class JointPrior(object):
         return sample
 
 
-class BasePrior(object):
+class BasePrior:
     @staticmethod
     def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
         if not isinstance(variable_inds, (int, Iterable)):

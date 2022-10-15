@@ -4,7 +4,7 @@ from numpy.random import random
 from scipy.special import erf, erfcx
 
 
-class AcquisitionFunction(object):
+class AcquisitionFunction:
     gp = None
     opt_func = None
 

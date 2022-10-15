@@ -618,7 +618,7 @@ class GpRegressor:
         return "".join(strings)
 
 
-class MarginalisedGpRegressor(object):
+class MarginalisedGpRegressor:
     def __init__(
         self,
         x,

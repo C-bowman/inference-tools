@@ -3,7 +3,7 @@
 """
 
 
-class Posterior(object):
+class Posterior:
     """
     Class for constructing a posterior distribution object for a given likelihood and prior.
 

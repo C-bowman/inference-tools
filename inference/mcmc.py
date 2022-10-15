@@ -22,7 +22,7 @@ from inference.pdf import UnimodalPdf, GaussianKDE
 from inference.plotting import matrix_plot, trace_plot, transition_matrix_plot
 
 
-class Parameter(object):
+class Parameter:
     """
     This class is used by the markov-chain samplers in this module
     to manage data specific to each model parameter which is being
@@ -223,7 +223,7 @@ class Parameter(object):
             self.proposal = self.standard_proposal
 
 
-class MarkovChain(object):
+class MarkovChain:
     """
     Implementation of the metropolis-hastings algorithm using a multivariate-normal
     proposal distribution.
@@ -1583,7 +1583,7 @@ class HamiltonianChain(MarkovChain):
         return chain
 
 
-class EpsilonSelector(object):
+class EpsilonSelector:
     def __init__(self, epsilon):
 
         # storage
@@ -1650,7 +1650,7 @@ class EpsilonSelector(object):
         self.growth_factor = float(dictionary["growth_factor"])
 
 
-class ChainPool(object):
+class ChainPool:
     def __init__(self, objects):
         self.chains = objects
         self.pool_size = len(self.chains)
@@ -1707,7 +1707,7 @@ def tempering_process(chain, connection, end, proc_seed):
             connection.send(chain)
 
 
-class ParallelTempering(object):
+class ParallelTempering:
     """
     A class which enables 'parallel tempering', a sampling algorithm which
     advances multiple Markov-chains in parallel, each with a different
@@ -2024,7 +2024,7 @@ class ParallelTempering(object):
         [p.join() for p in self.processes]
 
 
-class EnsembleSampler(object):
+class EnsembleSampler:
     """
     ``EnsembleSampler`` is an implementation of the affine-invariant ensemble sampler
     proposed by Goodman & Weare. This algorithm is based on an 'ensemble' of points

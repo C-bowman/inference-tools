@@ -13,7 +13,7 @@ from functools import reduce
 import matplotlib.pyplot as plt
 
 
-class DensityEstimator(object):
+class DensityEstimator:
     """
     Parent class for the 1D density estimation classes GaussianKDE and UnimodalPdf.
     """
@@ -546,7 +546,7 @@ class GaussianKDE(DensityEstimator):
         return sample_hdi(self.s, frac, allow_double=True)
 
 
-class KDE2D(object):
+class KDE2D:
     def __init__(self, x=None, y=None):
 
         self.x = array(x)
@@ -664,7 +664,7 @@ def sample_hdi(sample, fraction, allow_double=False):
         return r1
 
 
-class dbl_interval_length(object):
+class dbl_interval_length:
     def __init__(self, sample, fraction):
         self.sample = sort(sample)
         self.f = fraction
