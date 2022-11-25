@@ -72,12 +72,42 @@ class Likelihood(ABC):
             )
 
     @abstractmethod
-    def __call__(self, theta):
+    def _log_likelihood(self, predictions):
         pass
 
     @abstractmethod
-    def gradient(self, theta):
+    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
         pass
+
+    def __call__(self, theta):
+        """
+        Returns the log-likelihood value for the given set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D ``numpy.ndarray``.
+
+        :returns: \
+            The log-likelihood value.
+        """
+        return self._log_likelihood(predictions=self.model(theta))
+
+    def gradient(self, theta):
+        """
+        Returns the gradient of the log-likelihood with respect to model parameters.
+
+        Using this method requires that the ``forward_model_jacobian`` keyword argument
+        was specified when the instance of the class was created.
+
+        :param theta: \
+            The model parameters as a 1D ``numpy.ndarray``.
+
+        :returns: \
+            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
+        """
+        return self._log_likelihood_gradient(
+            predictions=self.model(theta),
+            predictions_jacobian=self.model_jacobian(theta),
+        )
 
     def cost(self, theta):
         return -self.__call__(theta)
@@ -118,37 +148,13 @@ class GaussianLikelihood(Likelihood):
         self.inv_sigma_sqr = self.inv_sigma**2
         self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_data
 
-    def __call__(self, theta):
-        """
-        Returns the log-likelihood value for the given set of model parameters.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The log-likelihood value.
-        """
-        prediction = self.model(theta)
-        z = (self.y - prediction) * self.inv_sigma
+    def _log_likelihood(self, predictions):
+        z = (self.y - predictions) * self.inv_sigma
         return -0.5 * (z**2).sum() + self.normalisation
 
-    def gradient(self, theta):
-        """
-        Returns the gradient of the log-likelihood with respect to model parameters.
-
-        Using this method requires that the ``forward_model_jacobian`` keyword argument
-        was specified when the instance of ``GaussianLikelihood`` was created.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
-        """
-        prediction = self.model(theta)
-        dF_dt = self.model_jacobian(theta)
-        dL_dF = (self.y - prediction) * self.inv_sigma_sqr
-        return dL_dF.dot(dF_dt)
+    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+        dL_dF = (self.y - predictions) * self.inv_sigma_sqr
+        return dL_dF @ predictions_jacobian
 
 
 class CauchyLikelihood(Likelihood):
@@ -182,38 +188,14 @@ class CauchyLikelihood(Likelihood):
         self.inv_gamma = 1.0 / self.gamma
         self.normalisation = -log(pi * self.gamma).sum()
 
-    def __call__(self, theta):
-        """
-        Returns the log-likelihood value for the given set of model parameters.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The log-likelihood value.
-        """
-        prediction = self.model(theta)
-        z = (self.y - prediction) * self.inv_gamma
+    def _log_likelihood(self, predictions):
+        z = (self.y - predictions) * self.inv_gamma
         return -log(1 + z**2).sum() + self.normalisation
 
-    def gradient(self, theta):
-        """
-        Returns the gradient of the log-likelihood with respect to model parameters.
-
-        Using this method requires that the ``forward_model_jacobian`` keyword argument
-        was specified when the instance of ``CauchyLikelihood`` was created.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
-        """
-        prediction = self.model(theta)
-        dF_dt = self.model_jacobian(theta)
-        z = (self.y - prediction) * self.inv_gamma
+    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+        z = (self.y - predictions) * self.inv_gamma
         dL_dF = 2 * self.inv_gamma * z / (1 + z**2)
-        return dL_dF.dot(dF_dt)
+        return dL_dF @ predictions_jacobian
 
 
 class LogisticLikelihood(Likelihood):
@@ -248,38 +230,14 @@ class LogisticLikelihood(Likelihood):
         self.inv_scale = 1.0 / self.scale
         self.normalisation = -log(self.scale).sum()
 
-    def __call__(self, theta):
-        """
-        Returns the log-likelihood value for the given set of model parameters.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The log-likelihood value.
-        """
-        prediction = self.model(theta)
-        z = (self.y - prediction) * self.inv_scale
+    def _log_likelihood(self, predictions):
+        z = (self.y - predictions) * self.inv_scale
         return z.sum() - 2 * log(1 + exp(z)).sum() + self.normalisation
 
-    def gradient(self, theta):
-        """
-        Returns the gradient of the log-likelihood with respect to model parameters.
-
-        Using this method requires that the ``forward_model_jacobian`` keyword argument
-        was specified when the instance of ``LogisticLikelihood`` was created.
-
-        :param theta: \
-            The model parameters as a 1D ``numpy.ndarray``.
-
-        :returns: \
-            The gradient of the log-likelihood as a 1D ``numpy.ndarray``.
-        """
-        prediction = self.model(theta)
-        dF_dt = self.model_jacobian(theta)
-        z = (self.y - prediction) * self.inv_scale
+    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+        z = (self.y - predictions) * self.inv_scale
         dL_dF = (2 / (1 + exp(-z)) - 1) * self.inv_scale
-        return dL_dF.dot(dF_dt)
+        return dL_dF @ predictions_jacobian
 
 
 def jacobian_not_given(*args):
