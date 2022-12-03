@@ -153,8 +153,8 @@ class WhiteNoise(CovarianceFunction):
         s = log(y.ptp())
         self.bounds = [(s - 8, s + 2)]
 
-    def __call__(self, u, v, theta):
-        return zeros([u.size, v.size])
+    def __call__(self, u: ndarray, v: ndarray, theta):
+        return zeros([u.shape[0], v.shape[0]])
 
     def build_covariance(self, theta):
         """
