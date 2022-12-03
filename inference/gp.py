@@ -10,8 +10,6 @@ from scipy.optimize import minimize, differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
 from warnings import warn
 from copy import copy
-from typing import Type
-from collections.abc import Sequence
 
 import matplotlib.pyplot as plt
 
@@ -90,8 +88,8 @@ class GpRegressor:
         y_err: ndarray = None,
         y_cov: ndarray = None,
         hyperpars: ndarray = None,
-        kernel: Type[CovarianceFunction] = SquaredExponential,
-        mean: Type[MeanFunction] = ConstantMean,
+        kernel: CovarianceFunction = SquaredExponential,
+        mean: MeanFunction = ConstantMean,
         cross_val: bool = False,
         optimizer: str = "bfgs",
         n_processes: int = 1,
@@ -730,8 +728,8 @@ class GpOptimiser:
         bounds: Sequence,
         y_err: ndarray = None,
         hyperpars: ndarray = None,
-        kernel: Type[CovarianceFunction] = SquaredExponential,
-        mean: Type[MeanFunction] = ConstantMean,
+        kernel: CovarianceFunction = SquaredExponential,
+        mean: MeanFunction = ConstantMean,
         cross_val: bool = False,
         acquisition=ExpectedImprovement,
         optimizer: str = "bfgs",
@@ -977,8 +975,8 @@ class GpLinearInverter:
         y_err: ndarray,
         model_matrix: ndarray,
         parameter_spatial_positions: ndarray,
-        prior_covariance_function: Type[CovarianceFunction] = SquaredExponential,
-        prior_mean_function: Type[MeanFunction] = ConstantMean,
+        prior_covariance_function: CovarianceFunction = SquaredExponential,
+        prior_mean_function: MeanFunction = ConstantMean,
     ):
         if model_matrix.ndim != 2:
             raise ValueError(
