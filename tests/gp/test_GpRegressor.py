@@ -1,10 +1,18 @@
 from numpy import linspace, sin, cos, ndarray, full, zeros
 from numpy.random import default_rng
-from inference.gp import GpRegressor, SquaredExponential, ChangePoint, WhiteNoise, RationalQuadratic
+from inference.gp import (
+    GpRegressor,
+    SquaredExponential,
+    ChangePoint,
+    WhiteNoise,
+    RationalQuadratic,
+)
 import pytest
 
 
-def finite_difference(func: callable, x0: ndarray, delta=1e-5, vectorised_arguments=False):
+def finite_difference(
+    func: callable, x0: ndarray, delta=1e-5, vectorised_arguments=False
+):
     grad = zeros(x0.size)
     for i in range(x0.size):
         x1 = x0.copy()
@@ -28,7 +36,7 @@ def finite_difference(func: callable, x0: ndarray, delta=1e-5, vectorised_argume
 def testing_data():
     n = 32
     rng = default_rng(1)
-    points = rng.uniform(low=0., high=2., size=(n, 2))
+    points = rng.uniform(low=0.0, high=2.0, size=(n, 2))
     values = sin(points[:, 0]) * cos(points[:, 1]) + rng.normal(scale=0.1, size=n)
     errors = full(n, fill_value=0.1)
     return points, values, errors
@@ -57,17 +65,13 @@ def test_marginal_likelihood_gradient():
     rng = default_rng(123)
     n_samples = 20
     theta_vectors = rng.uniform(
-        low=[-0.3, -1.5, 0.1, 0.1],
-        high=[0.3, 0.5, 1.5, 1.5],
-        size=[n_samples, 4]
+        low=[-0.3, -1.5, 0.1, 0.1], high=[0.3, 0.5, 1.5, 1.5], size=[n_samples, 4]
     )
     # check the gradient at each point using finite-difference
     for theta in theta_vectors:
         _, grad_lml = gpr.marginal_likelihood_gradient(theta)
         fd_grad = finite_difference(
-            func=gpr.marginal_likelihood,
-            x0=theta,
-            vectorised_arguments=True
+            func=gpr.marginal_likelihood, x0=theta, vectorised_arguments=True
         )
         assert abs(fd_grad / grad_lml - 1.0).max() < 1e-5
 
@@ -79,17 +83,13 @@ def test_loo_likelihood_gradient():
     rng = default_rng(137)
     n_samples = 20
     theta_vectors = rng.uniform(
-        low=[-0.3, -1.5, 0.1, 0.1],
-        high=[0.3, 0.5, 1.5, 1.5],
-        size=[n_samples, 4]
+        low=[-0.3, -1.5, 0.1, 0.1], high=[0.3, 0.5, 1.5, 1.5], size=[n_samples, 4]
     )
     # check the gradient at each point using finite-difference
     for theta in theta_vectors:
         _, grad_lml = gpr.loo_likelihood_gradient(theta)
         fd_grad = finite_difference(
-            func=gpr.loo_likelihood,
-            x0=theta,
-            vectorised_arguments=True
+            func=gpr.loo_likelihood, x0=theta, vectorised_arguments=True
         )
         assert abs(fd_grad / grad_lml - 1.0).max() < 1e-5
 
