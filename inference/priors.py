@@ -165,7 +165,6 @@ class GaussianPrior(BasePrior):
     """
 
     def __init__(self, mean, sigma, variable_indices):
-
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
 
@@ -259,7 +258,6 @@ class ExponentialPrior(BasePrior):
     """
 
     def __init__(self, beta, variable_indices):
-
         self.beta = array(beta, dtype=float64).squeeze()
         if self.beta.ndim == 0:
             self.beta = self.beta.reshape([1])

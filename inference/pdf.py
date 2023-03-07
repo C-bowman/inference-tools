@@ -189,7 +189,6 @@ class UnimodalPdf(DensityEstimator):
     """
 
     def __init__(self, sample):
-
         self.sample = array(sample)
         self.n_samps = len(sample)
 
@@ -349,7 +348,6 @@ class GaussianKDE(DensityEstimator):
     def __init__(
         self, sample, bandwidth=None, cross_validation=False, max_cv_samples=5000
     ):
-
         self.s = sort(array(sample).flatten())  # sorted array of the samples
         self.max_cvs = (
             max_cv_samples  # maximum number of samples to be used for cross-validation
@@ -548,7 +546,6 @@ class GaussianKDE(DensityEstimator):
 
 class KDE2D:
     def __init__(self, x=None, y=None):
-
         self.x = array(x)
         self.y = array(y)
         # very simple bandwidth estimate

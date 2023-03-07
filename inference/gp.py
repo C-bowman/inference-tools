@@ -95,7 +95,6 @@ class GpRegressor:
         n_processes: int = 1,
         n_starts: int = None,
     ):
-
         # store the data
         self.x = x if isinstance(x, ndarray) else array(x)
         self.y = y if isinstance(y, ndarray) else array(y)

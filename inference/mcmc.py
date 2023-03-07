@@ -254,7 +254,6 @@ class MarkovChain:
         temperature=1.0,
         display_progress=True,
     ):
-
         if start is None:
             start = []
 
@@ -1209,7 +1208,6 @@ class HamiltonianChain(MarkovChain):
         inv_mass=None,
         display_progress=True,
     ):
-
         self.posterior = posterior
         # if no gradient function is supplied, default to finite difference
         if grad is None:
@@ -1585,7 +1583,6 @@ class HamiltonianChain(MarkovChain):
 
 class EpsilonSelector:
     def __init__(self, epsilon):
-
         # storage
         self.epsilon = epsilon
         self.epsilon_values = [copy(epsilon)]  # sigma values after each assessment

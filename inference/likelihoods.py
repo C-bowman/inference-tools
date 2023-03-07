@@ -139,7 +139,6 @@ class GaussianLikelihood(Likelihood):
     """
 
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
-
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
@@ -180,7 +179,6 @@ class CauchyLikelihood(Likelihood):
     """
 
     def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
-
         super().__init__(y_data, gamma, "gamma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
@@ -221,7 +219,6 @@ class LogisticLikelihood(Likelihood):
     """
 
     def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
-
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
