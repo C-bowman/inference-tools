@@ -609,10 +609,10 @@ class GpRegressor:
         return solution
 
     def __str__(self):
-        L_max = max([len(lb) for lb in self.hyperpar_labels])
-        strings = ["\n>>> [ GpRegressor hyperparameters ]\n"]
-        for lb, val in zip(self.hyperpar_labels, self.hyperpars):
-            strings.append(" " * (L_max - len(lb)) + f"{lb} = {val:.4}\n")
+        pad = max([len(label) for label in self.hyperpar_labels]) + 2
+        strings = ["\n[ GpRegressor hyperparameters ]\n"]
+        for label, val in zip(self.hyperpar_labels, self.hyperpars):
+            strings.append(f"{label:>{pad}} = {val:.4}\n")
         return "".join(strings)
 
 
@@ -980,7 +980,7 @@ class GpLinearInverter:
     ):
         if model_matrix.ndim != 2:
             raise ValueError(
-                """
+                """\n
                 [ GpLinearInverter error ]
                 >> 'model_matrix' argument must be a 2D numpy.ndarray
                 """
@@ -988,7 +988,7 @@ class GpLinearInverter:
 
         if y.ndim != y_err.ndim != 1 or y.size != y_err.size:
             raise ValueError(
-                """
+                """\n
                 [ GpLinearInverter error ]
                 >> 'y' and 'y_err' arguments must be 1D numpy.ndarray
                 >> of equal size.
@@ -997,7 +997,7 @@ class GpLinearInverter:
 
         if model_matrix.shape[0] != y.size:
             raise ValueError(
-                f"""
+                f"""\n
                 [ GpLinearInverter error ]
                 >> The size of the first dimension of 'model_matrix' must
                 >> equal the size of 'y', however they have shapes
@@ -1008,7 +1008,7 @@ class GpLinearInverter:
 
         if parameter_spatial_positions.ndim != 2:
             raise ValueError(
-                """
+                """\n
                 [ GpLinearInverter error ]
                 >> 'parameter_spatial_positions' must be a 2D numpy.ndarray, with the
                 >> size of first dimension being equal to the number of model parameters
@@ -1019,7 +1019,7 @@ class GpLinearInverter:
 
         if model_matrix.shape[1] != parameter_spatial_positions.shape[0]:
             raise ValueError(
-                f"""
+                f"""\n
                 [ GpLinearInverter error ]
                 >> The size of the second dimension of 'model_matrix' must be equal
                 >> to the size of the first dimension of 'parameter_spatial_positions',
@@ -1116,7 +1116,7 @@ class GpLinearInverter:
         """
         if initial_guess.size != self.n_hyperpars:
             raise ValueError(
-                f"""
+                f"""\n
                 [ GpLinearInverter error ]
                 >> There are a total of {self.n_hyperpars} hyper-parameters,
                 >> but {initial_guess.size} values were given in 'initial_guess'.
