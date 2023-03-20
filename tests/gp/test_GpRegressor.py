@@ -33,7 +33,7 @@ def finite_difference(
     return grad
 
 
-def testing_data():
+def build_test_data():
     n = 32
     rng = default_rng(1)
     points = rng.uniform(low=0.0, high=2.0, size=(n, 2))
@@ -53,13 +53,13 @@ def testing_data():
     ],
 )
 def test_gpr_predictions(kernel):
-    points, values, errors = testing_data()
+    points, values, errors = build_test_data()
     gpr = GpRegressor(x=points, y=values, y_err=errors, kernel=kernel)
     mu, sig = gpr(points)
 
 
 def test_marginal_likelihood_gradient():
-    points, values, errors = testing_data()
+    points, values, errors = build_test_data()
     gpr = GpRegressor(x=points, y=values, y_err=errors)
     # randomly sample some points in the hyperparameter space to test
     rng = default_rng(123)
@@ -77,7 +77,7 @@ def test_marginal_likelihood_gradient():
 
 
 def test_loo_likelihood_gradient():
-    points, values, errors = testing_data()
+    points, values, errors = build_test_data()
     gpr = GpRegressor(x=points, y=values, y_err=errors)
     # randomly sample some points in the hyperparameter space to test
     rng = default_rng(137)
@@ -145,7 +145,7 @@ def test_spatial_derivatives():
 
 
 def test_optimizers():
-    x, y, errors = testing_data()
+    x, y, errors = build_test_data()
     gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_starts=6)
     gpr = GpRegressor(x, y, y_err=errors, optimizer="bfgs", n_processes=2)
     gpr = GpRegressor(x, y, y_err=errors, optimizer="diffev")

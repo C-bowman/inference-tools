@@ -1,9 +1,32 @@
-from numpy import allclose, sqrt, linspace, zeros, ones
-from numpy.random import normal
+from numpy import allclose, sqrt, ndarray, linspace, zeros, ones
+from numpy.random import default_rng
 from scipy.special import erfc
 from inference.covariance import SquaredExponential, RationalQuadratic, WhiteNoise
 from inference.gp import GpLinearInverter
 import pytest
+
+
+def finite_difference(
+    func: callable, x0: ndarray, delta=1e-4, vectorised_arguments=False
+):
+    grad = zeros(x0.size)
+    for i in range(x0.size):
+        x1 = x0.copy()
+        x2 = x0.copy()
+        dx = x0[i] * delta
+
+        x1[i] -= dx
+        x2[i] += dx
+
+        if vectorised_arguments:
+            f1 = func(x1)
+            f2 = func(x2)
+        else:
+            f1 = func(*x1)
+            f2 = func(*x2)
+
+        grad[i] = 0.5 * (f2 - f1) / dx
+    return grad
 
 
 def normal_cdf(x, mu=0.0, sigma=1.0):
@@ -16,16 +39,7 @@ def lorentzian(x, A, w, c):
     return A / (1 + z**2)
 
 
-@pytest.mark.parametrize(
-    "cov_func",
-    [
-        SquaredExponential(),
-        RationalQuadratic(),
-        WhiteNoise(),
-        RationalQuadratic() + SquaredExponential(),
-    ],
-)
-def test_gp_linear_inverter(cov_func):
+def build_test_data():
     # construct a test solution
     n_data, n_basis = 32, 64
     x = linspace(-1, 1, n_basis)
@@ -44,8 +58,23 @@ def test_gp_linear_inverter(cov_func):
 
     # create some testing data using the forward model
     noise_sigma = 0.02
-    y = A @ solution + normal(size=n_data, scale=noise_sigma)
+    rng = default_rng(123)
+    y = A @ solution + rng.normal(size=n_data, scale=noise_sigma)
     y_err = zeros(n_data) + noise_sigma
+    return x, y, y_err, A
+
+
+@pytest.mark.parametrize(
+    "cov_func",
+    [
+        SquaredExponential(),
+        RationalQuadratic(),
+        WhiteNoise(),
+        RationalQuadratic() + SquaredExponential(),
+    ],
+)
+def test_gp_linear_inverter(cov_func):
+    x, y, y_err, A = build_test_data()
 
     # set up the inverter
     GLI = GpLinearInverter(
@@ -66,3 +95,36 @@ def test_gp_linear_inverter(cov_func):
     # matches the testing data
     chi_sqr = (((y - A @ mu) / y_err) ** 2).mean()
     assert chi_sqr <= 1.5
+
+
+@pytest.mark.parametrize(
+    "cov_func",
+    [
+        SquaredExponential(),
+        RationalQuadratic(),
+        WhiteNoise(),
+        RationalQuadratic() + SquaredExponential(),
+    ],
+)
+def test_gp_linear_inverter_lml_gradient(cov_func):
+    x, y, y_err, A = build_test_data()
+
+    GLI = GpLinearInverter(
+        model_matrix=A,
+        y=y,
+        y_err=y_err,
+        parameter_spatial_positions=x.reshape([x.size, 1]),
+        prior_covariance_function=cov_func,
+    )
+
+    rng = default_rng(1)
+    test_points = rng.uniform(low=0.1, high=1.0, size=(20, GLI.n_hyperpars))
+
+    for theta in test_points:
+        grad_fd = finite_difference(
+            func=GLI.marginal_likelihood, x0=theta, vectorised_arguments=True
+        )
+
+        _, grad_analytic = GLI.marginal_likelihood_gradient(theta)
+        abs_frac_error = abs(grad_fd / grad_analytic - 1.0).max()
+        assert abs_frac_error < 1e-3
