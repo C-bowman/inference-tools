@@ -1034,10 +1034,14 @@ class GpLinearInverter:
         self.cov = prior_covariance_function
         self.cov = self.cov() if isclass(self.cov) else self.cov
         self.cov.pass_spatial_data(parameter_spatial_positions)
+        if self.cov.bounds is None:
+            self.cov.bounds = [(None, None)] * self.cov.n_params
 
         self.mean = prior_mean_function
         self.mean = self.mean() if isclass(self.mean) else self.mean
         self.mean.pass_spatial_data(parameter_spatial_positions)
+        if self.mean.bounds is None:
+            self.mean.bounds = [(None, None)] * self.mean.n_params
 
         self.n_hyperpars = self.mean.n_params + self.cov.n_params
         self.mean_slice = slice(0, self.mean.n_params)
@@ -1100,6 +1104,34 @@ class GpLinearInverter:
         v = solve_triangular(L, self.y - self.A @ prior_mean, lower=True)
         return -0.5 * (v @ v) - log(diagonal(L)).sum()
 
+    def marginal_likelihood_gradient(self, theta: ndarray):
+        """
+        returns the log-marginal likelihood and its gradient with respect
+        to the hyperparameters.
+        """
+        K, grad_K = self.cov.covariance_and_gradients(theta[self.cov_slice])
+        J = self.A @ K @ self.A.T + self.sigma
+        grad_J = [self.A @ dK @ self.A.T for dK in grad_K]
+
+        mu, grad_mu = self.mean.mean_and_gradients(theta[self.mean_slice])
+        f = self.A @ mu
+        grad_f = [self.A @ du for du in grad_mu]
+
+        # get the cholesky decomposition
+        L = cholesky(J)
+        iJ = solve_triangular(L, eye(L.shape[0]), lower=True)
+        iJ = iJ.T @ iJ
+        # calculate the log-marginal likelihood
+        alpha = iJ.dot(self.y - f)
+        LML = -0.5 * dot((self.y - f).T, alpha) - log(diagonal(L)).sum()
+        # calculate the mean parameter gradients
+        grad = zeros(self.n_hyperpars)
+        grad[self.mean_slice] = array([(alpha * df).sum() for df in grad_f])
+        # calculate the covariance parameter gradients
+        Q = alpha[:, None] * alpha[None, :] - iJ
+        grad[self.cov_slice] = array([0.5 * (Q * dJ.T).sum() for dJ in grad_J])
+        return LML, grad
+
     def optimize_hyperparameters(self, initial_guess: ndarray) -> ndarray:
         """
         Finds the hyper-parameter values which maximise the
@@ -1121,9 +1153,13 @@ class GpLinearInverter:
                 >> but {initial_guess.size} values were given in 'initial_guess'.
                 """
             )
+
+        hp_bounds = [*self.mean.bounds, *self.cov.bounds]
+
         OptResult = minimize(
             fun=lambda t: -self.marginal_likelihood(t),
             x0=initial_guess,
             method="Nelder-Mead",
+            bounds=hp_bounds,
         )
         return OptResult.x
