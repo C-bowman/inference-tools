@@ -597,9 +597,9 @@ class ChangePoint(CovarianceFunction):
         return f, [dfdc, dfdc * z]
 
 
-class HeteroscedasticUncertainties(CovarianceFunction):
+class HeteroscedasticNoise(CovarianceFunction):
     r"""
-    ``HeteroscedasticUncertainties`` is a covariance-function class which models the
+    ``HeteroscedasticNoise`` is a covariance-function class which models the
     presence of heteroscedastic, independent Gaussian noise on the input data.
     'Heteroscedastic' refers to the noise variance not being constant across the input
     data. The covariance can be expressed as:
@@ -617,20 +617,22 @@ class HeteroscedasticUncertainties(CovarianceFunction):
 
        \underline{\theta} = [ \ln{\sigma_1}, \ln{\sigma_2}, \ldots, \ln{\sigma_m}]
 
-    ``HeteroscedasticUncertainties`` should be used as part of a 'composite' covariance
+    Note that because the number of hyper-parameters is equal to the number of data
+    values, hyper-parameter optimisation can become very expensive for larger datasets.
+    ``HeteroscedasticNoise`` should be used as part of a 'composite' covariance
     function, as it doesn't model the underlying structure of the data by itself.
     Composite covariance functions can be constructed by addition, for example:
 
     .. code-block:: python
 
-       from inference.gp import SquaredExponential, HeteroscedasticUncertainties
-       composite_kernel = SquaredExponential() + HeteroscedasticUncertainties()
+       from inference.gp import SquaredExponential, HeteroscedasticNoise
+       composite_kernel = SquaredExponential() + HeteroscedasticNoise()
 
     :param hyperpar_bounds:
-        By default, ``HeteroscedasticUncertainties`` will automatically set sensible
-        lower and upper bounds on the values of the log-standard-deviation based on the
-        available data. However, this keyword allows the bounds to be specified manually
-        as a sequence of length-2 tuples giving the lower/upper bounds.
+        By default, ``HeteroscedasticNoise`` will automatically set sensible lower and
+        upper bounds on the values of the log-standard-deviation based on the available
+        data. However, this keyword allows the bounds to be specified manually as a
+        sequence of length-2 tuples giving the lower/upper bounds.
     """
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
