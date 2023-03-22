@@ -634,6 +634,7 @@ class HeteroscedasticNoise(CovarianceFunction):
         data. However, this keyword allows the bounds to be specified manually as a
         sequence of length-2 tuples giving the lower/upper bounds.
     """
+
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
@@ -673,7 +674,7 @@ class HeteroscedasticNoise(CovarianceFunction):
     def covariance_and_gradients(self, theta):
         sigma_sq = exp(2 * theta)
         K = diag(sigma_sq)
-        grads = [s*dk for s, dk in zip(sigma_sq, self.dK)]
+        grads = [s * dk for s, dk in zip(sigma_sq, self.dK)]
         return K, grads
 
     def get_bounds(self):
