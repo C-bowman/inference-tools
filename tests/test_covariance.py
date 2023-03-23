@@ -1,7 +1,8 @@
 import pytest
 from numpy import array, linspace, sin, isfinite
 from numpy.random import default_rng
-from inference.gp import SquaredExponential, RationalQuadratic, WhiteNoise, ChangePoint
+from inference.gp import SquaredExponential, RationalQuadratic, ChangePoint
+from inference.gp import WhiteNoise, HeteroscedasticNoise
 
 
 def covar_error_check(K, dK_analytic, dK_findiff):
@@ -45,9 +46,11 @@ def create_data():
         SquaredExponential(),
         RationalQuadratic(),
         WhiteNoise(),
+        HeteroscedasticNoise(),
         RationalQuadratic() + WhiteNoise(),
+        RationalQuadratic() + HeteroscedasticNoise(),
         ChangePoint(kernels=[SquaredExponential, SquaredExponential]),
-        ChangePoint(kernels=[SquaredExponential, SquaredExponential]) + WhiteNoise(),
+        ChangePoint(kernels=[SquaredExponential, RationalQuadratic]) + WhiteNoise(),
     ],
 )
 def test_covariance_and_gradients(cov):

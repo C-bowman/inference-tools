@@ -32,6 +32,12 @@ WhiteNoise
 .. autoclass:: inference.gp.WhiteNoise
 
 
+HeteroscedasticNoise
+^^^^^^^^^^^^^^^^^^^^
+
+.. autoclass:: inference.gp.HeteroscedasticNoise
+
+
 ChangePoint
 ^^^^^^^^^^^
 

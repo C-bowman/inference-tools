@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from inspect import isclass
 from itertools import chain
-from numpy import abs, exp, eye, log, zeros, ndarray
+from numpy import abs, diag, exp, eye, log, zeros, ndarray
 
 
 class CovarianceFunction(ABC):
@@ -595,6 +595,90 @@ class ChangePoint(CovarianceFunction):
         f = 1.0 / (1.0 + exp(-z))
         dfdc = -f * (1 - f) / theta[1]
         return f, [dfdc, dfdc * z]
+
+
+class HeteroscedasticNoise(CovarianceFunction):
+    r"""
+    ``HeteroscedasticNoise`` is a covariance-function class which models the
+    presence of heteroscedastic, independent Gaussian noise on the input data.
+    'Heteroscedastic' refers to the noise variance not being constant across the input
+    data. The covariance can be expressed as:
+
+    .. math::
+
+       K(x_i, x_j) = \delta_{ij} \sigma_i^{2}
+
+    where :math:`\delta_{ij}` is the Kronecker delta and :math:`\sigma_{i}` is the
+    Gaussian noise standard-deviation for the :math:`i`'th data value. The hyper-parameters
+    :math:`\underline{\theta}` are the natural log of standard-deviations for each of the
+    :math:`m` data values:
+
+    .. math::
+
+       \underline{\theta} = [ \ln{\sigma_1}, \ln{\sigma_2}, \ldots, \ln{\sigma_m}]
+
+    Note that because the number of hyper-parameters is equal to the number of data
+    values, hyper-parameter optimisation can become very expensive for larger datasets.
+    ``HeteroscedasticNoise`` should be used as part of a 'composite' covariance
+    function, as it doesn't model the underlying structure of the data by itself.
+    Composite covariance functions can be constructed by addition, for example:
+
+    .. code-block:: python
+
+       from inference.gp import SquaredExponential, HeteroscedasticNoise
+       composite_kernel = SquaredExponential() + HeteroscedasticNoise()
+
+    :param hyperpar_bounds:
+        By default, ``HeteroscedasticNoise`` will automatically set sensible lower and
+        upper bounds on the values of the log-standard-deviation based on the available
+        data. However, this keyword allows the bounds to be specified manually as a
+        sequence of length-2 tuples giving the lower/upper bounds.
+    """
+
+    def __init__(self, hyperpar_bounds=None):
+        self.bounds = hyperpar_bounds
+
+    def pass_spatial_data(self, x: ndarray):
+        """
+        Pre-calculates hyperparameter-independent part of the data covariance
+        matrix as an optimisation.
+        """
+        self.n_params = x.shape[0]
+        self.dK = []
+        for i in range(self.n_params):
+            A = zeros([self.n_params, self.n_params])
+            A[i, i] = 2.0
+            self.dK.append(A)
+        self.hyperpar_labels = [f"log_sigma_{i+1}" for i in range(self.n_params)]
+
+    def estimate_hyperpar_bounds(self, y: ndarray):
+        """
+        Estimates bounds on the hyper-parameters to be
+        used during optimisation.
+        """
+        # construct sensible bounds on the hyperparameter values
+        s = log(y.ptp())
+        self.bounds = [(s - 8, s + 2) for _ in range(self.n_params)]
+
+    def __call__(self, u, v, theta):
+        return zeros([u.size, v.size])
+
+    def build_covariance(self, theta):
+        """
+        Optimized version of self.matrix() specifically for the data
+        covariance matrix where the vectors v1 & v2 are both self.x.
+        """
+        sigma_sq = exp(2 * theta)
+        return diag(sigma_sq)
+
+    def covariance_and_gradients(self, theta):
+        sigma_sq = exp(2 * theta)
+        K = diag(sigma_sq)
+        grads = [s * dk for s, dk in zip(sigma_sq, self.dK)]
+        return K, grads
+
+    def get_bounds(self):
+        return self.bounds
 
 
 def slice_builder(lengths):
