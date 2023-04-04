@@ -382,7 +382,7 @@ class ChangePoint(CovarianceFunction):
     :math:`n` regions:
 
     .. math::
-       K_{\mathrm{cp}}(u, v) = K_1 a_1 + \left(\sum_{i=2}^{n-1} K_i a_{i+1} b_{i}\right) + K_n b_n
+       K_{\mathrm{cp}}(u, v) = K_1 a_1 + \left(\sum_{i=2}^{n-1} K_i a_i b_{i-1}\right) + K_n b_{n-1}
 
     where
 
