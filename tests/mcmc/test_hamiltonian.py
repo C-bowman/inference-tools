@@ -86,7 +86,7 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
 def test_hamiltonian_chain_restore(tmp_path):
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
-        posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
+        posterior=posterior, start=array([1., 0.1, 0.1]), grad=posterior.gradient
     )
     steps = 10
     chain.advance(steps)

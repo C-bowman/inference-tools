@@ -5,6 +5,7 @@
 import sys
 from warnings import warn
 from copy import copy, deepcopy
+from typing import Sequence
 from multiprocessing import Process, Pipe, Event, Pool
 from time import time
 from random import choice
@@ -1179,14 +1180,14 @@ class HamiltonianChain(MarkovChain):
         A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
+    :param start: \
+        Vector of model parameters which correspond to the parameter-space coordinates
+        at which the chain will start.
+
     :param func grad: \
         A function which returns the gradient of the log-posterior probability density
         for a given set of model parameters theta. If this function is not given, the
         gradient will instead be estimated by finite difference.
-
-    :param start: \
-        Vector of model parameters which correspond to the parameter-space coordinates
-        at which the chain will start.
 
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
@@ -1212,13 +1213,13 @@ class HamiltonianChain(MarkovChain):
 
     def __init__(
         self,
-        posterior=None,
-        grad=None,
-        start=None,
+        posterior: callable,
+        start: ndarray=None,
+        grad: callable=None,
         epsilon=0.1,
         temperature=1,
-        bounds=None,
-        inv_mass=None,
+        bounds: Sequence[ndarray]=None,
+        inv_mass: ndarray=None,
         display_progress=True,
     ):
         self.posterior = posterior
@@ -1264,10 +1265,7 @@ class HamiltonianChain(MarkovChain):
         self.chain_length = 1
 
         # set the variance to 1 if none supplied
-        if inv_mass is None:
-            self.variance = 1.0
-        else:
-            self.variance = inv_mass
+        self.variance = 1.0 if inv_mass is None else inv_mass
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
