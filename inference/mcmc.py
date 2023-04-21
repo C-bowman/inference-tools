@@ -578,7 +578,8 @@ class MarkovChain:
         """
         burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.n_variables)
+            ESS(array(self.get_parameter(i, burn=burn)))
+            for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -591,8 +592,8 @@ class MarkovChain:
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.chain_length // 2:]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2:]),
+            min(self.probs[self.chain_length // 2 :]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2 :]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -604,8 +605,12 @@ class MarkovChain:
             y = array(p.sigma_values)
             x = array(p.sigma_checks[1:]) * 1e-3
             ax2.plot(x, 1e2 * diff(y) / y[:-1], marker="D", markersize=3)
-        ax2.plot([0, self.chain_length * 1e-3], [5, 5], ls="dashed", lw=2, color="black")
-        ax2.plot([0, self.chain_length * 1e-3], [-5, -5], ls="dashed", lw=2, color="black")
+        ax2.plot(
+            [0, self.chain_length * 1e-3], [5, 5], ls="dashed", lw=2, color="black"
+        )
+        ax2.plot(
+            [0, self.chain_length * 1e-3], [-5, -5], ls="dashed", lw=2, color="black"
+        )
         ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax2.set_ylabel("% change in proposal widths", fontsize=12)
         ax2.set_title("Parameter proposal widths adjustment summary")
@@ -614,7 +619,9 @@ class MarkovChain:
 
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
-        ax3.bar(range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+        ax3.bar(
+            range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+        )
         ax3.set_xlabel("parameter", fontsize=12)
         ax3.set_ylabel("effective sample size", fontsize=12)
         ax3.set_title("Parameter effective sample size estimate")
@@ -794,7 +801,9 @@ class MarkovChain:
         print(msg)
 
     def autoselect_thin(self):
-        param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.n_variables)]
+        param_ESS = [
+            ESS(array(self.get_parameter(i, thin=1))) for i in range(self.n_variables)
+        ]
         self.thin = int((self.chain_length - self.burn) / min(param_ESS))
         if self.thin < 1:
             self.thin = 1
@@ -962,7 +971,9 @@ class PcaChain(MarkovChain):
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
-        data = array([self.get_parameter(i)[self.last_update :] for i in range(self.n_variables)])
+        data = array(
+            [self.get_parameter(i)[self.last_update :] for i in range(self.n_variables)]
+        )
         if hasattr(self, "covar"):
             nu = min(2 * self.dir_update_interval / self.last_update, 0.5)
             self.covar = self.covar * (1 - nu) + nu * cov(data)
@@ -973,7 +984,8 @@ class PcaChain(MarkovChain):
 
         # find the sine of the angle between the old and new eigenvectors to track convergence
         angles = [
-            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2) for i in range(self.n_variables)
+            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2)
+            for i in range(self.n_variables)
         ]
         self.angles_history.append(angles)
         self.update_history.append(copy(self.chain_length))
@@ -1292,9 +1304,7 @@ class HamiltonianChain(MarkovChain):
             H = 0.5 * dot(r, r * self.variance) - p
             test = exp(H0 - H)
 
-            self.ES.add_probability(
-                min(test, 1) if isfinite(test) else 0.0
-            )
+            self.ES.add_probability(min(test, 1) if isfinite(test) else 0.0)
 
             if test >= 1 or random() <= test:
                 break
@@ -1418,7 +1428,8 @@ class HamiltonianChain(MarkovChain):
         if burn is None:
             burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.n_variables)
+            ESS(array(self.get_parameter(i, burn=burn, thin=1)))
+            for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -1432,8 +1443,8 @@ class HamiltonianChain(MarkovChain):
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.chain_length // 2:]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2:]),
+            min(self.probs[self.chain_length // 2 :]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2 :]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -1449,7 +1460,9 @@ class HamiltonianChain(MarkovChain):
 
         ax3 = fig.add_subplot(223)
         if self.n_variables < 50:
-            ax3.bar(range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+            ax3.bar(
+                range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+            )
             ax3.set_xlabel("parameter", fontsize=12)
             ax3.set_ylabel("effective sample size", fontsize=12)
             ax3.set_title("Parameter effective sample size estimate")
