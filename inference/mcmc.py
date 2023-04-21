@@ -1276,9 +1276,9 @@ class HamiltonianChain(MarkovChain):
         accept = False
         steps_taken = 0
         while not accept:
-            r0 = normal(size=self.L) / sqrt(self.variance)
+            r0 = normal(size=self.L)
             t0 = self.theta[-1]
-            H0 = 0.5 * dot(r0, r0 / self.variance) - self.probs[-1]
+            H0 = 0.5 * dot(r0, r0 * self.variance) - self.probs[-1]
 
             r = copy(r0)
             t = copy(t0)
@@ -1289,7 +1289,7 @@ class HamiltonianChain(MarkovChain):
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
-            H = 0.5 * dot(r, r / self.variance) - p
+            H = 0.5 * dot(r, r * self.variance) - p
             test = exp(H0 - H)
 
             if isfinite(test):
@@ -1315,7 +1315,7 @@ class HamiltonianChain(MarkovChain):
         return t, r, g
 
     def hamiltonian(self, t, r):
-        return 0.5 * dot(r, r / self.variance) - self.posterior(t) * self.inv_temp
+        return 0.5 * dot(r, r * self.variance) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
         self.variance = var(array(self.theta[burn::thin]), axis=0)
