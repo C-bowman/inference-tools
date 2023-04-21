@@ -10,7 +10,8 @@ from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
-from numpy import array, arange, float64, identity, linspace, zeros, concatenate
+from numpy import ndarray, float64
+from numpy import array, arange, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot
 from numpy import cov, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
@@ -1222,10 +1223,7 @@ class HamiltonianChain(MarkovChain):
     ):
         self.posterior = posterior
         # if no gradient function is supplied, default to finite difference
-        if grad is None:
-            self.grad = self.finite_diff
-        else:
-            self.grad = grad
+        self.grad = self.finite_diff if grad is None else grad
 
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
@@ -1321,18 +1319,18 @@ class HamiltonianChain(MarkovChain):
         self.leapfrog_steps.append(steps_taken)
         self.chain_length += 1
 
-    def run_leapfrog(self, t, r, g, L):
-        for i in range(L):
+    def run_leapfrog(self, t: ndarray, r: ndarray, g: ndarray, n_steps: int):
+        for i in range(n_steps):
             t, r, g = self.leapfrog(t, r, g)
         return t, r, g
 
-    def hamiltonian(self, t, r):
+    def hamiltonian(self, t: ndarray, r: ndarray):
         return 0.5 * dot(r, r * self.variance) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
         self.variance = var(array(self.theta[burn::thin]), axis=0)
 
-    def finite_diff(self, t):
+    def finite_diff(self, t: ndarray):
         p = self.posterior(t) * self.inv_temp
         G = zeros(self.n_variables)
         for i in range(self.n_variables):
@@ -1341,7 +1339,7 @@ class HamiltonianChain(MarkovChain):
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
 
-    def standard_leapfrog(self, t, r, g):
+    def standard_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
         t2 = t + self.ES.epsilon * r2 * self.variance
 
@@ -1349,7 +1347,7 @@ class HamiltonianChain(MarkovChain):
         r2 = r2 + (0.5 * self.ES.epsilon) * g
         return t2, r2, g
 
-    def bounded_leapfrog(self, t, r, g):
+    def bounded_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
         t2 = t + self.ES.epsilon * r2 * self.variance
         # check for values outside bounds
@@ -1377,11 +1375,11 @@ class HamiltonianChain(MarkovChain):
     def replace_last(self, theta):
         self.theta[-1] = theta
 
-    def get_parameter(self, n, burn=None, thin=None):
+    def get_parameter(self, index: int, burn=None, thin=None):
         """
         Return sample values for a chosen parameter.
 
-        :param int n: \
+        :param int index: \
             Index of the parameter for which samples are to be returned.
 
         :param int burn: \
@@ -1396,11 +1394,9 @@ class HamiltonianChain(MarkovChain):
         :return: \
             List of samples for parameter *n*'th parameter.
         """
-        if burn is None:
-            burn = self.burn
-        if thin is None:
-            thin = self.thin
-        return [v[n] for v in self.theta[burn::thin]]
+        burn = self.burn if burn is None else burn
+        thin = self.thin if thin is None else thin
+        return [v[index] for v in self.theta[burn::thin]]
 
     def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
@@ -1563,7 +1559,7 @@ class HamiltonianChain(MarkovChain):
             savez(filename, **items)
 
     @classmethod
-    def load(cls, filename, posterior=None, grad=None):
+    def load(cls, filename: str, posterior=None, grad=None):
         D = load(filename)
         chain = cls(
             posterior=posterior, grad=grad, display_progress=bool(D["display_progress"])
@@ -2356,7 +2352,7 @@ class EnsembleSampler:
         """
         return self.sample[self.sample_probs.argmax(), :]
 
-    def get_parameter(self, index, burn=0, thin=1):
+    def get_parameter(self, index: int, burn=0, thin=1):
         """
         Return sample values for a chosen parameter.
 
