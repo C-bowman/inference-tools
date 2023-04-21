@@ -1259,6 +1259,7 @@ class HamiltonianChain(MarkovChain):
         else:
             self.variance = inv_mass
 
+        self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
         self.burn = 1
@@ -1273,9 +1274,8 @@ class HamiltonianChain(MarkovChain):
         """
         Takes the next step in the HMC-chain
         """
-        accept = False
         steps_taken = 0
-        while not accept:
+        for attempt in range(self.max_attempts):
             r0 = normal(size=self.L)
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.variance) - self.probs[-1]
@@ -1292,17 +1292,19 @@ class HamiltonianChain(MarkovChain):
             H = 0.5 * dot(r, r * self.variance) - p
             test = exp(H0 - H)
 
-            if isfinite(test):
-                self.ES.add_probability(min(test, 1))
-            else:
-                self.ES.add_probability(0.0)
+            self.ES.add_probability(
+                min(test, 1) if isfinite(test) else 0.0
+            )
 
-            if test >= 1:
-                accept = True
-            else:
-                q = random()
-                if q <= test:
-                    accept = True
+            if test >= 1 or random() <= test:
+                break
+        else:
+            raise ValueError(
+                f"""
+                [ HamiltonianChain error ]
+                >> Failed to take step within maximum allowed attempts of {self.max_attempts}
+                """
+            )
 
         self.theta.append(t)
         self.probs.append(p)
