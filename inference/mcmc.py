@@ -1298,11 +1298,13 @@ class HamiltonianChain(MarkovChain):
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
             H = 0.5 * dot(r, r * self.variance) - p
-            test = exp(H0 - H)
+            accept_prob = exp(H0 - H)
 
-            self.ES.add_probability(min(test, 1) if isfinite(test) else 0.0)
+            self.ES.add_probability(
+                min(accept_prob, 1) if isfinite(accept_prob) else 0.0
+            )
 
-            if test >= 1 or random() <= test:
+            if (accept_prob >= 1) or (random() <= accept_prob):
                 break
         else:
             raise ValueError(
@@ -1341,9 +1343,9 @@ class HamiltonianChain(MarkovChain):
         r2 = r + (0.5 * self.ES.epsilon) * g
         t2 = t + self.ES.epsilon * r2 * self.variance
 
-        g = self.grad(t2) * self.inv_temp
-        r2 = r2 + (0.5 * self.ES.epsilon) * g
-        return t2, r2, g
+        g2 = self.grad(t2) * self.inv_temp
+        r2 += (0.5 * self.ES.epsilon) * g2
+        return t2, r2, g2
 
     def bounded_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
