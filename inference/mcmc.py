@@ -1214,12 +1214,12 @@ class HamiltonianChain(MarkovChain):
     def __init__(
         self,
         posterior: callable,
-        start: ndarray=None,
-        grad: callable=None,
+        start: ndarray = None,
+        grad: callable = None,
         epsilon=0.1,
         temperature=1,
-        bounds: Sequence[ndarray]=None,
-        inv_mass: ndarray=None,
+        bounds: Sequence[ndarray] = None,
+        inv_mass: ndarray = None,
         display_progress=True,
     ):
         self.posterior = posterior
