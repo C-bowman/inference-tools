@@ -271,7 +271,7 @@ class MarkovChain:
 
             # create storage
             self.chain_length = 1  # tracks total length of the chain
-            self.L = len(start)  # number of posterior parameters
+            self.n_variables = len(start)  # number of posterior parameters
             self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
@@ -578,7 +578,7 @@ class MarkovChain:
         """
         burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)
+            ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -614,11 +614,11 @@ class MarkovChain:
 
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
-        ax3.bar(range(self.L), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+        ax3.bar(range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
         ax3.set_xlabel("parameter", fontsize=12)
         ax3.set_ylabel("effective sample size", fontsize=12)
         ax3.set_title("Parameter effective sample size estimate")
-        ax3.set_xticks(range(self.L))
+        ax3.set_xticks(range(self.n_variables))
 
         # summary stats text plot
         ax4 = fig.add_subplot(224)
@@ -686,7 +686,7 @@ class MarkovChain:
         """
         burn = burn if burn is not None else self.burn
         thin = thin if thin is not None else self.thin
-        params = params if params is not None else range(self.L)
+        params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
@@ -708,7 +708,7 @@ class MarkovChain:
             Rather than using every sample which is not discarded as part of the
             burn-in, every *m*'th sample is used for a specified integer *m*.
         """
-        params = params if params is not None else range(self.L)
+        params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)
 
@@ -721,7 +721,7 @@ class MarkovChain:
         # get the chain attributes
         items = {
             "chain_length": self.chain_length,
-            "L": self.L,
+            "n_variables": self.n_variables,
             "probs": self.probs,
             "burn": self.burn,
             "thin": self.thin,
@@ -754,7 +754,7 @@ class MarkovChain:
 
         # re-build the chain's attributes
         chain.chain_length = int(D["chain_length"])
-        chain.L = int(D["L"])
+        chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
         chain.inv_temp = float(D["inv_temp"])
         chain.burn = int(D["burn"])
@@ -762,7 +762,7 @@ class MarkovChain:
 
         # re-build all the parameter objects
         chain.params = []
-        for i in range(chain.L):
+        for i in range(chain.n_variables):
             p = Parameter()
             p.load_items(dictionary=D, param_id=i)
             chain.params.append(p)
@@ -794,7 +794,7 @@ class MarkovChain:
         print(msg)
 
     def autoselect_thin(self):
-        param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.L)]
+        param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.n_variables)]
         self.thin = int((self.chain_length - self.burn) / min(param_ESS))
         if self.thin < 1:
             self.thin = 1
@@ -926,9 +926,9 @@ class PcaChain(MarkovChain):
                 p.target_rate = 0.5
 
         self.directions = []
-        if hasattr(self, "L"):
-            for i in range(self.L):
-                v = zeros(self.L)
+        if hasattr(self, "n_variables"):
+            for i in range(self.n_variables):
+                v = zeros(self.n_variables)
                 v[i] = 1.0
                 self.directions.append(v)
 
@@ -944,7 +944,7 @@ class PcaChain(MarkovChain):
 
         # Set-up for imposing boundaries if specified
         if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.L:
+            if len(parameter_boundaries) == self.n_variables:
                 self.lower = array([k[0] for k in parameter_boundaries])
                 self.upper = array([k[1] for k in parameter_boundaries])
                 self.width = self.upper - self.lower
@@ -962,7 +962,7 @@ class PcaChain(MarkovChain):
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
-        data = array([self.get_parameter(i)[self.last_update :] for i in range(self.L)])
+        data = array([self.get_parameter(i)[self.last_update :] for i in range(self.n_variables)])
         if hasattr(self, "covar"):
             nu = min(2 * self.dir_update_interval / self.last_update, 0.5)
             self.covar = self.covar * (1 - nu) + nu * cov(data)
@@ -973,13 +973,13 @@ class PcaChain(MarkovChain):
 
         # find the sine of the angle between the old and new eigenvectors to track convergence
         angles = [
-            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2) for i in range(self.L)
+            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2) for i in range(self.n_variables)
         ]
         self.angles_history.append(angles)
         self.update_history.append(copy(self.chain_length))
 
         # store the new directions and plan the next update
-        self.directions = [V[:, i] for i in range(self.L)]
+        self.directions = [V[:, i] for i in range(self.n_variables)]
         self.last_update = copy(self.chain_length)
         self.dir_update_interval = int(
             self.dir_update_interval * self.dir_growth_factor
@@ -987,7 +987,7 @@ class PcaChain(MarkovChain):
         self.next_update = self.last_update + self.dir_update_interval
 
     def directions_diagnostics(self):
-        for i in range(self.L):
+        for i in range(self.n_variables):
             prods = [v[i] for v in self.angles_history]
             plt.plot(self.update_history, prods, ".-")
         plt.plot(
@@ -1053,7 +1053,7 @@ class PcaChain(MarkovChain):
         # get the chain attributes
         items = {
             "chain_length": self.chain_length,
-            "L": self.L,
+            "n_variables": self.n_variables,
             "probs": self.probs,
             "burn": self.burn,
             "thin": self.thin,
@@ -1094,7 +1094,7 @@ class PcaChain(MarkovChain):
 
         # re-build the chain's attributes
         chain.chain_length = int(D["chain_length"])
-        chain.L = int(D["L"])
+        chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
@@ -1114,7 +1114,7 @@ class PcaChain(MarkovChain):
 
         # re-build all the parameter objects
         chain.params = []
-        for i in range(chain.L):
+        for i in range(chain.n_variables):
             p = Parameter()
             p.load_items(dictionary=D, param_id=i)
             chain.params.append(p)
@@ -1250,7 +1250,7 @@ class HamiltonianChain(MarkovChain):
             self.theta = [start]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
-            self.L = len(start)
+            self.n_variables = len(start)
         self.chain_length = 1
 
         # set the variance to 1 if none supplied
@@ -1276,7 +1276,7 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = normal(size=self.L)
+            r0 = normal(size=self.n_variables)
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.variance) - self.probs[-1]
 
@@ -1324,9 +1324,9 @@ class HamiltonianChain(MarkovChain):
 
     def finite_diff(self, t):
         p = self.posterior(t) * self.inv_temp
-        G = zeros(self.L)
-        for i in range(self.L):
-            delta = zeros(self.L) + 1
+        G = zeros(self.n_variables)
+        for i in range(self.n_variables):
+            delta = zeros(self.n_variables) + 1
             delta[i] += 1e-5
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
@@ -1418,7 +1418,7 @@ class HamiltonianChain(MarkovChain):
         if burn is None:
             burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.L)
+            ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -1448,12 +1448,12 @@ class HamiltonianChain(MarkovChain):
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
-        if self.L < 50:
-            ax3.bar(range(self.L), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+        if self.n_variables < 50:
+            ax3.bar(range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
             ax3.set_xlabel("parameter", fontsize=12)
             ax3.set_ylabel("effective sample size", fontsize=12)
             ax3.set_title("Parameter effective sample size estimate")
-            ax3.set_xticks(range(self.L))
+            ax3.set_xticks(range(self.n_variables))
         else:
             ax3.hist(param_ESS, bins=20)
             ax3.set_xlabel("effective sample size", fontsize=12)
@@ -1533,7 +1533,7 @@ class HamiltonianChain(MarkovChain):
             "theta": self.theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
-            "L": self.L,
+            "n_variables": self.n_variables,
             "chain_length": self.chain_length,
             "steps": self.steps,
             "burn": self.burn,
@@ -1562,7 +1562,7 @@ class HamiltonianChain(MarkovChain):
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
-        chain.L = int(D["L"])
+        chain.n_variables = int(D["n_variables"])
         chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
         chain.burn = int(D["burn"])
