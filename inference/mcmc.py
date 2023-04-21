@@ -270,7 +270,7 @@ class MarkovChain:
             self.params = [Parameter(value=v, sigma=s) for v, s in zip(start, widths)]
 
             # create storage
-            self.n = 1  # tracks total length of the chain
+            self.chain_length = 1  # tracks total length of the chain
             self.L = len(start)  # number of posterior parameters
             self.probs = []  # list of probabilities for all steps
 
@@ -317,7 +317,7 @@ class MarkovChain:
         for p, v in zip(self.params, proposal):
             p.add_sample(v)
 
-        self.n += 1
+        self.chain_length += 1
 
     def advance(self, m):
         """
@@ -347,7 +347,7 @@ class MarkovChain:
         :param int days: number of days for which to run the chain.
         """
         update_interval = 20  # small initial guess for the update interval
-        start_length = copy(self.n)
+        start_length = copy(self.chain_length)
 
         # first find the runtime in seconds:
         run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
@@ -359,7 +359,7 @@ class MarkovChain:
             for i in range(update_interval):
                 self.take_step()
             # set the interval such that updates are roughly once per second
-            steps_taken = self.n - start_length
+            steps_taken = self.chain_length - start_length
             current_time = time()
             update_interval = int(steps_taken / (current_time - start_time))
             self.ProgressPrinter.countdown_progress(end_time, steps_taken)
@@ -591,8 +591,8 @@ class MarkovChain:
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.n // 2 :]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.n // 2 :]),
+            min(self.probs[self.chain_length // 2:]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2:]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -604,8 +604,8 @@ class MarkovChain:
             y = array(p.sigma_values)
             x = array(p.sigma_checks[1:]) * 1e-3
             ax2.plot(x, 1e2 * diff(y) / y[:-1], marker="D", markersize=3)
-        ax2.plot([0, self.n * 1e-3], [5, 5], ls="dashed", lw=2, color="black")
-        ax2.plot([0, self.n * 1e-3], [-5, -5], ls="dashed", lw=2, color="black")
+        ax2.plot([0, self.chain_length * 1e-3], [5, 5], ls="dashed", lw=2, color="black")
+        ax2.plot([0, self.chain_length * 1e-3], [-5, -5], ls="dashed", lw=2, color="black")
         ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax2.set_ylabel("% change in proposal widths", fontsize=12)
         ax2.set_title("Parameter proposal widths adjustment summary")
@@ -720,7 +720,7 @@ class MarkovChain:
         """
         # get the chain attributes
         items = {
-            "n": self.n,
+            "chain_length": self.chain_length,
             "L": self.L,
             "probs": self.probs,
             "burn": self.burn,
@@ -753,7 +753,7 @@ class MarkovChain:
         chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
-        chain.n = int(D["n"])
+        chain.chain_length = int(D["chain_length"])
         chain.L = int(D["L"])
         chain.probs = list(D["probs"])
         chain.inv_temp = float(D["inv_temp"])
@@ -789,19 +789,19 @@ class MarkovChain:
     def autoselect_burn(self):
         self.burn = self.estimate_burn_in()
         msg = "[ burn-in set to {} | {:.1%} of total samples ]".format(
-            self.burn, self.burn / self.n
+            self.burn, self.burn / self.chain_length
         )
         print(msg)
 
     def autoselect_thin(self):
         param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.L)]
-        self.thin = int((self.n - self.burn) / min(param_ESS))
+        self.thin = int((self.chain_length - self.burn) / min(param_ESS))
         if self.thin < 1:
             self.thin = 1
-        elif (self.n - self.burn) / self.thin < 1:
+        elif (self.chain_length - self.burn) / self.thin < 1:
             self.thin = 1
             warn("Thinning not performed as lowest ESS is below 1")
-        elif (self.n - self.burn) / self.thin < 100:
+        elif (self.chain_length - self.burn) / self.thin < 100:
             warn("Sample size after thinning is less than 100")
 
         thin_size = len(self.probs[self.burn :: self.thin])
@@ -875,7 +875,7 @@ class GibbsChain(MarkovChain):
             p.add_sample(v)
 
         self.probs.append(p_new)
-        self.n += 1
+        self.chain_length += 1
 
 
 class PcaChain(MarkovChain):
@@ -976,11 +976,11 @@ class PcaChain(MarkovChain):
             sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2) for i in range(self.L)
         ]
         self.angles_history.append(angles)
-        self.update_history.append(copy(self.n))
+        self.update_history.append(copy(self.chain_length))
 
         # store the new directions and plan the next update
         self.directions = [V[:, i] for i in range(self.L)]
-        self.last_update = copy(self.n)
+        self.last_update = copy(self.chain_length)
         self.dir_update_interval = int(
             self.dir_update_interval * self.dir_growth_factor
         )
@@ -1039,9 +1039,9 @@ class PcaChain(MarkovChain):
             p.add_sample(v)
 
         self.probs.append(p_new)
-        self.n += 1
+        self.chain_length += 1
 
-        if self.n == self.next_update:
+        if self.chain_length == self.next_update:
             self.update_directions()
 
     def save(self, filename):
@@ -1052,7 +1052,7 @@ class PcaChain(MarkovChain):
         """
         # get the chain attributes
         items = {
-            "n": self.n,
+            "chain_length": self.chain_length,
             "L": self.L,
             "probs": self.probs,
             "burn": self.burn,
@@ -1093,7 +1093,7 @@ class PcaChain(MarkovChain):
         chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
-        chain.n = int(D["n"])
+        chain.chain_length = int(D["chain_length"])
         chain.L = int(D["L"])
         chain.probs = list(D["probs"])
         chain.burn = int(D["burn"])
@@ -1251,7 +1251,7 @@ class HamiltonianChain(MarkovChain):
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
             self.L = len(start)
-        self.n = 1
+        self.chain_length = 1
 
         # set the variance to 1 if none supplied
         if inv_mass is None:
@@ -1309,7 +1309,7 @@ class HamiltonianChain(MarkovChain):
         self.theta.append(t)
         self.probs.append(p)
         self.leapfrog_steps.append(steps_taken)
-        self.n += 1
+        self.chain_length += 1
 
     def run_leapfrog(self, t, r, g, L):
         for i in range(L):
@@ -1432,8 +1432,8 @@ class HamiltonianChain(MarkovChain):
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.n // 2 :]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.n // 2 :]),
+            min(self.probs[self.chain_length // 2:]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2:]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -1520,7 +1520,7 @@ class HamiltonianChain(MarkovChain):
         epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.0)
         chks = array(self.ES.epsilon_checks)[::-1]
         epsl_estimate = chks[argmax(epsl > 0.15)] * self.ES.accept_rate
-        return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.n))
+        return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.chain_length))
 
     def save(self, filename, compressed=False):
         items = {
@@ -1534,7 +1534,7 @@ class HamiltonianChain(MarkovChain):
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
             "L": self.L,
-            "n": self.n,
+            "chain_length": self.chain_length,
             "steps": self.steps,
             "burn": self.burn,
             "thin": self.thin,
@@ -1563,11 +1563,10 @@ class HamiltonianChain(MarkovChain):
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
         chain.L = int(D["L"])
-        chain.n = int(D["n"])
+        chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
-        chain.n = int(D["n"])
 
         t = D["theta"]
         chain.theta = [t[i, :] for i in range(t.shape[0])]

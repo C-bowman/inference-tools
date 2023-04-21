@@ -4,25 +4,25 @@ from inference.mcmc import PcaChain
 
 def test_pca_chain_take_step(line_posterior):
     chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1])
-    first_n = chain.n
+    first_n = chain.chain_length
 
     chain.take_step()
 
-    assert chain.n == first_n + 1
-    assert len(chain.params[0].samples) == chain.n
-    assert len(chain.probs) == chain.n
+    assert chain.chain_length == first_n + 1
+    assert len(chain.params[0].samples) == chain.chain_length
+    assert len(chain.probs) == chain.chain_length
 
 
 def test_pca_chain_advance(line_posterior):
     chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1])
-    first_n = chain.n
+    first_n = chain.chain_length
 
     steps = 104
     chain.advance(steps)
 
-    assert chain.n == first_n + steps
-    assert len(chain.params[0].samples) == chain.n
-    assert len(chain.probs) == chain.n
+    assert chain.chain_length == first_n + steps
+    assert len(chain.params[0].samples) == chain.chain_length
+    assert len(chain.probs) == chain.chain_length
 
 
 def test_pca_chain_restore(line_posterior, tmp_path):
@@ -35,6 +35,6 @@ def test_pca_chain_restore(line_posterior, tmp_path):
 
     new_chain = PcaChain.load(filename)
 
-    assert new_chain.n == chain.n
+    assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
     assert all(new_chain.get_last() == chain.get_last())

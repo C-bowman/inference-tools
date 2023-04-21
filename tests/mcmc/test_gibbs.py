@@ -25,13 +25,13 @@ def test_gibbs_chain_take_step():
     width_guesses = array([5.0, 0.05])
 
     chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    first_n = chain.n
+    first_n = chain.chain_length
 
     chain.take_step()
 
-    assert chain.n == first_n + 1
-    assert len(chain.params[0].samples) == chain.n
-    assert len(chain.probs) == chain.n
+    assert chain.chain_length == first_n + 1
+    assert len(chain.params[0].samples) == chain.chain_length
+    assert len(chain.probs) == chain.chain_length
 
 
 def test_gibbs_chain_advance():
@@ -39,14 +39,14 @@ def test_gibbs_chain_advance():
     width_guesses = array([5.0, 0.05])
 
     chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    first_n = chain.n
+    first_n = chain.chain_length
 
     steps = 104
     chain.advance(steps)
 
-    assert chain.n == first_n + steps
-    assert len(chain.params[0].samples) == chain.n
-    assert len(chain.probs) == chain.n
+    assert chain.chain_length == first_n + steps
+    assert len(chain.params[0].samples) == chain.chain_length
+    assert len(chain.probs) == chain.chain_length
 
 
 def test_gibbs_chain_get_parameter():
@@ -144,7 +144,7 @@ def test_gibbs_chain_restore(tmp_path):
 
     new_chain = GibbsChain.load(filename)
 
-    assert new_chain.n == chain.n
+    assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
     assert new_chain.get_sample() == chain.get_sample()
 
@@ -238,7 +238,7 @@ def test_gibbs_chain_run_for_hour(line_posterior):
     extra_delta = datetime.timedelta(seconds=4 * auto_tick)
     assert end_time - start_time == expected_delta + extra_delta
     # Probably get less due to multiple calls to `time()` per step
-    assert chain.n <= expected_delta.total_seconds() // auto_tick
+    assert chain.chain_length <= expected_delta.total_seconds() // auto_tick
 
 
 @freeze_time("2nd Nov 2021", auto_tick_seconds=50)
@@ -257,7 +257,7 @@ def test_gibbs_chain_run_for_day(line_posterior):
     extra_delta = datetime.timedelta(seconds=4 * auto_tick)
     assert end_time - start_time == expected_delta + extra_delta
     # Probably get less due to multiple calls to `time()` per step
-    assert chain.n <= expected_delta.total_seconds() // auto_tick
+    assert chain.chain_length <= expected_delta.total_seconds() // auto_tick
 
 
 @freeze_time("2nd Nov 2021", auto_tick_seconds=50)
@@ -277,4 +277,4 @@ def test_gibbs_chain_run_for_day_hour_minute(line_posterior):
     assert end_time - start_time >= expected_delta
     assert end_time - start_time <= expected_delta + extra_delta
     # Probably get less due to multiple calls to `time()` per step
-    assert chain.n <= expected_delta.total_seconds() // auto_tick
+    assert chain.chain_length <= expected_delta.total_seconds() // auto_tick
