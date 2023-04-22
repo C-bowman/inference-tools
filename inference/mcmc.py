@@ -1452,6 +1452,7 @@ class HamiltonianChain(MarkovChain):
         ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax2.set_ylabel("Leapfrog step-size", fontsize=12)
         ax2.set_title("Simulation time-step adjustment summary")
+        ax2.set_yscale("log")
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
