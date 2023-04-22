@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from numpy import ndarray, float64
 from numpy import array, arange, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot
-from numpy import cov, var, percentile, median, diag, triu
+from numpy import cov, std, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
@@ -1200,11 +1200,11 @@ class HamiltonianChain(MarkovChain):
         A list or tuple containing two numpy arrays which specify the upper and lower
         bounds for the parameters in the form (lower_bounds, upper_bounds).
 
-    :param inv_mass: \
+    :param inverse_mass: \
         A vector specifying the inverse-mass value to be used for each parameter. The
         inverse-mass is used to transform the momentum distribution in order to make
         the problem more isotropic. Ideally, the inverse-mass for each parameter should
-        be set to the variance of the marginal distribution of that parameter.
+        be set to the standard-deviation of the marginal distribution of that parameter.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
@@ -1219,7 +1219,7 @@ class HamiltonianChain(MarkovChain):
         epsilon=0.1,
         temperature=1,
         bounds: Sequence[ndarray] = None,
-        inv_mass: ndarray = None,
+        inverse_mass: ndarray = None,
         display_progress=True,
     ):
         self.posterior = posterior
@@ -1264,8 +1264,8 @@ class HamiltonianChain(MarkovChain):
             self.n_variables = len(start)
         self.chain_length = 1
 
-        # set the variance to 1 if none supplied
-        self.variance = 1.0 if inv_mass is None else inv_mass
+        # set the inverse mass to 1 if none supplied
+        self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
@@ -1286,7 +1286,7 @@ class HamiltonianChain(MarkovChain):
         for attempt in range(self.max_attempts):
             r0 = normal(size=self.n_variables)
             t0 = self.theta[-1]
-            H0 = 0.5 * dot(r0, r0 * self.variance) - self.probs[-1]
+            H0 = 0.5 * dot(r0, r0) - self.probs[-1]
 
             r = copy(r0)
             t = copy(t0)
@@ -1297,7 +1297,7 @@ class HamiltonianChain(MarkovChain):
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
-            H = 0.5 * dot(r, r * self.variance) - p
+            H = 0.5 * dot(r, r) - p
             accept_prob = exp(H0 - H)
 
             self.ES.add_probability(
@@ -1325,10 +1325,10 @@ class HamiltonianChain(MarkovChain):
         return t, r, g
 
     def hamiltonian(self, t: ndarray, r: ndarray):
-        return 0.5 * dot(r, r * self.variance) - self.posterior(t) * self.inv_temp
+        return 0.5 * dot(r, r) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
-        self.variance = var(array(self.theta[burn::thin]), axis=0)
+        self.inv_mass = std(array(self.theta[burn::thin]), axis=0)
 
     def finite_diff(self, t: ndarray):
         p = self.posterior(t) * self.inv_temp
@@ -1341,7 +1341,7 @@ class HamiltonianChain(MarkovChain):
 
     def standard_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.variance
+        t2 = t + self.ES.epsilon * r2 * self.inv_mass
 
         g2 = self.grad(t2) * self.inv_temp
         r2 += (0.5 * self.ES.epsilon) * g2
@@ -1349,7 +1349,7 @@ class HamiltonianChain(MarkovChain):
 
     def bounded_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.variance
+        t2 = t + self.ES.epsilon * r2 * self.inv_mass
         # check for values outside bounds
         lwr_diff = self.lwr_bounds - t2
         upr_diff = t2 - self.upr_bounds
@@ -1537,7 +1537,7 @@ class HamiltonianChain(MarkovChain):
             "lwr_bounds": self.lwr_bounds,
             "upr_bounds": self.upr_bounds,
             "widths": self.widths,
-            "inv_mass": self.variance,
+            "inv_mass": self.inv_mass,
             "inv_temp": self.inv_temp,
             "theta": self.theta,
             "probs": self.probs,
@@ -1566,7 +1566,7 @@ class HamiltonianChain(MarkovChain):
         )
 
         chain.bounded = bool(D["bounded"])
-        chain.variance = array(D["inv_mass"])
+        chain.inv_mass = array(D["inv_mass"])
         chain.inv_temp = float(D["inv_temp"])
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
