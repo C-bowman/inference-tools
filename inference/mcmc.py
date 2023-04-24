@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 from numpy import ndarray, float64
 from numpy import array, arange, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot
-from numpy import cov, std, var, percentile, median, diag, triu
+from numpy import cov, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
@@ -1204,7 +1204,7 @@ class HamiltonianChain(MarkovChain):
         A vector specifying the inverse-mass value to be used for each parameter. The
         inverse-mass is used to transform the momentum distribution in order to make
         the problem more isotropic. Ideally, the inverse-mass for each parameter should
-        be set to the standard-deviation of the marginal distribution of that parameter.
+        be set to the variance of the marginal distribution of that parameter.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
@@ -1266,6 +1266,7 @@ class HamiltonianChain(MarkovChain):
 
         # set the inverse mass to 1 if none supplied
         self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
+        self.sqrt_mass = 1. / sqrt(self.inv_mass)
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
@@ -1284,12 +1285,12 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = normal(size=self.n_variables)
+            r0 = normal(size=self.n_variables, scale=self.sqrt_mass)
             t0 = self.theta[-1]
-            H0 = 0.5 * dot(r0, r0) - self.probs[-1]
+            H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
-            r = copy(r0)
-            t = copy(t0)
+            r = r0.copy()
+            t = t0.copy()
             g = self.grad(t) * self.inv_temp
             n_steps = int(self.steps * (1 + (random() - 0.5) * 0.2))
 
@@ -1297,7 +1298,7 @@ class HamiltonianChain(MarkovChain):
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
-            H = 0.5 * dot(r, r) - p
+            H = 0.5 * dot(r, r * self.inv_mass) - p
             accept_prob = exp(H0 - H)
 
             self.ES.add_probability(
@@ -1325,10 +1326,10 @@ class HamiltonianChain(MarkovChain):
         return t, r, g
 
     def hamiltonian(self, t: ndarray, r: ndarray):
-        return 0.5 * dot(r, r) - self.posterior(t) * self.inv_temp
+        return 0.5 * dot(r, r * self.inv_mass) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
-        self.inv_mass = std(array(self.theta[burn::thin]), axis=0)
+        self.inv_mass = var(array(self.theta[burn::thin]), axis=0)
 
     def finite_diff(self, t: ndarray):
         p = self.posterior(t) * self.inv_temp
