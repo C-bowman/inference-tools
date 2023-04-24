@@ -1228,13 +1228,13 @@ class HamiltonianChain(MarkovChain):
 
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
-            self.leapfrog = self.standard_leapfrog
+            self.run_leapfrog = self.standard_leapfrog
             self.bounded = False
             self.lwr_bounds = None
             self.upr_bounds = None
             self.widths = None
         else:
-            self.leapfrog = self.bounded_leapfrog
+            self.run_leapfrog = self.bounded_leapfrog
             self.bounded = True
             self.lwr_bounds = array(bounds[0])
             self.upr_bounds = array(bounds[1])
@@ -1289,12 +1289,8 @@ class HamiltonianChain(MarkovChain):
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
-            r = r0.copy()
-            t = t0.copy()
-            g = self.grad(t) * self.inv_temp
             n_steps = int(self.steps * (1 + (random() - 0.5) * 0.2))
-
-            t, r, g = self.run_leapfrog(t, r, g, n_steps)
+            t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
@@ -1320,10 +1316,22 @@ class HamiltonianChain(MarkovChain):
         self.leapfrog_steps.append(steps_taken)
         self.chain_length += 1
 
-    def run_leapfrog(self, t: ndarray, r: ndarray, g: ndarray, n_steps: int):
+    def standard_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+        t_step = self.inv_mass * self.ES.epsilon
+        r_step = self.inv_temp * self.ES.epsilon
+        r += (0.5 * r_step) * self.grad(t)
+        for _ in range(n_steps - 1):
+            t += t_step * r
+            r += r_step * self.grad(t)
+        t += t_step * r
+        r += (0.5 * r_step) * self.grad(t)
+        return t, r
+
+    def bounded_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+        g = self.grad(t) * self.inv_temp
         for i in range(n_steps):
-            t, r, g = self.leapfrog(t, r, g)
-        return t, r, g
+            t, r, g = self.bounded_leapfrog_step(t, r, g)
+        return t, r
 
     def hamiltonian(self, t: ndarray, r: ndarray):
         return 0.5 * dot(r, r * self.inv_mass) - self.posterior(t) * self.inv_temp
@@ -1340,15 +1348,7 @@ class HamiltonianChain(MarkovChain):
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
 
-    def standard_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
-        r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.inv_mass
-
-        g2 = self.grad(t2) * self.inv_temp
-        r2 += (0.5 * self.ES.epsilon) * g2
-        return t2, r2, g2
-
-    def bounded_leapfrog(self, t: ndarray, r: ndarray, g: ndarray):
+    def bounded_leapfrog_step(self, t: ndarray, r: ndarray, g: ndarray):
         r2 = r + (0.5 * self.ES.epsilon) * g
         t2 = t + self.ES.epsilon * r2 * self.inv_mass
         # check for values outside bounds
