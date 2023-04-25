@@ -1,12 +1,12 @@
 from numpy import array
-from mcmc_utils import ToroidalGaussian, line_posterior
+from mcmc_utils import ToroidalGaussian
 from inference.mcmc import HamiltonianChain
 
 
 def test_hamiltonian_chain_take_step():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
-        posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
+        posterior=posterior, start=array([1, 0.1, 0.1]), grad=posterior.gradient
     )
     first_n = chain.chain_length
 
@@ -23,7 +23,7 @@ def test_hamiltonian_chain_take_step():
 def test_hamiltonian_chain_advance():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
-        posterior=posterior, grad=posterior.gradient, start=[1, 0.1, 0.1]
+        posterior=posterior, start=array([1, 0.1, 0.1]), grad=posterior.gradient
     )
     first_n = chain.chain_length
     steps = 10
@@ -39,7 +39,7 @@ def test_hamiltonian_chain_advance():
 
 def test_hamiltonian_chain_advance_no_gradient():
     posterior = ToroidalGaussian()
-    chain = HamiltonianChain(posterior=posterior, start=[1, 0.1, 0.1])
+    chain = HamiltonianChain(posterior=posterior, start=array([1, 0.1, 0.1]))
     first_n = chain.chain_length
     steps = 10
     chain.advance(steps)
@@ -55,7 +55,7 @@ def test_hamiltonian_chain_advance_no_gradient():
 def test_hamiltonian_chain_burn_in():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
-        posterior=posterior, grad=posterior.gradient, start=[2, 0.1, 0.1]
+        posterior=posterior, start=array([2, 0.1, 0.1]), grad=posterior.gradient
     )
     steps = 500
     chain.advance(steps)
@@ -70,7 +70,7 @@ def test_hamiltonian_chain_burn_in():
 def test_hamiltonian_chain_advance_bounds(line_posterior):
     chain = HamiltonianChain(
         posterior=line_posterior,
-        start=[0.5, 0.1],
+        start=array([0.5, 0.1]),
         bounds=(array([0.45, 0.0]), array([0.55, 10.0])),
     )
     chain.advance(10)
