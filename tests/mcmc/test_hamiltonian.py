@@ -1,5 +1,5 @@
 from numpy import array
-from mcmc_utils import ToroidalGaussian
+from mcmc_utils import ToroidalGaussian, line_posterior
 from inference.mcmc import HamiltonianChain
 
 
