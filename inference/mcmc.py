@@ -5,15 +5,18 @@
 import sys
 from warnings import warn
 from copy import copy, deepcopy
+from typing import Sequence
 from multiprocessing import Process, Pipe, Event, Pool
 from time import time
 from random import choice
 
 import matplotlib.pyplot as plt
-from numpy import array, arange, float64, identity, linspace, zeros, concatenate
+from numpy import ndarray, float64
+from numpy import array, arange, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot
 from numpy import cov, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
+from numpy import divmod as np_divmod
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
 from scipy.linalg import eigh
@@ -270,8 +273,8 @@ class MarkovChain:
             self.params = [Parameter(value=v, sigma=s) for v, s in zip(start, widths)]
 
             # create storage
-            self.n = 1  # tracks total length of the chain
-            self.L = len(start)  # number of posterior parameters
+            self.chain_length = 1  # tracks total length of the chain
+            self.n_variables = len(start)  # number of posterior parameters
             self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
@@ -317,7 +320,7 @@ class MarkovChain:
         for p, v in zip(self.params, proposal):
             p.add_sample(v)
 
-        self.n += 1
+        self.chain_length += 1
 
     def advance(self, m):
         """
@@ -347,7 +350,7 @@ class MarkovChain:
         :param int days: number of days for which to run the chain.
         """
         update_interval = 20  # small initial guess for the update interval
-        start_length = copy(self.n)
+        start_length = copy(self.chain_length)
 
         # first find the runtime in seconds:
         run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
@@ -359,7 +362,7 @@ class MarkovChain:
             for i in range(update_interval):
                 self.take_step()
             # set the interval such that updates are roughly once per second
-            steps_taken = self.n - start_length
+            steps_taken = self.chain_length - start_length
             current_time = time()
             update_interval = int(steps_taken / (current_time - start_time))
             self.ProgressPrinter.countdown_progress(end_time, steps_taken)
@@ -578,7 +581,8 @@ class MarkovChain:
         """
         burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn))) for i in range(self.L)
+            ESS(array(self.get_parameter(i, burn=burn)))
+            for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -591,8 +595,8 @@ class MarkovChain:
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.n // 2 :]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.n // 2 :]),
+            min(self.probs[self.chain_length // 2 :]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2 :]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -604,8 +608,12 @@ class MarkovChain:
             y = array(p.sigma_values)
             x = array(p.sigma_checks[1:]) * 1e-3
             ax2.plot(x, 1e2 * diff(y) / y[:-1], marker="D", markersize=3)
-        ax2.plot([0, self.n * 1e-3], [5, 5], ls="dashed", lw=2, color="black")
-        ax2.plot([0, self.n * 1e-3], [-5, -5], ls="dashed", lw=2, color="black")
+        ax2.plot(
+            [0, self.chain_length * 1e-3], [5, 5], ls="dashed", lw=2, color="black"
+        )
+        ax2.plot(
+            [0, self.chain_length * 1e-3], [-5, -5], ls="dashed", lw=2, color="black"
+        )
         ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax2.set_ylabel("% change in proposal widths", fontsize=12)
         ax2.set_title("Parameter proposal widths adjustment summary")
@@ -614,11 +622,13 @@ class MarkovChain:
 
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
-        ax3.bar(range(self.L), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+        ax3.bar(
+            range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+        )
         ax3.set_xlabel("parameter", fontsize=12)
         ax3.set_ylabel("effective sample size", fontsize=12)
         ax3.set_title("Parameter effective sample size estimate")
-        ax3.set_xticks(range(self.L))
+        ax3.set_xticks(range(self.n_variables))
 
         # summary stats text plot
         ax4 = fig.add_subplot(224)
@@ -686,7 +696,7 @@ class MarkovChain:
         """
         burn = burn if burn is not None else self.burn
         thin = thin if thin is not None else self.thin
-        params = params if params is not None else range(self.L)
+        params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
@@ -708,7 +718,7 @@ class MarkovChain:
             Rather than using every sample which is not discarded as part of the
             burn-in, every *m*'th sample is used for a specified integer *m*.
         """
-        params = params if params is not None else range(self.L)
+        params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)
 
@@ -720,8 +730,8 @@ class MarkovChain:
         """
         # get the chain attributes
         items = {
-            "n": self.n,
-            "L": self.L,
+            "chain_length": self.chain_length,
+            "n_variables": self.n_variables,
             "probs": self.probs,
             "burn": self.burn,
             "thin": self.thin,
@@ -753,8 +763,8 @@ class MarkovChain:
         chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
-        chain.n = int(D["n"])
-        chain.L = int(D["L"])
+        chain.chain_length = int(D["chain_length"])
+        chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
         chain.inv_temp = float(D["inv_temp"])
         chain.burn = int(D["burn"])
@@ -762,7 +772,7 @@ class MarkovChain:
 
         # re-build all the parameter objects
         chain.params = []
-        for i in range(chain.L):
+        for i in range(chain.n_variables):
             p = Parameter()
             p.load_items(dictionary=D, param_id=i)
             chain.params.append(p)
@@ -789,19 +799,21 @@ class MarkovChain:
     def autoselect_burn(self):
         self.burn = self.estimate_burn_in()
         msg = "[ burn-in set to {} | {:.1%} of total samples ]".format(
-            self.burn, self.burn / self.n
+            self.burn, self.burn / self.chain_length
         )
         print(msg)
 
     def autoselect_thin(self):
-        param_ESS = [ESS(array(self.get_parameter(i, thin=1))) for i in range(self.L)]
-        self.thin = int((self.n - self.burn) / min(param_ESS))
+        param_ESS = [
+            ESS(array(self.get_parameter(i, thin=1))) for i in range(self.n_variables)
+        ]
+        self.thin = int((self.chain_length - self.burn) / min(param_ESS))
         if self.thin < 1:
             self.thin = 1
-        elif (self.n - self.burn) / self.thin < 1:
+        elif (self.chain_length - self.burn) / self.thin < 1:
             self.thin = 1
             warn("Thinning not performed as lowest ESS is below 1")
-        elif (self.n - self.burn) / self.thin < 100:
+        elif (self.chain_length - self.burn) / self.thin < 100:
             warn("Sample size after thinning is less than 100")
 
         thin_size = len(self.probs[self.burn :: self.thin])
@@ -875,7 +887,7 @@ class GibbsChain(MarkovChain):
             p.add_sample(v)
 
         self.probs.append(p_new)
-        self.n += 1
+        self.chain_length += 1
 
 
 class PcaChain(MarkovChain):
@@ -926,9 +938,9 @@ class PcaChain(MarkovChain):
                 p.target_rate = 0.5
 
         self.directions = []
-        if hasattr(self, "L"):
-            for i in range(self.L):
-                v = zeros(self.L)
+        if hasattr(self, "n_variables"):
+            for i in range(self.n_variables):
+                v = zeros(self.n_variables)
                 v[i] = 1.0
                 self.directions.append(v)
 
@@ -944,7 +956,7 @@ class PcaChain(MarkovChain):
 
         # Set-up for imposing boundaries if specified
         if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.L:
+            if len(parameter_boundaries) == self.n_variables:
                 self.lower = array([k[0] for k in parameter_boundaries])
                 self.upper = array([k[1] for k in parameter_boundaries])
                 self.width = self.upper - self.lower
@@ -962,7 +974,9 @@ class PcaChain(MarkovChain):
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
-        data = array([self.get_parameter(i)[self.last_update :] for i in range(self.L)])
+        data = array(
+            [self.get_parameter(i)[self.last_update :] for i in range(self.n_variables)]
+        )
         if hasattr(self, "covar"):
             nu = min(2 * self.dir_update_interval / self.last_update, 0.5)
             self.covar = self.covar * (1 - nu) + nu * cov(data)
@@ -973,21 +987,22 @@ class PcaChain(MarkovChain):
 
         # find the sine of the angle between the old and new eigenvectors to track convergence
         angles = [
-            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2) for i in range(self.L)
+            sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2)
+            for i in range(self.n_variables)
         ]
         self.angles_history.append(angles)
-        self.update_history.append(copy(self.n))
+        self.update_history.append(copy(self.chain_length))
 
         # store the new directions and plan the next update
-        self.directions = [V[:, i] for i in range(self.L)]
-        self.last_update = copy(self.n)
+        self.directions = [V[:, i] for i in range(self.n_variables)]
+        self.last_update = copy(self.chain_length)
         self.dir_update_interval = int(
             self.dir_update_interval * self.dir_growth_factor
         )
         self.next_update = self.last_update + self.dir_update_interval
 
     def directions_diagnostics(self):
-        for i in range(self.L):
+        for i in range(self.n_variables):
             prods = [v[i] for v in self.angles_history]
             plt.plot(self.update_history, prods, ".-")
         plt.plot(
@@ -1039,9 +1054,9 @@ class PcaChain(MarkovChain):
             p.add_sample(v)
 
         self.probs.append(p_new)
-        self.n += 1
+        self.chain_length += 1
 
-        if self.n == self.next_update:
+        if self.chain_length == self.next_update:
             self.update_directions()
 
     def save(self, filename):
@@ -1052,8 +1067,8 @@ class PcaChain(MarkovChain):
         """
         # get the chain attributes
         items = {
-            "n": self.n,
-            "L": self.L,
+            "chain_length": self.chain_length,
+            "n_variables": self.n_variables,
             "probs": self.probs,
             "burn": self.burn,
             "thin": self.thin,
@@ -1093,8 +1108,8 @@ class PcaChain(MarkovChain):
         chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
 
         # re-build the chain's attributes
-        chain.n = int(D["n"])
-        chain.L = int(D["L"])
+        chain.chain_length = int(D["chain_length"])
+        chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
@@ -1114,7 +1129,7 @@ class PcaChain(MarkovChain):
 
         # re-build all the parameter objects
         chain.params = []
-        for i in range(chain.L):
+        for i in range(chain.n_variables):
             p = Parameter()
             p.load_items(dictionary=D, param_id=i)
             chain.params.append(p)
@@ -1166,14 +1181,14 @@ class HamiltonianChain(MarkovChain):
         A function which takes the vector of model parameters as a ``numpy.ndarray``,
         and returns the posterior log-probability.
 
+    :param start: \
+        Vector of model parameters which correspond to the parameter-space coordinates
+        at which the chain will start.
+
     :param func grad: \
         A function which returns the gradient of the log-posterior probability density
         for a given set of model parameters theta. If this function is not given, the
         gradient will instead be estimated by finite difference.
-
-    :param start: \
-        Vector of model parameters which correspond to the parameter-space coordinates
-        at which the chain will start.
 
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
@@ -1186,7 +1201,7 @@ class HamiltonianChain(MarkovChain):
         A list or tuple containing two numpy arrays which specify the upper and lower
         bounds for the parameters in the form (lower_bounds, upper_bounds).
 
-    :param inv_mass: \
+    :param inverse_mass: \
         A vector specifying the inverse-mass value to be used for each parameter. The
         inverse-mass is used to transform the momentum distribution in order to make
         the problem more isotropic. Ideally, the inverse-mass for each parameter should
@@ -1199,66 +1214,55 @@ class HamiltonianChain(MarkovChain):
 
     def __init__(
         self,
-        posterior=None,
-        grad=None,
-        start=None,
+        posterior: callable,
+        start: ndarray,
+        grad: callable = None,
         epsilon=0.1,
         temperature=1,
-        bounds=None,
-        inv_mass=None,
+        bounds: Sequence[ndarray] = None,
+        inverse_mass: ndarray = None,
         display_progress=True,
     ):
         self.posterior = posterior
         # if no gradient function is supplied, default to finite difference
-        if grad is None:
-            self.grad = self.finite_diff
-        else:
-            self.grad = grad
+        self.grad = self.finite_diff if grad is None else grad
+
+        # set the inverse mass to 1 if none supplied
+        self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
+        self.sqrt_mass = 1.0 / sqrt(self.inv_mass)
+        self.temperature = temperature
+        self.inv_temp = 1.0 / temperature
+
+        if start is not None:
+            start = start if isinstance(start, ndarray) else array(start)
+            start = start if start.dtype is float64 else start.astype(float64)
+            assert start.ndim == 1
+
+            self.theta = [start]
+            self.probs = [self.posterior(start) * self.inv_temp]
+            self.leapfrog_steps = [0]
+            self.n_variables = len(start)
+        self.chain_length = 1
 
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
-            self.leapfrog = self.standard_leapfrog
-            self.bounded = False
-            self.lwr_bounds = None
-            self.upr_bounds = None
-            self.widths = None
+            self.run_leapfrog = self.standard_leapfrog
+            self.bounds = None
         else:
-            self.leapfrog = self.bounded_leapfrog
-            self.bounded = True
-            self.lwr_bounds = array(bounds[0])
-            self.upr_bounds = array(bounds[1])
-            if any((self.lwr_bounds > array(start)) | (self.upr_bounds < array(start))):
+            self.run_leapfrog = self.bounded_leapfrog
+            self.bounds = Bounds(
+                lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
+            )
+
+            if not self.bounds.inside(self.theta[0]):
                 raise ValueError(
                     """
                     [ HamiltonianChain error ]
                     >> Starting location for the chain is outside specified bounds.
                     """
                 )
-            self.widths = self.upr_bounds - self.lwr_bounds
-            if not all(self.widths > 0):
-                raise ValueError(
-                    """
-                    [ HamiltonianChain error ]
-                    >> Specified upper bounds must be greater than lower bounds.
-                    """
-                )
 
-        self.temperature = temperature
-        self.inv_temp = 1.0 / temperature
-
-        if start is not None:
-            self.theta = [start]
-            self.probs = [self.posterior(start) * self.inv_temp]
-            self.leapfrog_steps = [0]
-            self.L = len(start)
-        self.n = 1
-
-        # set the variance to 1 if none supplied
-        if inv_mass is None:
-            self.variance = 1.0
-        else:
-            self.variance = inv_mass
-
+        self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
         self.burn = 1
@@ -1273,91 +1277,79 @@ class HamiltonianChain(MarkovChain):
         """
         Takes the next step in the HMC-chain
         """
-        accept = False
         steps_taken = 0
-        while not accept:
-            r0 = normal(size=self.L) / sqrt(self.variance)
+        for attempt in range(self.max_attempts):
+            r0 = normal(size=self.n_variables, scale=self.sqrt_mass)
             t0 = self.theta[-1]
-            H0 = 0.5 * dot(r0, r0 / self.variance) - self.probs[-1]
+            H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
-            r = copy(r0)
-            t = copy(t0)
-            g = self.grad(t) * self.inv_temp
             n_steps = int(self.steps * (1 + (random() - 0.5) * 0.2))
-
-            t, r, g = self.run_leapfrog(t, r, g, n_steps)
+            t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
-            H = 0.5 * dot(r, r / self.variance) - p
-            test = exp(H0 - H)
+            H = 0.5 * dot(r, r * self.inv_mass) - p
+            accept_prob = exp(H0 - H)
 
-            if isfinite(test):
-                self.ES.add_probability(min(test, 1))
-            else:
-                self.ES.add_probability(0.0)
+            self.ES.add_probability(
+                min(accept_prob, 1) if isfinite(accept_prob) else 0.0
+            )
 
-            if test >= 1:
-                accept = True
-            else:
-                q = random()
-                if q <= test:
-                    accept = True
+            if (accept_prob >= 1) or (random() <= accept_prob):
+                break
+        else:
+            raise ValueError(
+                f"""
+                [ HamiltonianChain error ]
+                >> Failed to take step within maximum allowed attempts of {self.max_attempts}
+                """
+            )
 
         self.theta.append(t)
         self.probs.append(p)
         self.leapfrog_steps.append(steps_taken)
-        self.n += 1
+        self.chain_length += 1
 
-    def run_leapfrog(self, t, r, g, L):
-        for i in range(L):
-            t, r, g = self.leapfrog(t, r, g)
-        return t, r, g
+    def standard_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+        t_step = self.inv_mass * self.ES.epsilon
+        r_step = self.inv_temp * self.ES.epsilon
+        r += (0.5 * r_step) * self.grad(t)
+        for _ in range(n_steps - 1):
+            t += t_step * r
+            r += r_step * self.grad(t)
+        t += t_step * r
+        r += (0.5 * r_step) * self.grad(t)
+        return t, r
 
-    def hamiltonian(self, t, r):
-        return 0.5 * dot(r, r / self.variance) - self.posterior(t) * self.inv_temp
+    def bounded_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+        t_step = self.inv_mass * self.ES.epsilon
+        r_step = self.inv_temp * self.ES.epsilon
+        r += (0.5 * r_step) * self.grad(t)
+        for _ in range(n_steps - 1):
+            t += t_step * r
+            t, reflections = self.bounds.reflect_momenta(t)
+            r *= reflections
+            r += r_step * self.grad(t)
+        t += t_step * r
+        t, reflections = self.bounds.reflect_momenta(t)
+        r *= reflections
+        r += (0.5 * r_step) * self.grad(t)
+        return t, r
+
+    def hamiltonian(self, t: ndarray, r: ndarray):
+        return 0.5 * dot(r, r * self.inv_mass) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
-        self.variance = var(array(self.theta[burn::thin]), axis=0)
+        self.inv_mass = var(array(self.theta[burn::thin]), axis=0)
 
-    def finite_diff(self, t):
+    def finite_diff(self, t: ndarray):
         p = self.posterior(t) * self.inv_temp
-        G = zeros(self.L)
-        for i in range(self.L):
-            delta = zeros(self.L) + 1
+        G = zeros(self.n_variables)
+        for i in range(self.n_variables):
+            delta = zeros(self.n_variables) + 1
             delta[i] += 1e-5
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
-
-    def standard_leapfrog(self, t, r, g):
-        r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.variance
-
-        g = self.grad(t2) * self.inv_temp
-        r2 = r2 + (0.5 * self.ES.epsilon) * g
-        return t2, r2, g
-
-    def bounded_leapfrog(self, t, r, g):
-        r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.variance
-        # check for values outside bounds
-        lwr_diff = self.lwr_bounds - t2
-        upr_diff = t2 - self.upr_bounds
-        lwr_bools = lwr_diff > 0
-        upr_bools = upr_diff > 0
-        # calculate necessary adjustment
-        lwr_adjust = lwr_bools * (lwr_diff + lwr_diff % (0.1 * self.widths))
-        upr_adjust = upr_bools * (upr_diff + upr_diff % (0.1 * self.widths))
-        t2 += lwr_adjust
-        t2 -= upr_adjust
-
-        # reverse momenta where necessary
-        reflect = 1 - 2 * (lwr_bools | upr_bools)
-        r2 *= reflect
-
-        g = self.grad(t2) * self.inv_temp
-        r2 = r2 + (0.5 * self.ES.epsilon) * g
-        return t2, r2, g
 
     def get_last(self):
         return self.theta[-1]
@@ -1365,11 +1357,11 @@ class HamiltonianChain(MarkovChain):
     def replace_last(self, theta):
         self.theta[-1] = theta
 
-    def get_parameter(self, n, burn=None, thin=None):
+    def get_parameter(self, index: int, burn=None, thin=None):
         """
         Return sample values for a chosen parameter.
 
-        :param int n: \
+        :param int index: \
             Index of the parameter for which samples are to be returned.
 
         :param int burn: \
@@ -1384,11 +1376,9 @@ class HamiltonianChain(MarkovChain):
         :return: \
             List of samples for parameter *n*'th parameter.
         """
-        if burn is None:
-            burn = self.burn
-        if thin is None:
-            thin = self.thin
-        return [v[n] for v in self.theta[burn::thin]]
+        burn = self.burn if burn is None else burn
+        thin = self.thin if thin is None else thin
+        return [v[index] for v in self.theta[burn::thin]]
 
     def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
@@ -1416,7 +1406,8 @@ class HamiltonianChain(MarkovChain):
         if burn is None:
             burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn, thin=1))) for i in range(self.L)
+            ESS(array(self.get_parameter(i, burn=burn, thin=1)))
+            for i in range(self.n_variables)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -1430,8 +1421,8 @@ class HamiltonianChain(MarkovChain):
         ax1.set_ylabel("posterior log-probability", fontsize=12)
         ax1.set_title("Chain log-probability history")
         ylims = [
-            min(self.probs[self.n // 2 :]),
-            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.n // 2 :]),
+            min(self.probs[self.chain_length // 2 :]),
+            max(self.probs) * 1.1 - 0.1 * min(self.probs[self.chain_length // 2 :]),
         ]
         plt.plot([burn * 1e-3, burn * 1e-3], ylims, c="red", ls="dashed", lw=2)
         ax1.set_ylim(ylims)
@@ -1443,15 +1434,18 @@ class HamiltonianChain(MarkovChain):
         ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
         ax2.set_ylabel("Leapfrog step-size", fontsize=12)
         ax2.set_title("Simulation time-step adjustment summary")
+        ax2.set_yscale("log")
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
-        if self.L < 50:
-            ax3.bar(range(self.L), param_ESS, color=["C0", "C1", "C2", "C3", "C4"])
+        if self.n_variables < 50:
+            ax3.bar(
+                range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+            )
             ax3.set_xlabel("parameter", fontsize=12)
             ax3.set_ylabel("effective sample size", fontsize=12)
             ax3.set_title("Parameter effective sample size estimate")
-            ax3.set_xticks(range(self.L))
+            ax3.set_xticks(range(self.n_variables))
         else:
             ax3.hist(param_ESS, bins=20)
             ax3.set_xlabel("effective sample size", fontsize=12)
@@ -1518,27 +1512,26 @@ class HamiltonianChain(MarkovChain):
         epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.0)
         chks = array(self.ES.epsilon_checks)[::-1]
         epsl_estimate = chks[argmax(epsl > 0.15)] * self.ES.accept_rate
-        return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.n))
+        return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.chain_length))
 
     def save(self, filename, compressed=False):
         items = {
-            "bounded": self.bounded,
-            "lwr_bounds": self.lwr_bounds,
-            "upr_bounds": self.upr_bounds,
-            "widths": self.widths,
-            "inv_mass": self.variance,
+            "inv_mass": self.inv_mass,
             "inv_temp": self.inv_temp,
             "theta": self.theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
-            "L": self.L,
-            "n": self.n,
+            "n_variables": self.n_variables,
+            "chain_length": self.chain_length,
             "steps": self.steps,
             "burn": self.burn,
             "thin": self.thin,
             "display_progress": self.display_progress,
         }
-
+        if self.bounds is not None:
+            items.update(
+                {"lwr_bounds": self.bounds.lower, "upr_bounds": self.bounds.upper}
+            )
         items.update(self.ES.get_items())
 
         # save as npz
@@ -1548,36 +1541,38 @@ class HamiltonianChain(MarkovChain):
             savez(filename, **items)
 
     @classmethod
-    def load(cls, filename, posterior=None, grad=None):
+    def load(cls, filename: str, posterior=None, grad=None):
         D = load(filename)
+
+        if "lwr_bounds" in D and "upr_bounds" in D:
+            bounds = [D["lwr_bounds"], D["upr_bounds"]]
+        else:
+            bounds = None
+
         chain = cls(
-            posterior=posterior, grad=grad, display_progress=bool(D["display_progress"])
+            posterior=posterior,
+            start=None,
+            grad=grad,
+            bounds=bounds,
+            inverse_mass=array(D["inv_mass"]),
+            temperature=1.0 / float(D["inv_temp"]),
+            display_progress=bool(D["display_progress"]),
         )
 
-        chain.bounded = bool(D["bounded"])
-        chain.variance = array(D["inv_mass"])
-        chain.inv_temp = float(D["inv_temp"])
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
-        chain.L = int(D["L"])
-        chain.n = int(D["n"])
+        chain.n_variables = int(D["n_variables"])
+        chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
         chain.burn = int(D["burn"])
         chain.thin = int(D["thin"])
-        chain.n = int(D["n"])
 
         t = D["theta"]
         chain.theta = [t[i, :] for i in range(t.shape[0])]
 
-        if chain.bounded:
-            chain.lwr_bounds = array(D["lwr_bounds"])
-            chain.upr_bounds = array(D["upr_bounds"])
-            chain.widths = array(D["widths"])
-
         # build the epsilon selector
         chain.ES.load_items(D)
-
         return chain
 
 
@@ -2342,7 +2337,7 @@ class EnsembleSampler:
         """
         return self.sample[self.sample_probs.argmax(), :]
 
-    def get_parameter(self, index, burn=0, thin=1):
+    def get_parameter(self, index: int, burn=0, thin=1):
         """
         Return sample values for a chosen parameter.
 
@@ -2542,3 +2537,51 @@ def ESS(x):
     # sum and normalise
     thin_factor = f.sum() / f[0]
     return int(len(x) / thin_factor)
+
+
+class Bounds:
+    def __init__(self, lower: ndarray, upper: ndarray, error_source="Bounds"):
+        self.lower = lower if isinstance(lower, ndarray) else array(lower)
+        self.upper = upper if isinstance(upper, ndarray) else array(upper)
+
+        if self.lower.ndim > 1 or self.upper.ndim > 1:
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> Lower and upper bounds must be one-dimensional arrays, but
+                >> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
+                """
+            )
+
+        if self.lower.size != self.upper.size:
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> Lower and upper bounds must be arrays of equal size, but
+                >> instead have sizes {self.lower.size} and {self.upper.size} respectively.
+                """
+            )
+
+        if (self.lower >= self.upper).any():
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> All given upper bounds must be larger than the corresponding lower bounds.
+                """
+            )
+
+        self.width = self.upper - self.lower
+
+    def reflect(self, theta: ndarray):
+        q, rem = np_divmod(theta - self.lower, self.width)
+        n = q % 2
+        return self.lower + (1 - 2 * n) * rem + n * self.width
+
+    def reflect_momenta(self, theta: ndarray):
+        q, rem = np_divmod(theta - self.lower, self.width)
+        n = q % 2
+        reflection = 1 - 2 * n
+        return self.lower + reflection * rem + n * self.width, reflection
+
+    def inside(self, theta: ndarray):
+        return ((theta >= self.lower) & (theta <= self.upper)).all()
