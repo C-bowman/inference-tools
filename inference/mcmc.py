@@ -2148,7 +2148,7 @@ class EnsembleSampler:
                     """
                 )
 
-    def proposal(self, i):
+    def __proposal(self, i):
         # randomly select walker that isn't 'i'
         j = (randint(low=1, high=self.n_walkers) + i) % self.n_walkers
         # sample the stretch distance
@@ -2158,9 +2158,9 @@ class EnsembleSampler:
         )
         return prop, z
 
-    def advance_walker(self, i: int):
+    def __advance_walker(self, i: int):
         for attempts in range(1, self.max_attempts + 1):
-            Y, z = self.proposal(i)
+            Y, z = self.__proposal(i)
             p = self.posterior(Y)
             q = exp((self.n_params - 1) * log(z) + p - self.probs[i])
             if random() <= q:
@@ -2172,10 +2172,10 @@ class EnsembleSampler:
             self.total_proposals[i].append(self.max_attempts)
             self.failed_updates[-1] += 1
 
-    def advance_all(self):
+    def __advance_all(self):
         self.failed_updates.append(0)
         for i in range(self.n_walkers):
-            self.advance_walker(i)
+            self.__advance_walker(i)
         self.n_iterations += 1
 
     def advance(self, iterations: int):
@@ -2193,7 +2193,7 @@ class EnsembleSampler:
         sample_arrays = [] if self.sample is None else [self.sample]
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
         for k in range(iterations):
-            self.advance_all()
+            self.__advance_all()
             sample_arrays.append(self.theta.copy())
             prob_arrays.append(self.probs.copy())
 
@@ -2402,8 +2402,6 @@ class EnsembleSampler:
             "total_proposals": array(self.total_proposals),
             "bounded": self.bounded,
             "alpha": self.alpha,
-            "x_lwr": self.x_lwr,
-            "x_width": self.x_width,
             "max_attempts": self.max_attempts,
             "display_progress": self.display_progress,
         }
@@ -2425,6 +2423,7 @@ class EnsembleSampler:
         sampler = cls(
             posterior=posterior,
             starting_positions=None,
+            alpha=D["alpha"],
             display_progress=bool(D["display_progress"]),
         )
 
@@ -2435,9 +2434,6 @@ class EnsembleSampler:
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
         sampler.bounded = D["bounded"]
-        sampler.alpha = D["alpha"]
-        sampler.x_lwr = D["x_lwr"]
-        sampler.x_width = D["x_width"]
         sampler.max_attempts = int(D["max_attempts"])
 
         if sampler.bounded:
