@@ -16,6 +16,7 @@ from numpy import array, arange, identity, linspace, zeros, concatenate
 from numpy import exp, log, mean, sqrt, argmax, diff, dot
 from numpy import cov, var, percentile, median, diag, triu
 from numpy import isfinite, sort, argsort, savez, savez_compressed, load
+from numpy import divmod as np_divmod
 from numpy.fft import rfft, irfft
 from numpy.random import normal, random, shuffle, seed, randint
 from scipy.linalg import eigh
@@ -1246,28 +1247,18 @@ class HamiltonianChain(MarkovChain):
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
             self.run_leapfrog = self.standard_leapfrog
-            self.bounded = False
-            self.lwr_bounds = None
-            self.upr_bounds = None
-            self.widths = None
+            self.bounds = None
         else:
             self.run_leapfrog = self.bounded_leapfrog
-            self.bounded = True
-            self.lwr_bounds = array(bounds[0])
-            self.upr_bounds = array(bounds[1])
-            if any((self.lwr_bounds > array(start)) | (self.upr_bounds < array(start))):
+            self.bounds = Bounds(
+                lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
+            )
+
+            if not self.bounds.inside(self.theta[0]):
                 raise ValueError(
                     """
                     [ HamiltonianChain error ]
                     >> Starting location for the chain is outside specified bounds.
-                    """
-                )
-            self.widths = self.upr_bounds - self.lwr_bounds
-            if not all(self.widths > 0):
-                raise ValueError(
-                    """
-                    [ HamiltonianChain error ]
-                    >> Specified upper bounds must be greater than lower bounds.
                     """
                 )
 
@@ -1355,19 +1346,9 @@ class HamiltonianChain(MarkovChain):
         r2 = r + (0.5 * self.ES.epsilon) * g
         t2 = t + self.ES.epsilon * r2 * self.inv_mass
         # check for values outside bounds
-        lwr_diff = self.lwr_bounds - t2
-        upr_diff = t2 - self.upr_bounds
-        lwr_bools = lwr_diff > 0
-        upr_bools = upr_diff > 0
-        # calculate necessary adjustment
-        lwr_adjust = lwr_bools * (lwr_diff + lwr_diff % (0.1 * self.widths))
-        upr_adjust = upr_bools * (upr_diff + upr_diff % (0.1 * self.widths))
-        t2 += lwr_adjust
-        t2 -= upr_adjust
-
+        t2, reflections = self.bounds.reflect_momenta(t2)
         # reverse momenta where necessary
-        reflect = 1 - 2 * (lwr_bools | upr_bools)
-        r2 *= reflect
+        r2 *= reflections
 
         g = self.grad(t2) * self.inv_temp
         r2 = r2 + (0.5 * self.ES.epsilon) * g
@@ -1538,10 +1519,6 @@ class HamiltonianChain(MarkovChain):
 
     def save(self, filename, compressed=False):
         items = {
-            "bounded": self.bounded,
-            "lwr_bounds": self.lwr_bounds,
-            "upr_bounds": self.upr_bounds,
-            "widths": self.widths,
             "inv_mass": self.inv_mass,
             "inv_temp": self.inv_temp,
             "theta": self.theta,
@@ -1554,7 +1531,10 @@ class HamiltonianChain(MarkovChain):
             "thin": self.thin,
             "display_progress": self.display_progress,
         }
-
+        if self.bounds is not None:
+            items.update(
+                {"lwr_bounds": self.bounds.lower, "upr_bounds": self.bounds.upper}
+            )
         items.update(self.ES.get_items())
 
         # save as npz
@@ -1566,16 +1546,22 @@ class HamiltonianChain(MarkovChain):
     @classmethod
     def load(cls, filename: str, posterior=None, grad=None):
         D = load(filename)
+
+        if "lwr_bounds" in D and "upr_bounds" in D:
+            bounds = [D["lwr_bounds"], D["upr_bounds"]]
+        else:
+            bounds = None
+
         chain = cls(
             posterior=posterior,
             start=None,
             grad=grad,
+            bounds=bounds,
             inverse_mass=array(D["inv_mass"]),
             temperature=1.0 / float(D["inv_temp"]),
             display_progress=bool(D["display_progress"]),
         )
 
-        chain.bounded = bool(D["bounded"])
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
@@ -1588,14 +1574,8 @@ class HamiltonianChain(MarkovChain):
         t = D["theta"]
         chain.theta = [t[i, :] for i in range(t.shape[0])]
 
-        if chain.bounded:
-            chain.lwr_bounds = array(D["lwr_bounds"])
-            chain.upr_bounds = array(D["upr_bounds"])
-            chain.widths = array(D["widths"])
-
         # build the epsilon selector
         chain.ES.load_items(D)
-
         return chain
 
 
@@ -2560,3 +2540,51 @@ def ESS(x):
     # sum and normalise
     thin_factor = f.sum() / f[0]
     return int(len(x) / thin_factor)
+
+
+class Bounds:
+    def __init__(self, lower: ndarray, upper: ndarray, error_source="Bounds"):
+        self.lower = lower if isinstance(lower, ndarray) else array(lower)
+        self.upper = upper if isinstance(upper, ndarray) else array(upper)
+
+        if self.lower.ndim > 1 or self.upper.ndim > 1:
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> Lower and upper bounds must be one-dimensional arrays, but
+                >> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
+                """
+            )
+
+        if self.lower.size != self.upper.size:
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> Lower and upper bounds must be arrays of equal size, but
+                >> instead have sizes {self.lower.size} and {self.upper.size} respectively.
+                """
+            )
+
+        if (self.lower >= self.upper).any():
+            raise ValueError(
+                f"""
+                [ {error_source} error ]
+                >> All given upper bounds must be larger than the corresponding lower bounds.
+                """
+            )
+
+        self.width = self.upper - self.lower
+
+    def reflect(self, theta: ndarray):
+        q, rem = np_divmod(theta - self.lower, self.width)
+        n = q % 2
+        return self.lower + (1 - 2 * n) * rem + n * self.width
+
+    def reflect_momenta(self, theta: ndarray):
+        q, rem = np_divmod(theta - self.lower, self.width)
+        n = q % 2
+        reflection = 1 - 2 * n
+        return self.lower + reflection * rem + n * self.width, reflection
+
+    def inside(self, theta: ndarray):
+        return ((theta >= self.lower) & (theta <= self.upper)).all()
