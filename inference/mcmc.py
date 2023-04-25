@@ -2051,8 +2051,8 @@ class EnsembleSampler:
 
     def __init__(
         self,
-        posterior,
-        starting_positions=None,
+        posterior: callable,
+        starting_positions: Sequence[ndarray],
         alpha=2.0,
         parameter_boundaries=None,
         display_progress=True,
@@ -2149,9 +2149,8 @@ class EnsembleSampler:
                 )
 
     def proposal(self, i):
-        j = i  # randomly select walker
-        while i == j:
-            j = randint(self.n_walkers)
+        # randomly select walker that isn't 'i'
+        j = (randint(low=1, high=self.n_walkers) + i) % self.n_walkers
         # sample the stretch distance
         z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
         prop = self.process_proposal(
@@ -2159,7 +2158,7 @@ class EnsembleSampler:
         )
         return prop, z
 
-    def advance_walker(self, i):
+    def advance_walker(self, i: int):
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.proposal(i)
             p = self.posterior(Y)
@@ -2179,7 +2178,7 @@ class EnsembleSampler:
             self.advance_walker(i)
         self.n_iterations += 1
 
-    def advance(self, iterations):
+    def advance(self, iterations: int):
         """
         Advance the ensemble sampler a chosen number of iterations.
 
@@ -2211,7 +2210,8 @@ class EnsembleSampler:
         n = (d // self.width) % 2
         return self.lower + (1 - 2 * n) * (d % self.width) + n * self.width
 
-    def pass_through(self, prop):
+    @staticmethod
+    def pass_through(prop):
         return prop
 
     def plot_diagnostics(self):
@@ -2327,7 +2327,7 @@ class EnsembleSampler:
                 """
             )
 
-    def mode(self):
+    def mode(self) -> ndarray:
         """
         Return the sample with the current highest posterior probability.
 
@@ -2337,7 +2337,7 @@ class EnsembleSampler:
         """
         return self.sample[self.sample_probs.argmax(), :]
 
-    def get_parameter(self, index: int, burn=0, thin=1):
+    def get_parameter(self, index: int, burn=0, thin=1) -> ndarray:
         """
         Return sample values for a chosen parameter.
 
@@ -2357,7 +2357,7 @@ class EnsembleSampler:
         """
         return self.sample[burn::thin, index]
 
-    def get_probabilities(self, burn=0, thin=1):
+    def get_probabilities(self, burn=0, thin=1) -> ndarray:
         """
         Return the log-probability values for each step in the chain.
 
@@ -2375,7 +2375,7 @@ class EnsembleSampler:
         """
         return self.sample_probs[burn::thin]
 
-    def get_sample(self, burn=0, thin=1):
+    def get_sample(self, burn=0, thin=1) -> ndarray:
         """
         Return the sample as a 2D ``numpy.ndarray``.
 
@@ -2420,9 +2420,13 @@ class EnsembleSampler:
         savez(filename, **D)
 
     @classmethod
-    def load(cls, filename, posterior=None):
+    def load(cls, filename: str, posterior=None):
         D = load(filename)
-        sampler = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
+        sampler = cls(
+            posterior=posterior,
+            starting_positions=None,
+            display_progress=bool(D["display_progress"]),
+        )
 
         sampler.theta = D["theta"]
         sampler.n_params = int(D["n_params"])
