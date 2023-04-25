@@ -4,10 +4,7 @@ from inference.mcmc import Bounds
 
 
 def test_bounds_methods():
-    bnds = Bounds(
-        lower=array([0., 0.]),
-        upper=array([1., 1.])
-    )
+    bnds = Bounds(lower=array([0.0, 0.0]), upper=array([1.0, 1.0]))
 
     assert bnds.inside(array([0.2, 0.1]))
     assert not bnds.inside(array([-0.6, 0.1]))
@@ -26,25 +23,13 @@ def test_bounds_methods():
 
 def test_bounds_error_handling():
     with pytest.raises(ValueError):
-        Bounds(
-            lower=array([3., 0.]),
-            upper=array([3., 1.])
-        )
+        Bounds(lower=array([3.0, 0.0]), upper=array([3.0, 1.0]))
 
     with pytest.raises(ValueError):
-        Bounds(
-            lower=array([0., 0.]),
-            upper=array([1., -1.])
-        )
+        Bounds(lower=array([0.0, 0.0]), upper=array([1.0, -1.0]))
 
     with pytest.raises(ValueError):
-        Bounds(
-            lower=array([0., 0.]),
-            upper=array([1., 1]).reshape([2, 1])
-        )
+        Bounds(lower=array([0.0, 0.0]), upper=array([1.0, 1]).reshape([2, 1]))
 
     with pytest.raises(ValueError):
-        Bounds(
-            lower=array([0., 0.]),
-            upper=array([1., 1., 1.])
-        )
+        Bounds(lower=array([0.0, 0.0]), upper=array([1.0, 1.0, 1.0]))
