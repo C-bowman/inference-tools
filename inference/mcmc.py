@@ -1214,7 +1214,7 @@ class HamiltonianChain(MarkovChain):
     def __init__(
         self,
         posterior: callable,
-        start: ndarray = None,
+        start: ndarray,
         grad: callable = None,
         epsilon=0.1,
         temperature=1,
@@ -1225,6 +1225,23 @@ class HamiltonianChain(MarkovChain):
         self.posterior = posterior
         # if no gradient function is supplied, default to finite difference
         self.grad = self.finite_diff if grad is None else grad
+
+        # set the inverse mass to 1 if none supplied
+        self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
+        self.sqrt_mass = 1.0 / sqrt(self.inv_mass)
+        self.temperature = temperature
+        self.inv_temp = 1.0 / temperature
+
+        if start is not None:
+            start = start if isinstance(start, ndarray) else array(start)
+            start = start if start.dtype is float64 else start.astype(float64)
+            assert start.ndim == 1
+
+            self.theta = [start]
+            self.probs = [self.posterior(start) * self.inv_temp]
+            self.leapfrog_steps = [0]
+            self.n_variables = len(start)
+        self.chain_length = 1
 
         # set either the bounded or unbounded leapfrog update
         if bounds is None:
@@ -1253,20 +1270,6 @@ class HamiltonianChain(MarkovChain):
                     >> Specified upper bounds must be greater than lower bounds.
                     """
                 )
-
-        self.temperature = temperature
-        self.inv_temp = 1.0 / temperature
-
-        if start is not None:
-            self.theta = [start]
-            self.probs = [self.posterior(start) * self.inv_temp]
-            self.leapfrog_steps = [0]
-            self.n_variables = len(start)
-        self.chain_length = 1
-
-        # set the inverse mass to 1 if none supplied
-        self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
-        self.sqrt_mass = 1. / sqrt(self.inv_mass)
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
@@ -1564,12 +1567,15 @@ class HamiltonianChain(MarkovChain):
     def load(cls, filename: str, posterior=None, grad=None):
         D = load(filename)
         chain = cls(
-            posterior=posterior, grad=grad, display_progress=bool(D["display_progress"])
+            posterior=posterior,
+            start=None,
+            grad=grad,
+            inverse_mass=array(D["inv_mass"]),
+            temperature=1.0 / float(D["inv_temp"]),
+            display_progress=bool(D["display_progress"]),
         )
 
         chain.bounded = bool(D["bounded"])
-        chain.inv_mass = array(D["inv_mass"])
-        chain.inv_temp = float(D["inv_temp"])
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
