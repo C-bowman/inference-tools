@@ -1322,9 +1322,18 @@ class HamiltonianChain(MarkovChain):
         return t, r
 
     def bounded_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
-        g = self.grad(t) * self.inv_temp
-        for i in range(n_steps):
-            t, r, g = self.bounded_leapfrog_step(t, r, g)
+        t_step = self.inv_mass * self.ES.epsilon
+        r_step = self.inv_temp * self.ES.epsilon
+        r += (0.5 * r_step) * self.grad(t)
+        for _ in range(n_steps - 1):
+            t += t_step * r
+            t, reflections = self.bounds.reflect_momenta(t)
+            r *= reflections
+            r += r_step * self.grad(t)
+        t += t_step * r
+        t, reflections = self.bounds.reflect_momenta(t)
+        r *= reflections
+        r += (0.5 * r_step) * self.grad(t)
         return t, r
 
     def hamiltonian(self, t: ndarray, r: ndarray):
@@ -1341,18 +1350,6 @@ class HamiltonianChain(MarkovChain):
             delta[i] += 1e-5
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
-
-    def bounded_leapfrog_step(self, t: ndarray, r: ndarray, g: ndarray):
-        r2 = r + (0.5 * self.ES.epsilon) * g
-        t2 = t + self.ES.epsilon * r2 * self.inv_mass
-        # check for values outside bounds
-        t2, reflections = self.bounds.reflect_momenta(t2)
-        # reverse momenta where necessary
-        r2 *= reflections
-
-        g = self.grad(t2) * self.inv_temp
-        r2 = r2 + (0.5 * self.ES.epsilon) * g
-        return t2, r2, g
 
     def get_last(self):
         return self.theta[-1]
