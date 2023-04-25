@@ -2070,27 +2070,28 @@ class EnsembleSampler:
             self.__starting_positions_check()
             # storage for diagnostic information
             self.n_iterations = 0
-            self.total_proposals = [[] for i in range(self.n_walkers)]
+            self.total_proposals = [[] for _ in range(self.n_walkers)]
             self.failed_updates = []
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
-                self.bounded = True
-                self.lower = array([k[0] for k in parameter_boundaries])
-                self.upper = array([k[1] for k in parameter_boundaries])
-                self.width = self.upper - self.lower
-                self.process_proposal = self.impose_boundaries
+                self.bounds = Bounds(
+                    lower=array([k[0] for k in parameter_boundaries]),
+                    upper=array([k[1] for k in parameter_boundaries]),
+                    error_source="EnsembleSampler",
+                )
+                self.process_proposal = self.bounds.reflect
             else:
-                warn(
+                raise ValueError(
                     """
-                    [ EnsembleSampler warning ]
+                    [ EnsembleSampler error ]
                     >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters - bounds were not imposed.
+                    >> the number of model parameters
                     """
                 )
         else:
             self.process_proposal = self.pass_through
-            self.bounded = False
+            self.bounds = None
 
         # proposal settings
         if not alpha > 1.0:
@@ -2148,7 +2149,7 @@ class EnsembleSampler:
                     """
                 )
 
-    def __proposal(self, i):
+    def __proposal(self, i: int):
         # randomly select walker that isn't 'i'
         j = (randint(low=1, high=self.n_walkers) + i) % self.n_walkers
         # sample the stretch distance
@@ -2205,11 +2206,6 @@ class EnsembleSampler:
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
 
-    def impose_boundaries(self, prop):
-        d = prop - self.lower
-        n = (d // self.width) % 2
-        return self.lower + (1 - 2 * n) * (d % self.width) + n * self.width
-
     @staticmethod
     def pass_through(prop):
         return prop
@@ -2220,13 +2216,10 @@ class EnsembleSampler:
         as a function of the number of iterations.
         """
         x = linspace(1, self.n_iterations, self.n_iterations)
-
         rates = x / array(self.total_proposals).cumsum(axis=1)
-
         avg_rate = rates.mean(axis=0)
 
         fig = plt.figure(figsize=(10, 4))
-
         ax1 = fig.add_subplot(121)
         alpha = max(0.01, min(1, 20.0 / float(self.n_walkers)))
         for i in range(self.n_walkers):
@@ -2400,16 +2393,14 @@ class EnsembleSampler:
             "probs": self.probs,
             "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
-            "bounded": self.bounded,
             "alpha": self.alpha,
             "max_attempts": self.max_attempts,
             "display_progress": self.display_progress,
         }
 
-        if self.bounded:
-            D["lower"] = self.lower
-            D["upper"] = self.upper
-            D["width"] = self.width
+        if self.bounds is not None:
+            D["lower"] = self.bounds.lower
+            D["upper"] = self.bounds.upper
 
         if self.sample is not None:
             D["sample"] = self.sample
@@ -2420,9 +2411,16 @@ class EnsembleSampler:
     @classmethod
     def load(cls, filename: str, posterior=None):
         D = load(filename)
+
+        if "lower" in D and "upper" in D:
+            bounds = [(l, u) for l, u in zip(D["lower"], D["upper"])]
+        else:
+            bounds = None
+
         sampler = cls(
             posterior=posterior,
             starting_positions=None,
+            parameter_boundaries=bounds,
             alpha=D["alpha"],
             display_progress=bool(D["display_progress"]),
         )
@@ -2433,14 +2431,7 @@ class EnsembleSampler:
         sampler.probs = D["probs"]
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
-        sampler.bounded = D["bounded"]
         sampler.max_attempts = int(D["max_attempts"])
-
-        if sampler.bounded:
-            sampler.lower = D["lower"]
-            sampler.upper = D["upper"]
-            sampler.width = D["width"]
-            sampler.process_proposal = sampler.impose_boundaries
 
         if "sample" in D:
             sampler.sample = D["sample"]
