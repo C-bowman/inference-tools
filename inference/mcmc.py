@@ -2030,8 +2030,8 @@ class EnsembleSampler:
         its only argument, and returns the posterior log-probability.
 
     :param starting_positions: \
-        An iterable containing a series of parameter arrays corresponding to the starting
-        positions of the 'walkers' which make up the ensemble.
+        The starting positions of each walker as a 2D ``numpy.ndarray`` with shape
+        ``(n_walkers, n_parameters)``.
 
     :param float alpha: \
         Parameter controlling the width of the distribution of stretch-move
@@ -2052,22 +2052,19 @@ class EnsembleSampler:
     def __init__(
         self,
         posterior: callable,
-        starting_positions: Sequence[ndarray],
+        starting_positions: ndarray,
         alpha=2.0,
-        parameter_boundaries=None,
+        parameter_boundaries: Sequence = None,
         display_progress=True,
     ):
         self.posterior = posterior
 
         if starting_positions is not None:
             # store core data
-            self.n_params = len(starting_positions[0])
-            self.n_walkers = len(starting_positions)
-            self.theta = zeros([self.n_walkers, self.n_params])
-            for i, v in enumerate(starting_positions):
-                self.theta[i, :] = array(v)
+            self.theta = self.__validate_starting_positions(starting_positions)
+            self.n_walkers, self.n_params = starting_positions.shape
             self.probs = array([self.posterior(t) for t in self.theta])
-            self.__starting_positions_check()
+
             # storage for diagnostic information
             self.n_iterations = 0
             self.total_proposals = [[] for _ in range(self.n_walkers)]
@@ -2086,7 +2083,7 @@ class EnsembleSampler:
                     """
                     [ EnsembleSampler error ]
                     >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters
+                    >> the number of model parameters.
                     """
                 )
         else:
@@ -2114,25 +2111,58 @@ class EnsembleSampler:
             display=self.display_progress, leading_msg="EnsembleSampler:"
         )
 
-    def __starting_positions_check(self):
-        if self.n_params == 1:
+    @staticmethod
+    def __validate_starting_positions(positions: ndarray):
+        if not isinstance(positions, ndarray):
+            raise ValueError(
+                f"""
+                [ EnsembleSampler error ]
+                >> 'starting_positions' should be a numpy.ndarray, but instead has type:
+                >> {type(positions)}
+                """
+            )
+
+        theta = (
+            positions.reshape([positions.size, 1]) if positions.ndim == 1 else positions
+        )
+
+        if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
+            raise ValueError(
+                f"""
+                [ EnsembleSampler error ]
+                >> 'starting_positions' should be a numpy.ndarray with shape
+                >> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
+                >> Instead, the given array has shape {positions.shape}.
+                """
+            )
+
+        if not isfinite(theta).all():
+            raise ValueError(
+                """
+                [ EnsembleSampler error ]
+                >> The given 'starting_positions' array contains at least one
+                >> value which is non-finite.
+                """
+            )
+
+        if theta.shape[1] == 1:
             # only need to check the variance for the one-parameter case
-            if var(self.theta) == 0:
+            if var(theta) == 0:
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> The values given in starting_positions have zero variance,
+                    >> The values given in 'starting_positions' have zero variance,
                     >> and therefore the walkers are unable to move.
                     """
                 )
         else:
-            covar = cov(self.theta.T)
+            covar = cov(theta.T)
             std_dev = sqrt(diag(covar))  # get the standard devs
             if (std_dev == 0).any():
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> For one or more variables, The values given in starting_positions 
+                    >> For one or more variables, The values given in 'starting_positions' 
                     >> have zero variance, and therefore the walkers are unable to move
                     >> in those variables.
                     """
@@ -2143,11 +2173,12 @@ class EnsembleSampler:
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> The values given in starting_positions are approximately
+                    >> The values given in 'starting_positions' are approximately
                     >> co-linear for one or more pair of variables. This will
                     >> prevent the walkers from moving properly in those variables.
                     """
                 )
+        return theta
 
     def __proposal(self, i: int):
         # randomly select walker that isn't 'i'
