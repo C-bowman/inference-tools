@@ -2030,8 +2030,8 @@ class EnsembleSampler:
         its only argument, and returns the posterior log-probability.
 
     :param starting_positions: \
-        An iterable containing a series of parameter arrays corresponding to the starting
-        positions of the 'walkers' which make up the ensemble.
+        The starting positions of each walker as a 2D ``numpy.ndarray`` with shape
+        ``(n_walkers, n_parameters)``.
 
     :param float alpha: \
         Parameter controlling the width of the distribution of stretch-move
@@ -2051,46 +2051,44 @@ class EnsembleSampler:
 
     def __init__(
         self,
-        posterior,
-        starting_positions=None,
+        posterior: callable,
+        starting_positions: ndarray,
         alpha=2.0,
-        parameter_boundaries=None,
+        parameter_boundaries: Sequence = None,
         display_progress=True,
     ):
         self.posterior = posterior
 
         if starting_positions is not None:
             # store core data
-            self.n_params = len(starting_positions[0])
-            self.n_walkers = len(starting_positions)
-            self.theta = zeros([self.n_walkers, self.n_params])
-            for i, v in enumerate(starting_positions):
-                self.theta[i, :] = array(v)
+            self.theta = self.__validate_starting_positions(starting_positions)
+            self.n_walkers, self.n_params = starting_positions.shape
             self.probs = array([self.posterior(t) for t in self.theta])
-            self.__starting_positions_check()
+
             # storage for diagnostic information
             self.n_iterations = 0
-            self.total_proposals = [[] for i in range(self.n_walkers)]
+            self.total_proposals = [[] for _ in range(self.n_walkers)]
             self.failed_updates = []
 
         if parameter_boundaries is not None:
             if len(parameter_boundaries) == self.n_params:
-                self.bounded = True
-                self.lower = array([k[0] for k in parameter_boundaries])
-                self.upper = array([k[1] for k in parameter_boundaries])
-                self.width = self.upper - self.lower
-                self.process_proposal = self.impose_boundaries
+                self.bounds = Bounds(
+                    lower=array([k[0] for k in parameter_boundaries]),
+                    upper=array([k[1] for k in parameter_boundaries]),
+                    error_source="EnsembleSampler",
+                )
+                self.process_proposal = self.bounds.reflect
             else:
-                warn(
+                raise ValueError(
                     """
-                    [ EnsembleSampler warning ]
+                    [ EnsembleSampler error ]
                     >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters - bounds were not imposed.
+                    >> the number of model parameters.
                     """
                 )
         else:
             self.process_proposal = self.pass_through
-            self.bounded = False
+            self.bounds = None
 
         # proposal settings
         if not alpha > 1.0:
@@ -2113,25 +2111,58 @@ class EnsembleSampler:
             display=self.display_progress, leading_msg="EnsembleSampler:"
         )
 
-    def __starting_positions_check(self):
-        if self.n_params == 1:
+    @staticmethod
+    def __validate_starting_positions(positions: ndarray):
+        if not isinstance(positions, ndarray):
+            raise ValueError(
+                f"""
+                [ EnsembleSampler error ]
+                >> 'starting_positions' should be a numpy.ndarray, but instead has type:
+                >> {type(positions)}
+                """
+            )
+
+        theta = (
+            positions.reshape([positions.size, 1]) if positions.ndim == 1 else positions
+        )
+
+        if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
+            raise ValueError(
+                f"""
+                [ EnsembleSampler error ]
+                >> 'starting_positions' should be a numpy.ndarray with shape
+                >> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
+                >> Instead, the given array has shape {positions.shape}.
+                """
+            )
+
+        if not isfinite(theta).all():
+            raise ValueError(
+                """
+                [ EnsembleSampler error ]
+                >> The given 'starting_positions' array contains at least one
+                >> value which is non-finite.
+                """
+            )
+
+        if theta.shape[1] == 1:
             # only need to check the variance for the one-parameter case
-            if var(self.theta) == 0:
+            if var(theta) == 0:
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> The values given in starting_positions have zero variance,
+                    >> The values given in 'starting_positions' have zero variance,
                     >> and therefore the walkers are unable to move.
                     """
                 )
         else:
-            covar = cov(self.theta.T)
+            covar = cov(theta.T)
             std_dev = sqrt(diag(covar))  # get the standard devs
             if (std_dev == 0).any():
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> For one or more variables, The values given in starting_positions 
+                    >> For one or more variables, The values given in 'starting_positions' 
                     >> have zero variance, and therefore the walkers are unable to move
                     >> in those variables.
                     """
@@ -2142,16 +2173,16 @@ class EnsembleSampler:
                 raise ValueError(
                     """
                     [ EnsembleSampler error ]
-                    >> The values given in starting_positions are approximately
+                    >> The values given in 'starting_positions' are approximately
                     >> co-linear for one or more pair of variables. This will
                     >> prevent the walkers from moving properly in those variables.
                     """
                 )
+        return theta
 
-    def proposal(self, i):
-        j = i  # randomly select walker
-        while i == j:
-            j = randint(self.n_walkers)
+    def __proposal(self, i: int):
+        # randomly select walker that isn't 'i'
+        j = (randint(low=1, high=self.n_walkers) + i) % self.n_walkers
         # sample the stretch distance
         z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
         prop = self.process_proposal(
@@ -2159,9 +2190,9 @@ class EnsembleSampler:
         )
         return prop, z
 
-    def advance_walker(self, i):
+    def __advance_walker(self, i: int):
         for attempts in range(1, self.max_attempts + 1):
-            Y, z = self.proposal(i)
+            Y, z = self.__proposal(i)
             p = self.posterior(Y)
             q = exp((self.n_params - 1) * log(z) + p - self.probs[i])
             if random() <= q:
@@ -2173,13 +2204,13 @@ class EnsembleSampler:
             self.total_proposals[i].append(self.max_attempts)
             self.failed_updates[-1] += 1
 
-    def advance_all(self):
+    def __advance_all(self):
         self.failed_updates.append(0)
         for i in range(self.n_walkers):
-            self.advance_walker(i)
+            self.__advance_walker(i)
         self.n_iterations += 1
 
-    def advance(self, iterations):
+    def advance(self, iterations: int):
         """
         Advance the ensemble sampler a chosen number of iterations.
 
@@ -2194,7 +2225,7 @@ class EnsembleSampler:
         sample_arrays = [] if self.sample is None else [self.sample]
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
         for k in range(iterations):
-            self.advance_all()
+            self.__advance_all()
             sample_arrays.append(self.theta.copy())
             prob_arrays.append(self.probs.copy())
 
@@ -2206,12 +2237,8 @@ class EnsembleSampler:
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
 
-    def impose_boundaries(self, prop):
-        d = prop - self.lower
-        n = (d // self.width) % 2
-        return self.lower + (1 - 2 * n) * (d % self.width) + n * self.width
-
-    def pass_through(self, prop):
+    @staticmethod
+    def pass_through(prop):
         return prop
 
     def plot_diagnostics(self):
@@ -2220,13 +2247,10 @@ class EnsembleSampler:
         as a function of the number of iterations.
         """
         x = linspace(1, self.n_iterations, self.n_iterations)
-
         rates = x / array(self.total_proposals).cumsum(axis=1)
-
         avg_rate = rates.mean(axis=0)
 
         fig = plt.figure(figsize=(10, 4))
-
         ax1 = fig.add_subplot(121)
         alpha = max(0.01, min(1, 20.0 / float(self.n_walkers)))
         for i in range(self.n_walkers):
@@ -2327,7 +2351,7 @@ class EnsembleSampler:
                 """
             )
 
-    def mode(self):
+    def mode(self) -> ndarray:
         """
         Return the sample with the current highest posterior probability.
 
@@ -2337,7 +2361,7 @@ class EnsembleSampler:
         """
         return self.sample[self.sample_probs.argmax(), :]
 
-    def get_parameter(self, index: int, burn=0, thin=1):
+    def get_parameter(self, index: int, burn=0, thin=1) -> ndarray:
         """
         Return sample values for a chosen parameter.
 
@@ -2357,7 +2381,7 @@ class EnsembleSampler:
         """
         return self.sample[burn::thin, index]
 
-    def get_probabilities(self, burn=0, thin=1):
+    def get_probabilities(self, burn=0, thin=1) -> ndarray:
         """
         Return the log-probability values for each step in the chain.
 
@@ -2375,7 +2399,7 @@ class EnsembleSampler:
         """
         return self.sample_probs[burn::thin]
 
-    def get_sample(self, burn=0, thin=1):
+    def get_sample(self, burn=0, thin=1) -> ndarray:
         """
         Return the sample as a 2D ``numpy.ndarray``.
 
@@ -2400,18 +2424,14 @@ class EnsembleSampler:
             "probs": self.probs,
             "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
-            "bounded": self.bounded,
             "alpha": self.alpha,
-            "x_lwr": self.x_lwr,
-            "x_width": self.x_width,
             "max_attempts": self.max_attempts,
             "display_progress": self.display_progress,
         }
 
-        if self.bounded:
-            D["lower"] = self.lower
-            D["upper"] = self.upper
-            D["width"] = self.width
+        if self.bounds is not None:
+            D["lower"] = self.bounds.lower
+            D["upper"] = self.bounds.upper
 
         if self.sample is not None:
             D["sample"] = self.sample
@@ -2420,9 +2440,21 @@ class EnsembleSampler:
         savez(filename, **D)
 
     @classmethod
-    def load(cls, filename, posterior=None):
+    def load(cls, filename: str, posterior=None):
         D = load(filename)
-        sampler = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
+
+        if "lower" in D and "upper" in D:
+            bounds = [(l, u) for l, u in zip(D["lower"], D["upper"])]
+        else:
+            bounds = None
+
+        sampler = cls(
+            posterior=posterior,
+            starting_positions=None,
+            parameter_boundaries=bounds,
+            alpha=D["alpha"],
+            display_progress=bool(D["display_progress"]),
+        )
 
         sampler.theta = D["theta"]
         sampler.n_params = int(D["n_params"])
@@ -2430,17 +2462,7 @@ class EnsembleSampler:
         sampler.probs = D["probs"]
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
-        sampler.bounded = D["bounded"]
-        sampler.alpha = D["alpha"]
-        sampler.x_lwr = D["x_lwr"]
-        sampler.x_width = D["x_width"]
         sampler.max_attempts = int(D["max_attempts"])
-
-        if sampler.bounded:
-            sampler.lower = D["lower"]
-            sampler.upper = D["upper"]
-            sampler.width = D["width"]
-            sampler.process_proposal = sampler.impose_boundaries
 
         if "sample" in D:
             sampler.sample = D["sample"]
