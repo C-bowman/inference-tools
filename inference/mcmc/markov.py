@@ -13,7 +13,7 @@ from numpy.random import normal, random
 
 from inference.pdf import UnimodalPdf, GaussianKDE
 from inference.plotting import matrix_plot, trace_plot
-from inference.mcmc.utilities import ChainProgressPrinter, ESS
+from inference.mcmc.utilities import ChainProgressPrinter, effective_sample_size
 
 
 class Parameter:
@@ -572,7 +572,7 @@ class MarkovChain:
         """
         burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn)))
+            effective_sample_size(array(self.get_parameter(i, burn=burn)))
             for i in range(self.n_variables)
         ]
 
@@ -796,7 +796,8 @@ class MarkovChain:
 
     def autoselect_thin(self):
         param_ESS = [
-            ESS(array(self.get_parameter(i, thin=1))) for i in range(self.n_variables)
+            effective_sample_size(array(self.get_parameter(i, thin=1)))
+            for i in range(self.n_variables)
         ]
         self.thin = int((self.chain_length - self.burn) / min(param_ESS))
         if self.thin < 1:

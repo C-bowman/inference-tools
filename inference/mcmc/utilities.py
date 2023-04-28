@@ -80,7 +80,7 @@ class ChainProgressPrinter:
         pass
 
 
-def ESS(x: ndarray):
+def effective_sample_size(x: ndarray) -> int:
     # get the autocorrelation
     f = irfft(abs(rfft(x - mean(x))) ** 2)
     # remove reflected 2nd half
@@ -128,7 +128,7 @@ class Bounds:
 
         self.width = self.upper - self.lower
 
-    def reflect(self, theta: ndarray):
+    def reflect(self, theta: ndarray) -> ndarray:
         q, rem = np_divmod(theta - self.lower, self.width)
         n = q % 2
         return self.lower + (1 - 2 * n) * rem + n * self.width
@@ -139,5 +139,5 @@ class Bounds:
         reflection = 1 - 2 * n
         return self.lower + reflection * rem + n * self.width, reflection
 
-    def inside(self, theta: ndarray):
+    def inside(self, theta: ndarray) -> bool:
         return ((theta >= self.lower) & (theta <= self.upper)).all()

@@ -7,7 +7,7 @@ from numpy import array, savez, savez_compressed, load, zeros
 from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
 from numpy.random import random, normal
 
-from inference.mcmc.utilities import Bounds, ChainProgressPrinter, ESS
+from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
 from inference.mcmc.markov import MarkovChain
 
 
@@ -255,7 +255,7 @@ class HamiltonianChain(MarkovChain):
         if burn is None:
             burn = self.estimate_burn_in()
         param_ESS = [
-            ESS(array(self.get_parameter(i, burn=burn, thin=1)))
+            effective_sample_size(array(self.get_parameter(i, burn=burn, thin=1)))
             for i in range(self.n_variables)
         ]
 
