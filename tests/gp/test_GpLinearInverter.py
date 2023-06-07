@@ -1,7 +1,7 @@
 from numpy import allclose, sqrt, ndarray, linspace, zeros, ones
 from numpy.random import default_rng
 from scipy.special import erfc
-from inference.covariance import SquaredExponential, RationalQuadratic, WhiteNoise
+from inference.gp import SquaredExponential, RationalQuadratic, WhiteNoise
 from inference.gp import GpLinearInverter
 import pytest
 
