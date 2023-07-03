@@ -30,4 +30,5 @@ me at ``chris.bowman.physics@gmail.com``.
    distributions
    pdf
    gp
+   approx
    plotting
