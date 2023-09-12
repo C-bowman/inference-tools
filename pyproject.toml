@@ -30,9 +30,9 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-requires-python = ">=3.6"
+requires-python = ">=3.7"
 dependencies = [
-    "numpy >= 1.8",
+    "numpy >= 1.20",
     "scipy >= 1.6.3",
     "matplotlib >= 3.4.2",
     'importlib-metadata; python_version < "3.8"',
