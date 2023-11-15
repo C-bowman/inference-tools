@@ -229,7 +229,7 @@ class PcaChain(MarkovChain):
             posterior=None,
             start=None,
             widths=None,
-            display_progress=bool(D["display_progress"])
+            display_progress=bool(D["display_progress"]),
         )
 
         # re-build the chain's attributes
