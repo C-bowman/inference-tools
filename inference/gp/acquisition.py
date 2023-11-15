@@ -2,11 +2,13 @@ from numpy import sqrt, log, exp, pi
 from numpy import array, ndarray, minimum, maximum
 from numpy.random import random
 from scipy.special import erf, erfcx
+from inference.gp.regression import GpRegressor
 
 
 class AcquisitionFunction:
-    gp = None
-    opt_func = None
+    gp: GpRegressor
+    mu_max: float
+    opt_func: callable
 
     def starting_positions(self, bounds):
         lwr, upr = [array([k[i] for k in bounds], dtype=float) for i in [0, 1]]
@@ -33,6 +35,10 @@ class AcquisitionFunction:
                 starts.append(start)
 
         return starts
+
+    def update_gp(self, gp: GpRegressor):
+        self.gp = gp
+        self.mu_max = gp.y.max()
 
 
 class ExpectedImprovement(AcquisitionFunction):
@@ -67,11 +73,7 @@ class ExpectedImprovement(AcquisitionFunction):
         self.name = "Expected improvement"
         self.convergence_description = r"$\mathrm{EI}_{\mathrm{max}} \; / \; (y_{\mathrm{max}} - y_{\mathrm{min}})$"
 
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
+    def __call__(self, x) -> float:
         mu, sig = self.gp(x)
         Z = (mu[0] - self.mu_max) / sig[0]
         if Z < -3:
@@ -83,7 +85,7 @@ class ExpectedImprovement(AcquisitionFunction):
             EI = sig[0] * (Z * cdf + pdf)
         return EI
 
-    def opt_func(self, x):
+    def opt_func(self, x) -> float:
         mu, sig = self.gp(x)
         Z = (mu[0] - self.mu_max) / sig[0]
         if Z < -3:
@@ -156,22 +158,18 @@ class UpperConfidenceBound(AcquisitionFunction):
         set so that :math:`\kappa \ge 0`.
     """
 
-    def __init__(self, kappa=2):
+    def __init__(self, kappa: float = 2.0):
         self.kappa = kappa
         self.name = "Upper confidence bound"
         self.convergence_description = (
             r"$\mathrm{UCB}_{\mathrm{max}} - y_{\mathrm{max}}$"
         )
 
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
+    def __call__(self, x) -> float:
         mu, sig = self.gp(x)
         return mu[0] + self.kappa * sig[0]
 
-    def opt_func(self, x):
+    def opt_func(self, x) -> float:
         mu, sig = self.gp(x)
         return -mu[0] - self.kappa * sig[0]
 
@@ -211,15 +209,11 @@ class MaxVariance(AcquisitionFunction):
         self.name = "Max variance"
         self.convergence_description = r"$\sqrt{\mathrm{Var}\left[x\right]}$"
 
-    def update_gp(self, gp):
-        self.gp = gp
-        self.mu_max = gp.y.max()
-
-    def __call__(self, x):
+    def __call__(self, x) -> float:
         _, sig = self.gp(x)
         return sig[0] ** 2
 
-    def opt_func(self, x):
+    def opt_func(self, x) -> float:
         _, sig = self.gp(x)
         return -sig[0] ** 2
 

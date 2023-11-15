@@ -41,13 +41,13 @@ class ConstantMean(MeanFunction):
         w = y.max() - y.min()
         self.bounds = [(y.min() - w, y.max() + w)]
 
-    def __call__(self, q, theta):
+    def __call__(self, q, theta: ndarray):
         return theta[0]
 
-    def build_mean(self, theta):
+    def build_mean(self, theta: ndarray):
         return zeros(self.n_data) + theta[0]
 
-    def mean_and_gradients(self, theta):
+    def mean_and_gradients(self, theta: ndarray):
         return zeros(self.n_data) + theta[0], [ones(self.n_data)]
 
 
@@ -71,13 +71,13 @@ class LinearMean(MeanFunction):
         self.bounds = [(y.min() - 2 * w, y.max() + 2 * w)]
         self.bounds.extend([(-b, b) for b in grad_bounds])
 
-    def __call__(self, q, theta):
+    def __call__(self, q, theta: ndarray):
         return theta[0] + dot(q - self.x_mean, theta[1:]).squeeze()
 
-    def build_mean(self, theta):
+    def build_mean(self, theta: ndarray):
         return theta[0] + dot(self.dx, theta[1:])
 
-    def mean_and_gradients(self, theta):
+    def mean_and_gradients(self, theta: ndarray):
         grads = [ones(self.n_data)]
         grads.extend([v for v in self.dx.T])
         return theta[0] + dot(self.dx, theta[1:]), grads
@@ -108,18 +108,18 @@ class QuadraticMean(MeanFunction):
         self.bounds.extend([(-b, b) for b in grad_bounds])
         self.bounds.extend([(-b, b) for b in grad_bounds])
 
-    def __call__(self, q, theta):
+    def __call__(self, q, theta: ndarray):
         d = q - self.x_mean
         lin_term = dot(d, theta[self.lin_slc]).squeeze()
         quad_term = dot(d**2, theta[self.quad_slc]).squeeze()
         return theta[0] + lin_term + quad_term
 
-    def build_mean(self, theta):
+    def build_mean(self, theta: ndarray):
         lin_term = dot(self.dx, theta[self.lin_slc])
         quad_term = dot(self.dx_sqr, theta[self.quad_slc])
         return theta[0] + lin_term + quad_term
 
-    def mean_and_gradients(self, theta):
+    def mean_and_gradients(self, theta: ndarray):
         grads = [ones(self.n_data)]
         grads.extend([v for v in self.dx.T])
         grads.extend([v for v in self.dx_sqr.T])
