@@ -662,7 +662,9 @@ class MarkovChain:
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs):
+    def matrix_plot(
+        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+    ):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions. See the documentation of
@@ -689,7 +691,9 @@ class MarkovChain:
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
-    def trace_plot(self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs):
+    def trace_plot(
+        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+    ):
         """
         Construct a 'trace plot' of the parameters (or a subset) which displays
         the value of the parameters as a function of step number in the chain.
@@ -753,7 +757,7 @@ class MarkovChain:
             posterior=posterior,
             start=None,
             widths=None,
-            display_progress=bool(D["display_progress"])
+            display_progress=bool(D["display_progress"]),
         )
 
         # re-build the chain's attributes
@@ -765,7 +769,9 @@ class MarkovChain:
         chain.thin = int(D["thin"])
 
         # re-build all the parameter objects
-        chain.params = [Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)]
+        chain.params = [
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+        ]
         return chain
 
     def estimate_burn_in(self) -> int:
