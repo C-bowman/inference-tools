@@ -254,7 +254,9 @@ class PcaChain(MarkovChain):
         chain.covar = D["covar"]
 
         # re-build all the parameter objects
-        chain.params = [Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)]
+        chain.params = [
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+        ]
 
         return chain
 

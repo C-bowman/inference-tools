@@ -30,7 +30,9 @@ class ChainPool:
         return chain
 
 
-def tempering_process(chain: MarkovChain, connection: Connection, end: Event, proc_seed: int):
+def tempering_process(
+    chain: MarkovChain, connection: Connection, end: Event, proc_seed: int
+):
     # used to ensure each process has a different random seed
     seed(proc_seed)
     # main loop
