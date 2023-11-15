@@ -225,9 +225,15 @@ class PcaChain(MarkovChain):
         """
         # load the data and create a chain instance
         D = load(filename)
-        chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
+        chain = cls(
+            posterior=None,
+            start=None,
+            widths=None,
+            display_progress=bool(D["display_progress"])
+        )
 
         # re-build the chain's attributes
+        chain.posterior = posterior
         chain.chain_length = int(D["chain_length"])
         chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
