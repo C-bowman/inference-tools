@@ -1,6 +1,7 @@
 import sys
 from warnings import warn
 from multiprocessing import Process, Pipe, Event, Pool
+from multiprocessing.connection import Connection
 from time import time
 from random import choice
 
@@ -8,11 +9,12 @@ import matplotlib.pyplot as plt
 from numpy import arange, exp, identity, zeros
 from numpy.random import random, shuffle, seed, randint
 from inference.plotting import transition_matrix_plot
+from inference.mcmc.markov import MarkovChain
 
 
 class ChainPool:
-    def __init__(self, objects):
-        self.chains = objects
+    def __init__(self, chains: list[MarkovChain]):
+        self.chains = chains
         self.pool_size = len(self.chains)
         self.pool = Pool(self.pool_size)
 
@@ -24,12 +26,11 @@ class ChainPool:
     @staticmethod
     def adv_func(arg):
         n, chain = arg
-        for _ in range(n):
-            chain.take_step()
+        chain.advance(n)
         return chain
 
 
-def tempering_process(chain, connection, end, proc_seed):
+def tempering_process(chain: MarkovChain, connection: Connection, end: Event, proc_seed: int):
     # used to ensure each process has a different random seed
     seed(proc_seed)
     # main loop
@@ -104,7 +105,7 @@ class ParallelTempering:
         sorted in order of increasing chain temperature.
     """
 
-    def __init__(self, chains):
+    def __init__(self, chains: list[MarkovChain]):
         self.shutdown_evt = Event()
         self.connections = []
         self.processes = []
@@ -135,7 +136,7 @@ class ParallelTempering:
 
         [p.start() for p in self.processes]
 
-    def take_steps(self, n):
+    def take_steps(self, n: int):
         """
         Advance all the chains *n* steps without performing any swaps.
 
@@ -361,7 +362,7 @@ class ParallelTempering:
         plt.tight_layout()
         plt.show()
 
-    def return_chains(self):
+    def return_chains(self) -> list[MarkovChain]:
         """
         Recover the chain held by each process and return them in a list.
 

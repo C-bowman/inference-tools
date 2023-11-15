@@ -3,7 +3,7 @@ from copy import copy, deepcopy
 from time import time
 
 import matplotlib.pyplot as plt
-from numpy import float64
+from numpy import float64, ndarray
 from numpy import array
 from numpy import exp, log, mean, sqrt, argmax, diff
 from numpy import percentile
@@ -27,9 +27,8 @@ class Parameter:
     efficient sampling.
     """
 
-    def __init__(self, value=None, sigma=None):
-        self.samples = []  # list to store all samples for the parameter
-        self.samples.append(value)  # add starting location as first sample
+    def __init__(self, value: float, sigma: float):
+        self.samples = [value]  # list to store all samples for the parameter
         self.sigma = sigma  # the width parameter for the proposal distribution
 
         # storage for proposal width adjustment algorithm
@@ -150,7 +149,7 @@ class Parameter:
         else:  # increase the check interval
             self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
 
-    def adjust_sigma(self, ratio):
+    def adjust_sigma(self, ratio: float):
         self.sigma *= ratio
         self.sigma_values.append(copy(self.sigma))
         self.sigma_checks.append(len(self.samples))
@@ -162,7 +161,7 @@ class Parameter:
         self.samples.append(s)
         self.try_count = 0
 
-    def get_items(self, param_id):
+    def get_items(self, param_id: int) -> dict:
         i = f"param_{param_id}"
         items = {
             f"{i}samples": self.samples,
@@ -187,34 +186,36 @@ class Parameter:
         }
         return items
 
-    def load_items(self, dictionary, param_id):
-        i = "param_" + str(param_id)
-        self.samples = list(dictionary[i + "samples"])
-        self.sigma = float(dictionary[i + "sigma"])
-        self.avg = float(dictionary[i + "avg"])
-        self.var = float(dictionary[i + "var"])
-        self.num = float(dictionary[i + "num"])
-        self.sigma_values = list(dictionary[i + "sigma_values"])
-        self.sigma_checks = list(dictionary[i + "sigma_checks"])
-        self.try_count = int(dictionary[i + "try_count"])
-        self.last_update = int(dictionary[i + "last_update"])
-        self.target_rate = float(dictionary[i + "target_rate"])
-        self.max_tries = int(dictionary[i + "max_tries"])
-        self.chk_int = int(dictionary[i + "chk_int"])
-        self.growth_factor = float(dictionary[i + "growth_factor"])
-        self.adjust_rate = float(dictionary[i + "adjust_rate"])
-        self._non_negative = bool(dictionary[i + "_non_negative"])
-        self.bounded = bool(dictionary[i + "bounded"])
-        self.upper = float(dictionary[i + "upper"])
-        self.lower = float(dictionary[i + "lower"])
-        self.width = float(dictionary[i + "width"])
+    @classmethod
+    def load(cls, dictionary: dict, param_id: int):
+        param = cls(1.0, 0.0)
+        i = f"param_{param_id}"
+        param.samples = list(dictionary[i + "samples"])
+        param.sigma = float(dictionary[i + "sigma"])
+        param.avg = float(dictionary[i + "avg"])
+        param.var = float(dictionary[i + "var"])
+        param.num = float(dictionary[i + "num"])
+        param.sigma_values = list(dictionary[i + "sigma_values"])
+        param.sigma_checks = list(dictionary[i + "sigma_checks"])
+        param.try_count = int(dictionary[i + "try_count"])
+        param.last_update = int(dictionary[i + "last_update"])
+        param.target_rate = float(dictionary[i + "target_rate"])
+        param.max_tries = int(dictionary[i + "max_tries"])
+        param.chk_int = int(dictionary[i + "chk_int"])
+        param.growth_factor = float(dictionary[i + "growth_factor"])
+        param.adjust_rate = float(dictionary[i + "adjust_rate"])
+        param._non_negative = bool(dictionary[i + "_non_negative"])
+        param.bounded = bool(dictionary[i + "bounded"])
+        param.upper = float(dictionary[i + "upper"])
+        param.lower = float(dictionary[i + "lower"])
+        param.width = float(dictionary[i + "width"])
 
-        if self.bounded:
-            self.proposal = self.boundary_proposal
-        elif self._non_negative:
-            self.proposal = self.abs_proposal
+        if param.bounded:
+            param.proposal = param.boundary_proposal
+        elif param._non_negative:
+            param.proposal = param.abs_proposal
         else:
-            self.proposal = self.standard_proposal
+            param.proposal = param.standard_proposal
 
 
 class MarkovChain:
@@ -242,15 +243,12 @@ class MarkovChain:
 
     def __init__(
         self,
-        posterior=None,
-        start=None,
-        widths=None,
-        temperature=1.0,
-        display_progress=True,
+        posterior: callable,
+        start: ndarray,
+        widths: ndarray = None,
+        temperature: float = 1.0,
+        display_progress: bool = True,
     ):
-        if start is None:
-            start = []
-
         self.inv_temp = 1.0 / temperature
 
         if posterior is not None:
@@ -664,7 +662,7 @@ class MarkovChain:
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(self, params=None, thin=None, burn=None, **kwargs):
+    def matrix_plot(self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions. See the documentation of
@@ -673,7 +671,7 @@ class MarkovChain:
 
         :param params: \
             A list of integers specifying the indices of parameters which are to
-            be plotted.
+            be plotted. If not specified, all parameters are plotted.
 
         :param int burn: \
             Number of samples to discard from the start of the chain. If not
@@ -691,7 +689,7 @@ class MarkovChain:
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
-    def trace_plot(self, params=None, thin=1, burn=0, **kwargs):
+    def trace_plot(self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs):
         """
         Construct a 'trace plot' of the parameters (or a subset) which displays
         the value of the parameters as a function of step number in the chain.
@@ -700,7 +698,7 @@ class MarkovChain:
 
         :param params: \
             A list of integers specifying the indices of parameters which are to
-            be plotted.
+            be plotted. If not specified, all parameters are plotted.
 
         :param int burn: \
             Number of samples to discard from the start of the chain.
@@ -713,7 +711,7 @@ class MarkovChain:
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)
 
-    def save(self, filename):
+    def save(self, filename: str):
         """
         Save the entire state of the chain object as an .npz file.
 
@@ -732,13 +730,13 @@ class MarkovChain:
 
         # get the parameter attributes
         for i, p in enumerate(self.params):
-            items.update(p.get_items(param_id=i))
+            items | p.get_items(param_id=i)
 
         # save as npz
         savez(filename, **items)
 
     @classmethod
-    def load(cls, filename, posterior=None):
+    def load(cls, filename: str, posterior=None):
         """
         Load a chain object which has been previously saved using the save() method.
 
@@ -751,7 +749,12 @@ class MarkovChain:
         """
         # load the data and create a chain instance
         D = load(filename)
-        chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
+        chain = cls(
+            posterior=posterior,
+            start=None,
+            widths=None,
+            display_progress=bool(D["display_progress"])
+        )
 
         # re-build the chain's attributes
         chain.chain_length = int(D["chain_length"])
@@ -762,15 +765,10 @@ class MarkovChain:
         chain.thin = int(D["thin"])
 
         # re-build all the parameter objects
-        chain.params = []
-        for i in range(chain.n_variables):
-            p = Parameter()
-            p.load_items(dictionary=D, param_id=i)
-            chain.params.append(p)
-
+        chain.params = [Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)]
         return chain
 
-    def estimate_burn_in(self):
+    def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
         prob_estimate = argmax(self.probs > percentile(self.probs, 99))

@@ -48,7 +48,7 @@ class EnsembleSampler:
         self,
         posterior: callable,
         starting_positions: ndarray,
-        alpha=2.0,
+        alpha: float = 2.0,
         parameter_boundaries: Sequence = None,
         display_progress=True,
     ):
@@ -110,7 +110,7 @@ class EnsembleSampler:
     def __validate_starting_positions(positions: ndarray):
         if not isinstance(positions, ndarray):
             raise ValueError(
-                f"""
+                f"""\n
                 [ EnsembleSampler error ]
                 >> 'starting_positions' should be a numpy.ndarray, but instead has type:
                 >> {type(positions)}
@@ -123,7 +123,7 @@ class EnsembleSampler:
 
         if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
             raise ValueError(
-                f"""
+                f"""\n
                 [ EnsembleSampler error ]
                 >> 'starting_positions' should be a numpy.ndarray with shape
                 >> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
@@ -133,7 +133,7 @@ class EnsembleSampler:
 
         if not isfinite(theta).all():
             raise ValueError(
-                """
+                """\n
                 [ EnsembleSampler error ]
                 >> The given 'starting_positions' array contains at least one
                 >> value which is non-finite.
@@ -144,7 +144,7 @@ class EnsembleSampler:
             # only need to check the variance for the one-parameter case
             if var(theta) == 0:
                 raise ValueError(
-                    """
+                    """\n
                     [ EnsembleSampler error ]
                     >> The values given in 'starting_positions' have zero variance,
                     >> and therefore the walkers are unable to move.
@@ -155,7 +155,7 @@ class EnsembleSampler:
             std_dev = sqrt(diag(covar))  # get the standard devs
             if (std_dev == 0).any():
                 raise ValueError(
-                    """
+                    """\n
                     [ EnsembleSampler error ]
                     >> For one or more variables, The values given in 'starting_positions' 
                     >> have zero variance, and therefore the walkers are unable to move
@@ -166,7 +166,7 @@ class EnsembleSampler:
             correlation = covar / (std_dev[:, None] * std_dev[None, :])
             if (abs(triu(correlation, k=1)) > 0.999).any():
                 raise ValueError(
-                    """
+                    """\n
                     [ EnsembleSampler error ]
                     >> The values given in 'starting_positions' are approximately
                     >> co-linear for one or more pair of variables. This will
@@ -308,7 +308,7 @@ class EnsembleSampler:
             matrix_plot(samples=samples, **kwargs)
         else:
             warn(
-                """
+                """\n
                 [ EnsembleSampler warning ]
                 >> Cannot generate matrix plot as no samples have been produced.
                 """
@@ -340,7 +340,7 @@ class EnsembleSampler:
             trace_plot(samples=samples, **kwargs)
         else:
             warn(
-                """
+                """\n
                 [ EnsembleSampler warning ]
                 >> Cannot generate trace plot as no samples have been produced.
                 """

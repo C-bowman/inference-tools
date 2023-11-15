@@ -248,11 +248,8 @@ class PcaChain(MarkovChain):
         chain.covar = D["covar"]
 
         # re-build all the parameter objects
-        chain.params = []
-        for i in range(chain.n_variables):
-            p = Parameter()
-            p.load_items(dictionary=D, param_id=i)
-            chain.params.append(p)
+        chain.params = [Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)]
+
         return chain
 
     def set_non_negative(self, *args, **kwargs):

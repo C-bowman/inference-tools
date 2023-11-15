@@ -6,7 +6,7 @@ from numpy import divmod as np_divmod
 
 
 class ChainProgressPrinter:
-    def __init__(self, display=True, leading_msg=None):
+    def __init__(self, display: bool = True, leading_msg: str = None):
         self.lead = "" if leading_msg is None else leading_msg
 
         if not display:
@@ -18,12 +18,12 @@ class ChainProgressPrinter:
             self.countdown_progress = self.__no_status
             self.countdown_final = self.__no_status
 
-    def iterations_initial(self, total_itr):
+    def iterations_initial(self, total_itr: int):
         sys.stdout.write("\n")
         sys.stdout.write(f"\r  {self.lead}   [ 0 / {total_itr} iterations completed ]")
         sys.stdout.flush()
 
-    def iterations_progress(self, t_start, current_itr, total_itr):
+    def iterations_progress(self, t_start: float, current_itr: int, total_itr: int):
         dt = time() - t_start
         eta = int(dt * (total_itr / (current_itr + 1) - 1))
         sys.stdout.write(
@@ -31,14 +31,14 @@ class ChainProgressPrinter:
         )
         sys.stdout.flush()
 
-    def iterations_final(self, total_itr):
+    def iterations_final(self, total_itr: int):
         sys.stdout.write(
             f"\r  {self.lead}   [ {total_itr} / {total_itr} iterations completed ]                  "
         )
         sys.stdout.flush()
         sys.stdout.write("\n")
 
-    def percent_progress(self, t_start, current_itr, total_itr):
+    def percent_progress(self, t_start: float, current_itr: int, total_itr: int):
         dt = time() - t_start
         pct = int(100 * (current_itr + 1) / total_itr)
         eta = int(dt * (total_itr / (current_itr + 1) - 1))
@@ -47,7 +47,7 @@ class ChainProgressPrinter:
         )
         sys.stdout.flush()
 
-    def percent_final(self, t_start, total_itr):
+    def percent_final(self, t_start: float, total_itr: int):
         t_elapsed = int(time() - t_start)
         mins, secs = divmod(t_elapsed, 60)
         hrs, mins = divmod(mins, 60)
@@ -102,7 +102,7 @@ class Bounds:
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
             raise ValueError(
-                f"""
+                f"""\n
                 [ {error_source} error ]
                 >> Lower and upper bounds must be one-dimensional arrays, but
                 >> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
@@ -111,7 +111,7 @@ class Bounds:
 
         if self.lower.size != self.upper.size:
             raise ValueError(
-                f"""
+                f"""\n
                 [ {error_source} error ]
                 >> Lower and upper bounds must be arrays of equal size, but
                 >> instead have sizes {self.lower.size} and {self.upper.size} respectively.
@@ -120,7 +120,7 @@ class Bounds:
 
         if (self.lower >= self.upper).any():
             raise ValueError(
-                f"""
+                f"""\n
                 [ {error_source} error ]
                 >> All given upper bounds must be larger than the corresponding lower bounds.
                 """
