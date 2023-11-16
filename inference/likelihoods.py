@@ -143,7 +143,7 @@ class GaussianLikelihood(Likelihood):
         y_data: ndarray,
         sigma: ndarray,
         forward_model: callable,
-        forward_model_jacobian: callable = None
+        forward_model_jacobian: callable = None,
     ):
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
@@ -189,7 +189,7 @@ class CauchyLikelihood(Likelihood):
         y_data: ndarray,
         gamma: ndarray,
         forward_model: callable,
-        forward_model_jacobian: callable = None
+        forward_model_jacobian: callable = None,
     ):
         super().__init__(y_data, gamma, "gamma", forward_model, forward_model_jacobian)
 
@@ -235,7 +235,7 @@ class LogisticLikelihood(Likelihood):
         y_data: ndarray,
         sigma: ndarray,
         forward_model: callable,
-        forward_model_jacobian: callable = None
+        forward_model_jacobian: callable = None,
     ):
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
