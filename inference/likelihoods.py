@@ -2,7 +2,7 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 from abc import ABC, abstractmethod
-from numpy import array, log, exp, pi, sqrt
+from numpy import array, log, exp, pi, sqrt, ndarray
 
 
 class Likelihood(ABC):
@@ -17,7 +17,7 @@ class Likelihood(ABC):
         element in ``y_data`` as a 1D array.
 
     :param uncertainties_name: \
-        The name of the standard_deviation or uncertainties attribute
+        The name of the standard_deviation or uncertainties attribute.
 
     :param callable forward_model: \
         A callable which returns a prediction of the ``y_data`` values when passed an
@@ -33,11 +33,11 @@ class Likelihood(ABC):
 
     def __init__(
         self,
-        y_data,
-        uncertainties,
-        uncertainties_name,
-        forward_model,
-        forward_model_jacobian=None,
+        y_data: ndarray,
+        uncertainties: ndarray,
+        uncertainties_name: str,
+        forward_model: callable,
+        forward_model_jacobian: callable = None,
     ):
         if not callable(forward_model):
             raise ValueError("Given forward_model object must be callable")
@@ -138,7 +138,13 @@ class GaussianLikelihood(Likelihood):
         ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
-    def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
+    def __init__(
+        self,
+        y_data: ndarray,
+        sigma: ndarray,
+        forward_model: callable,
+        forward_model_jacobian: callable = None
+    ):
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
@@ -178,7 +184,13 @@ class CauchyLikelihood(Likelihood):
         ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
-    def __init__(self, y_data, gamma, forward_model, forward_model_jacobian=None):
+    def __init__(
+        self,
+        y_data: ndarray,
+        gamma: ndarray,
+        forward_model: callable,
+        forward_model_jacobian: callable = None
+    ):
         super().__init__(y_data, gamma, "gamma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
@@ -218,7 +230,13 @@ class LogisticLikelihood(Likelihood):
         ``i``'th ``y_data`` value prediction with respect to the ``j``'th model parameter.
     """
 
-    def __init__(self, y_data, sigma, forward_model, forward_model_jacobian=None):
+    def __init__(
+        self,
+        y_data: ndarray,
+        sigma: ndarray,
+        forward_model: callable,
+        forward_model_jacobian: callable = None
+    ):
         super().__init__(y_data, sigma, "sigma", forward_model, forward_model_jacobian)
 
         # pre-calculate some quantities as an optimisation
