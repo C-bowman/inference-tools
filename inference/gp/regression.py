@@ -185,7 +185,7 @@ class GpRegressor:
         # build the covariance matrix
         self.set_hyperparameters(hyperpars)
 
-    def __call__(self, points):
+    def __call__(self, points: ndarray):
         """
         Calculate the mean and standard deviation of the regression estimate at a series
         of specified spatial points.
@@ -348,7 +348,7 @@ class GpRegressor:
             )
         return x
 
-    def gradient(self, points):
+    def gradient(self, points: ndarray):
         """
         Calculate the mean and covariance of the gradient of the regression estimate
         with respect to the spatial coordinates at a series of specified points.
@@ -385,7 +385,7 @@ class GpRegressor:
             vars.append(covariance)
         return array(mu_q).squeeze(), array(vars).squeeze()
 
-    def spatial_derivatives(self, points):
+    def spatial_derivatives(self, points: ndarray):
         """
         Calculate the spatial derivatives (i.e. the gradient) of the predictive mean
         and variance of the GP estimate. These quantities are useful in the analytic
@@ -420,7 +420,7 @@ class GpRegressor:
             var_gradients.append(dV_dx)
         return array(mu_gradients).squeeze(), array(var_gradients).squeeze()
 
-    def build_posterior(self, points):
+    def build_posterior(self, points: ndarray):
         """
         Generates the full mean vector and covariance matrix for the Gaussian-process
         posterior distribution at a set of specified points.
@@ -463,7 +463,7 @@ class GpRegressor:
         sigma = sqrt(var)
         return mu, sigma
 
-    def loo_likelihood(self, theta):
+    def loo_likelihood(self, theta: ndarray):
         """
         Calculates the 'leave-one out' (LOO) log-likelihood.
 
@@ -484,7 +484,7 @@ class GpRegressor:
             warn("Cholesky decomposition failure in loo_likelihood")
             return -1e50
 
-    def loo_likelihood_gradient(self, theta):
+    def loo_likelihood_gradient(self, theta: ndarray):
         """
         Calculates the 'leave-one out' (LOO) log-likelihood, as well as its
         gradient with respect to the hyper-parameters.
@@ -523,7 +523,7 @@ class GpRegressor:
 
         return LOO, grad
 
-    def marginal_likelihood(self, theta):
+    def marginal_likelihood(self, theta: ndarray):
         """
         returns the log-marginal likelihood for the supplied hyper-parameter values.
 
@@ -539,7 +539,7 @@ class GpRegressor:
             warn("Cholesky decomposition failure in marginal_likelihood")
             return -1e50
 
-    def marginal_likelihood_gradient(self, theta):
+    def marginal_likelihood_gradient(self, theta: ndarray):
         """
         returns the log-marginal likelihood and its gradient with respect
         to the hyperparameters.
@@ -571,11 +571,11 @@ class GpRegressor:
         )
         return opt_result.x
 
-    def bfgs_cost_func(self, theta):
+    def bfgs_cost_func(self, theta: ndarray):
         y, grad_y = self.model_selector_gradient(theta)
         return -y, -grad_y
 
-    def launch_bfgs(self, x0):
+    def launch_bfgs(self, x0: ndarray):
         return fmin_l_bfgs_b(
             func=self.bfgs_cost_func, x0=x0, approx_grad=False, bounds=self.hp_bounds
         )

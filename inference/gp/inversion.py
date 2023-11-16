@@ -154,7 +154,7 @@ class GpLinearInverter:
         posterior_mean = posterior_cov @ u + prior_mean
         return posterior_mean, posterior_cov
 
-    def calculate_posterior_mean(self, theta: ndarray):
+    def calculate_posterior_mean(self, theta: ndarray) -> ndarray:
         """
         Calculate the posterior mean for the given
         hyper-parameter values.
@@ -171,7 +171,7 @@ class GpLinearInverter:
         W = self.A.T @ self.inv_sigma @ self.A
         return solve(self.I + K @ W, K @ u) + prior_mean
 
-    def marginal_likelihood(self, theta: ndarray):
+    def marginal_likelihood(self, theta: ndarray) -> float:
         """
         Calculate the log-marginal likelihood for the given hyper-parameter values.
 
@@ -202,6 +202,7 @@ class GpLinearInverter:
 
         # get the cholesky decomposition
         L = cholesky(J)
+        # find inv(J) using inv(L)
         iJ = solve_triangular(L, eye(L.shape[0]), lower=True)
         iJ = iJ.T @ iJ
         # calculate the log-marginal likelihood

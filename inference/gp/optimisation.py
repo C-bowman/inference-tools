@@ -194,7 +194,7 @@ class GpOptimiser:
             funcval = funcval[0]
         return solution, funcval
 
-    def launch_bfgs(self, x0):
+    def launch_bfgs(self, x0: ndarray):
         return fmin_l_bfgs_b(
             self.acquisition.opt_func_gradient,
             x0,

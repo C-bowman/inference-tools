@@ -45,11 +45,14 @@ class CovarianceFunction(ABC):
 
 
 class CompositeCovariance(CovarianceFunction):
-    def __init__(self, covariance_components):
+    def __init__(self, covariance_components: list[CovarianceFunction]):
         self.components = covariance_components
         self.bounds = None
+        self.n_params: int
+        self.hyperpar_labels: list[str]
+        self.slices: list[slice]
 
-    def pass_spatial_data(self, x):
+    def pass_spatial_data(self, x: ndarray):
         """
         Pre-calculates hyperparameter-independent part of the data covariance
         matrix as an optimisation.
@@ -66,7 +69,7 @@ class CompositeCovariance(CovarianceFunction):
         self.n_params = sum(c.n_params for c in self.components)
         assert self.n_params == len(self.hyperpar_labels)
 
-    def estimate_hyperpar_bounds(self, y):
+    def estimate_hyperpar_bounds(self, y: ndarray):
         """
         Estimates bounds on the hyper-parameters to be
         used during optimisation.
@@ -136,6 +139,7 @@ class WhiteNoise(CovarianceFunction):
         self.bounds = hyperpar_bounds
         self.n_params = 1
         self.hyperpar_labels = ["WhiteNoise log-sigma"]
+        self.I: ndarray
 
     def pass_spatial_data(self, x: ndarray):
         """
@@ -203,7 +207,7 @@ class SquaredExponential(CovarianceFunction):
         self.n_params: int
         self.dx: ndarray
         self.distances: ndarray
-        self.hyperpar_labels: list
+        self.hyperpar_labels: list[str]
 
     def pass_spatial_data(self, x: ndarray):
         """
@@ -468,7 +472,10 @@ class ChangePoint(CovarianceFunction):
             self.width_bounds = None
 
         self.axis = axis
-        self.hyperpar_labels = []
+        self.n_params: int
+        self.hyperpar_labels: list[str]
+        self.cov_slc: list[slice]
+        self.cp_slc: list[slice]
         self.bounds = None
 
     def pass_spatial_data(self, x: ndarray):
@@ -490,6 +497,7 @@ class ChangePoint(CovarianceFunction):
         for i in range(self.n_kernels - 1):
             label_groups.append([f"ChngPnt{i} location", f"ChngPnt{i} width"])
 
+        self.hyperpar_labels = []
         [self.hyperpar_labels.extend(L) for L in label_groups]
 
         # store x-data from the dimension of the change-point
@@ -681,7 +689,7 @@ class HeteroscedasticNoise(CovarianceFunction):
         return self.bounds
 
 
-def slice_builder(lengths):
+def slice_builder(lengths: list[int]) -> list[slice]:
     slices = [slice(0, lengths[0])]
     for L in lengths[1:]:
         last = slices[-1].stop

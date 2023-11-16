@@ -66,8 +66,8 @@ class HamiltonianChain(MarkovChain):
         posterior: callable,
         start: ndarray,
         grad: callable = None,
-        epsilon=0.1,
-        temperature=1,
+        epsilon: float = 0.1,
+        temperature: float = 1.0,
         bounds: Sequence[ndarray] = None,
         inverse_mass: ndarray = None,
         display_progress=True,
@@ -148,7 +148,7 @@ class HamiltonianChain(MarkovChain):
                 break
         else:
             raise ValueError(
-                f"""
+                f"""\n
                 [ HamiltonianChain error ]
                 >> Failed to take step within maximum allowed attempts of {self.max_attempts}
                 """
@@ -185,13 +185,13 @@ class HamiltonianChain(MarkovChain):
         r += (0.5 * r_step) * self.grad(t)
         return t, r
 
-    def hamiltonian(self, t: ndarray, r: ndarray):
+    def hamiltonian(self, t: ndarray, r: ndarray) -> float:
         return 0.5 * dot(r, r * self.inv_mass) - self.posterior(t) * self.inv_temp
 
     def estimate_mass(self, burn=1, thin=1):
         self.inv_mass = var(array(self.theta[burn::thin]), axis=0)
 
-    def finite_diff(self, t: ndarray):
+    def finite_diff(self, t: ndarray) -> ndarray:
         p = self.posterior(t) * self.inv_temp
         G = zeros(self.n_variables)
         for i in range(self.n_variables):
@@ -426,7 +426,7 @@ class HamiltonianChain(MarkovChain):
 
 
 class EpsilonSelector:
-    def __init__(self, epsilon):
+    def __init__(self, epsilon: float):
         # storage
         self.epsilon = epsilon
         self.epsilon_values = [copy(epsilon)]  # sigma values after each assessment
@@ -468,7 +468,7 @@ class EpsilonSelector:
         else:  # increase the check interval
             self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
 
-    def adjust_epsilon(self, ratio):
+    def adjust_epsilon(self, ratio: float):
         self.epsilon *= ratio
         self.epsilon_values.append(copy(self.epsilon))
         self.epsilon_checks.append(self.epsilon_checks[-1] + self.num)
@@ -479,7 +479,7 @@ class EpsilonSelector:
     def get_items(self):
         return self.__dict__
 
-    def load_items(self, dictionary):
+    def load_items(self, dictionary: dict):
         self.epsilon = float(dictionary["epsilon"])
         self.epsilon_values = list(dictionary["epsilon_values"])
         self.epsilon_checks = list(dictionary["epsilon_checks"])

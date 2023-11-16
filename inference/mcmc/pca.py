@@ -225,9 +225,15 @@ class PcaChain(MarkovChain):
         """
         # load the data and create a chain instance
         D = load(filename)
-        chain = cls(posterior=posterior, display_progress=bool(D["display_progress"]))
+        chain = cls(
+            posterior=None,
+            start=None,
+            widths=None,
+            display_progress=bool(D["display_progress"]),
+        )
 
         # re-build the chain's attributes
+        chain.posterior = posterior
         chain.chain_length = int(D["chain_length"])
         chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
@@ -248,11 +254,10 @@ class PcaChain(MarkovChain):
         chain.covar = D["covar"]
 
         # re-build all the parameter objects
-        chain.params = []
-        for i in range(chain.n_variables):
-            p = Parameter()
-            p.load_items(dictionary=D, param_id=i)
-            chain.params.append(p)
+        chain.params = [
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+        ]
+
         return chain
 
     def set_non_negative(self, *args, **kwargs):

@@ -143,6 +143,7 @@ def test_gibbs_chain_restore(tmp_path):
     chain.save(filename)
 
     new_chain = GibbsChain.load(filename)
+    _ = GibbsChain.load(filename, posterior=rosenbrock)
 
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs

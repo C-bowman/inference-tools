@@ -34,6 +34,7 @@ def test_pca_chain_restore(line_posterior, tmp_path):
     chain.save(filename)
 
     new_chain = PcaChain.load(filename)
+    _ = PcaChain.load(filename, posterior=line_posterior)
 
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
