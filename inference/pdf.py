@@ -2,14 +2,15 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
-from numpy import exp, log, mean, std, sqrt, tanh, cos, cov
-from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, logaddexp
+from numpy import exp, log, mean, std, sqrt, tanh, cos, cov, logaddexp
+from numpy import array, linspace, sort, searchsorted, pi, argmax, argsort, ndarray
 from numpy.random import random
 from scipy.integrate import quad, simps
 from scipy.optimize import minimize, minimize_scalar, differential_evolution
 from warnings import warn
 from itertools import product
 from functools import reduce
+from collections.abc import Sequence
 import matplotlib.pyplot as plt
 
 
@@ -355,7 +356,7 @@ class GaussianKDE(DensityEstimator):
 
         if self.s.size < 3:
             raise ValueError(
-                """
+                """\n
                 [ GaussianKDE error ]
                 Not enough samples were given to estimate the PDF.
                 At least 3 samples are required.
@@ -545,7 +546,7 @@ class GaussianKDE(DensityEstimator):
 
 
 class KDE2D:
-    def __init__(self, x=None, y=None):
+    def __init__(self, x: ndarray, y: ndarray):
         self.x = array(x)
         self.y = array(y)
         # very simple bandwidth estimate
@@ -581,7 +582,7 @@ class BinaryTree:
     :param limits: tuple of the lower and upper bounds of the look-up region.
     """
 
-    def __init__(self, layers, limits):
+    def __init__(self, layers: int, limits: tuple[float, float]):
         self.n = layers
         self.lims = limits
         self.edges = linspace(limits[0], limits[1], 2**self.n + 1)
@@ -596,7 +597,7 @@ class BinaryTree:
         return self.p[searchsorted(self.edges, val)]
 
 
-def sample_hdi(sample, fraction, allow_double=False):
+def sample_hdi(sample: ndarray, fraction: float, allow_double=False):
     """
     Estimate the highest-density interval(s) for a given sample.
 
@@ -619,26 +620,58 @@ def sample_hdi(sample, fraction, allow_double=False):
 
     # verify inputs are valid
     if not 0.0 < fraction < 1.0:
-        raise ValueError("fraction parameter must be between 0 and 1")
-    if not hasattr(sample, "__len__") or len(sample) < 2:
-        raise ValueError("The sample must have at least 2 elements")
+        raise ValueError(
+            f"""\n
+            [ sample_hdi error ]
+            >> The 'fraction' argument must be a float between 0 and 1,
+            >> but the value given was {fraction}.
+            """
+        )
 
-    s = array(sample)
-    if len(s.shape) > 1:
+    if isinstance(sample, ndarray):
+        s = sample.copy()
+    elif isinstance(sample, Sequence):
+        s = array(sample)
+    else:
+        raise ValueError(
+            f"""\n
+            [ sample_hdi error ]
+            >> The 'sample' argument should be a numpy.ndarray or a
+            >> Sequence which can be converted to an array, but
+            >> instead has type {type(sample)}.
+            """
+        )
+
+    if s.size < 2:
+        raise ValueError(
+            f"""\n
+            [ sample_hdi error ]
+            >> The given 'sample' array must contain at least 2 values.
+            """
+        )
+
+    if s.ndim > 1:
         s = s.flatten()
-    s = sort(s)
-    n = len(s)
+    s.sort()
+    n = s.size
     L = int(fraction * n)
 
     # check that we have enough samples to estimate the HDI for the chosen fraction
     if n <= L:
         warn(
-            "The number of samples is insufficient to estimate the interval for the given fraction"
+            f"""\n
+            [ sample_hdi warning ]
+            >> The given number of samples is insufficient to estimate the interval
+            >> for the given fraction.
+            """
         )
-        return (s[0], s[-1])
+        return s[0], s[-1]
     elif n - L < 20:
         warn(
-            "len(sample)*(1 - fraction) is small - calculated interval may be inaccurate"
+            f"""\n
+            [ sample_hdi warning ]
+            >> len(sample)*(1 - fraction) is small - calculated interval may be inaccurate.
+            """
         )
 
     # find the optimal single HDI
