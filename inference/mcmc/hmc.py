@@ -3,12 +3,12 @@ from copy import copy
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
-from numpy import array, savez, savez_compressed, load, zeros
+from numpy import array, savez, savez_compressed, load, zeros, stack
 from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
 from numpy.random import random, normal
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
-from inference.mcmc.markov import MarkovChain
+from inference.mcmc.base import MarkovChain
 
 
 class HamiltonianChain(MarkovChain):
@@ -343,8 +343,40 @@ class HamiltonianChain(MarkovChain):
             fig.clear()
             plt.close(fig)
 
-    def get_sample(self, burn=None, thin=None):
-        raise ValueError("This method is not available for HamiltonianChain")
+    def get_probabilities(self, burn: int = 0, thin: int = 1) -> ndarray:
+        """
+        Return the log-probability values for each step in the chain.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before returning
+            corresponding log-probabilities. If ``thin`` is set to some integer
+            value *m*, then only every *m*'th sample is used, and the remainder
+            are ignored.
+
+        :return: \
+            Log-probability values as a ``numpy.ndarray``.
+        """
+        return array(self.probs[burn::thin])
+
+    def get_sample(self, burn: int = 0, thin: int = 1):
+        """
+        Return the sample as a 2D ``numpy.ndarray``.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before being returned.
+            If ``thin`` is set to some integer value *m*, then only every *m*'th
+            sample is used, and the remainder are ignored.
+
+        :return: \
+            The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
+        """
+        raise stack(self.theta[burn::thin])
 
     def get_interval(self, interval=None, burn=None, thin=None, samples=None):
         raise ValueError("This method is not available for HamiltonianChain")

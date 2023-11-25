@@ -7,10 +7,10 @@ from numpy import sqrt, exp, dot, cov
 from numpy.random import random, normal
 from scipy.linalg import eigh
 
-from inference.mcmc.markov import MarkovChain, Parameter
+from inference.mcmc.markov import MetropolisChain, Parameter
 
 
-class PcaChain(MarkovChain):
+class PcaChain(MetropolisChain):
     """
     A class which performs Gibbs sampling over the eigenvectors of the covariance matrix.
 

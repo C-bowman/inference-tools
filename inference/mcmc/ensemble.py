@@ -9,9 +9,10 @@ from numpy.random import random, randint
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter
 from inference.plotting import matrix_plot, trace_plot
+from inference.mcmc.base import MarkovChain
 
 
-class EnsembleSampler:
+class EnsembleSampler(MarkovChain):
     """
     ``EnsembleSampler`` is an implementation of the affine-invariant ensemble sampler
     proposed by Goodman & Weare. This algorithm is based on an 'ensemble' of points
@@ -201,8 +202,7 @@ class EnsembleSampler:
 
     def __advance_all(self):
         self.failed_updates.append(0)
-        for i in range(self.n_walkers):
-            self.__advance_walker(i)
+        [self.__advance_walker(i) for i in range(self.n_walkers)]
         self.n_iterations += 1
 
     def advance(self, iterations: int):

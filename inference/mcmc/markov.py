@@ -14,6 +14,7 @@ from numpy.random import normal, random
 from inference.pdf import UnimodalPdf, GaussianKDE
 from inference.plotting import matrix_plot, trace_plot
 from inference.mcmc.utilities import ChainProgressPrinter, effective_sample_size
+from inference.mcmc.base import MarkovChain
 
 
 class Parameter:
@@ -219,7 +220,7 @@ class Parameter:
         return param
 
 
-class MarkovChain:
+class MetropolisChain(MarkovChain):
     """
     Implementation of the metropolis-hastings algorithm using a multivariate-normal
     proposal distribution.
@@ -311,52 +312,6 @@ class MarkovChain:
             p.add_sample(v)
 
         self.chain_length += 1
-
-    def advance(self, m):
-        """
-        Advances the chain by taking ``m`` new steps.
-
-        :param int m: Number of steps the chain will advance.
-        """
-        k = 100  # divide chain steps into k groups to track progress
-        t_start = time()
-        for j in range(k):
-            for i in range(m // k):
-                self.take_step()
-            self.ProgressPrinter.percent_progress(t_start, j, k)
-
-        # cleanup
-        if m % k != 0:
-            for i in range(m % k):
-                self.take_step()
-        self.ProgressPrinter.percent_final(t_start, m)
-
-    def run_for(self, minutes=0, hours=0, days=0):
-        """
-        Advances the chain for a chosen amount of computation time
-
-        :param int minutes: number of minutes for which to run the chain.
-        :param int hours: number of hours for which to run the chain.
-        :param int days: number of days for which to run the chain.
-        """
-        update_interval = 20  # small initial guess for the update interval
-        start_length = copy(self.chain_length)
-
-        # first find the runtime in seconds:
-        run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
-        start_time = time()
-        current_time = start_time
-        end_time = start_time + run_time
-
-        while current_time < end_time:
-            for i in range(update_interval):
-                self.take_step()
-            # set the interval such that updates are roughly once per second
-            steps_taken = self.chain_length - start_length
-            current_time = time()
-            update_interval = int(steps_taken / (current_time - start_time))
-            self.ProgressPrinter.countdown_progress(end_time, steps_taken)
-        self.ProgressPrinter.countdown_final(run_time, steps_taken)
 
     def get_last(self):
         return array([p.samples[-1] for p in self.params], dtype=float64)
@@ -824,7 +779,7 @@ class MarkovChain:
         self.autoselect_thin()
 
 
-class GibbsChain(MarkovChain):
+class GibbsChain(MetropolisChain):
     """
     A class for sampling from distributions using Gibbs-sampling.
 
