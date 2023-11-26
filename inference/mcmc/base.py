@@ -2,12 +2,29 @@ from abc import ABC, abstractmethod
 from copy import copy
 from time import time
 from numpy import ndarray
+from numpy.random import permutation
+
+from inference.pdf import GaussianKDE, UnimodalPdf, DensityEstimator
+from inference.plotting import matrix_plot, trace_plot
 from inference.mcmc.utilities import ChainProgressPrinter
 
 
 class MarkovChain(ABC):
     chain_length: int
+    n_variables: int
     ProgressPrinter: ChainProgressPrinter
+
+    @abstractmethod
+    def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
+        pass
+
+    @abstractmethod
+    def get_probabilities(self, burn: int = 1, thin: int = 1) -> ndarray:
+        pass
+
+    @abstractmethod
+    def get_sample(self, burn: int = 1, thin: int = 1) -> ndarray:
+        pass
 
     def advance(self, m: int):
         """
@@ -53,14 +70,139 @@ class MarkovChain(ABC):
             self.ProgressPrinter.countdown_progress(end_time, steps_taken)
         self.ProgressPrinter.countdown_final(run_time, steps_taken)
 
-    @abstractmethod
-    def get_parameter(self, index: int, burn: int = 0, thin: int = 1) -> ndarray:
-        pass
+    def get_marginal(
+        self, index: int, burn: int = 1, thin: int = 1, unimodal=False
+    ) -> DensityEstimator:
+        """
+        Estimate the 1D marginal distribution of a chosen parameter.
 
-    @abstractmethod
-    def get_probabilities(self, burn: int = 0, thin: int = 1) -> ndarray:
-        pass
+        :param int index: \
+            Index of the parameter for which the marginal distribution is to be estimated.
 
-    @abstractmethod
-    def get_sample(self, burn: int = 0, thin: int = 1) -> ndarray:
-        pass
+        :param int burn: \
+            Number of samples to discard from the start of the chain.
+
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the burn-in,
+            every *m*'th sample is used for a specified integer *m*.
+            
+        :param bool unimodal: \
+            Selects the type of density estimation to be used. The default value is False,
+            which causes a GaussianKDE object to be returned. If however the marginal
+            distribution being estimated is known to be unimodal, setting ``unimodal = True``
+            will result in the ``UnimodalPdf`` class being used to estimate the density.
+
+        :return: \
+            An instance of a ``DensityEstimator`` from the ``inference.pdf`` module which
+            represents the 1D marginal distribution of the chosen parameter. If the
+            ``unimodal`` argument is ``False`` a ``GaussianKDE`` instance is returned,
+            else if ``True`` a ``UnimodalPdf`` instance is returned.
+
+        """
+        if unimodal:
+            return UnimodalPdf(self.get_parameter(index, burn=burn, thin=thin))
+        else:
+            return GaussianKDE(self.get_parameter(index, burn=burn, thin=thin))
+
+    def get_interval(self, interval=0.95, burn: int = 1, thin: int = 1, samples=None):
+        """
+        Return the samples from the chain which lie inside a chosen highest-density interval.
+
+        :param float interval: \
+            Total probability of the desired interval. For example, if interval = 0.95, then
+            the samples corresponding to the top 95% of posterior probability values are returned.
+
+        :param int burn: \
+            Number of samples to discard from the start of the chain.
+
+        :param int thin: \
+            Instead of returning every sample which is not discarded as part of the burn-in,
+            every *m*'th sample is returned for a specified integer *m*.
+
+        :param int samples: \
+            The number of samples that should be returned from the requested interval. Note
+            that specifying ``samples`` overrides the value of ``thin``.
+
+        :return: \
+            List containing sample points stored as tuples, and a corresponding list of
+            log-probability values.
+        """
+
+        # get the sorting indices for the probabilities
+        probs = self.get_probabilities(burn=burn)
+        if samples is not None:
+            thin = max(probs.size // samples, 1)
+
+        sample = self.get_sample(burn=burn, thin=thin)
+        probs = probs[::thin]
+
+        sorter = probs.argsort()
+        # sort the sample by probability
+        sample = sample[sorter, :]
+        probs = probs[sorter]
+        # trim lowest-probability samples
+        cutoff = int(probs.size * (1 - interval))
+        sample = sample[cutoff:, :]
+        probs = probs[cutoff:]
+
+        if samples is not None:
+            # we may need to trim some extra samples to meet the requested number,
+            # but as they arranged in order of increasing probability, we must remove
+            # elements at random in order not to introduce bias.
+            n_trim = probs.size - samples
+            if n_trim > 0:
+                subsample = permutation(probs.size)[n_trim:].sort()
+                sample = sample[subsample, :]
+                probs = probs[subsample]
+
+        return sample, probs
+
+    def matrix_plot(
+        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+    ):
+        """
+        Construct a 'matrix plot' of the parameters (or a subset) which displays
+        all 1D and 2D marginal distributions. See the documentation of
+        inference.plotting.matrix_plot for a description of other allowed
+        keyword arguments.
+
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted. If not specified, all parameters are plotted.
+
+        :param int burn: \
+            Number of samples to discard from the start of the chain.
+
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the
+            burn-in, every *m*'th sample is used for a specified integer *m*. If
+            not specified, the value of ``self.thin`` is used instead, which has
+            a default value of 1.
+        """
+        params = params if params is not None else range(self.n_variables)
+        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
+        matrix_plot(samples, **kwargs)
+
+    def trace_plot(
+        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+    ):
+        """
+        Construct a 'trace plot' of the parameters (or a subset) which displays
+        the value of the parameters as a function of step number in the chain.
+        See the documentation of inference.plotting.trace_plot for a description
+        of other allowed keyword arguments.
+
+        :param params: \
+            A list of integers specifying the indices of parameters which are to
+            be plotted. If not specified, all parameters are plotted.
+
+        :param int burn: \
+            Number of samples to discard from the start of the chain.
+
+        :param int thin: \
+            Rather than using every sample which is not discarded as part of the
+            burn-in, every *m*'th sample is used for a specified integer *m*.
+        """
+        params = params if params is not None else range(self.n_variables)
+        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
+        trace_plot(samples, **kwargs)
