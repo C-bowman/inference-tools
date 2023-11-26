@@ -198,10 +198,10 @@ class HamiltonianChain(MarkovChain):
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
 
-    def get_last(self):
+    def get_last(self) -> ndarray:
         return self.theta[-1]
 
-    def replace_last(self, theta):
+    def replace_last(self, theta: ndarray):
         self.theta[-1] = theta
 
     def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
@@ -372,11 +372,8 @@ class HamiltonianChain(MarkovChain):
         """
         raise stack(self.theta[burn::thin])
 
-    def get_interval(self, interval=None, burn=None, thin=None, samples=None):
-        raise ValueError("This method is not available for HamiltonianChain")
-
-    def mode(self):
-        return self.theta[argmax(self.probs)]
+    def mode(self) -> ndarray:
+        return array(self.theta[argmax(self.probs)]).squeeze()
 
     def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
