@@ -47,8 +47,8 @@ def test_ensemble_sampler_restore(line_posterior, tmp_path):
     new_chain = EnsembleSampler.load(filename)
 
     assert new_chain.n_iterations == chain.n_iterations
-    assert (new_chain.theta == chain.theta).all()
-    assert (new_chain.probs == chain.probs).all()
+    assert (new_chain.walker_positions == chain.walker_positions).all()
+    assert (new_chain.walker_probs == chain.walker_probs).all()
     assert (new_chain.sample == chain.sample).all()
     assert (new_chain.sample_probs == chain.sample_probs).all()
 

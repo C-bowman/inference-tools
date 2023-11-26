@@ -57,9 +57,13 @@ class EnsembleSampler(MarkovChain):
 
         if starting_positions is not None:
             # store core data
-            self.theta = self.__validate_starting_positions(starting_positions)
+            self.walker_positions = self.__validate_starting_positions(
+                starting_positions
+            )
             self.n_walkers, self.n_params = starting_positions.shape
-            self.probs = array([self.posterior(t) for t in self.theta])
+            self.walker_probs = array(
+                [self.posterior(t) for t in self.walker_positions]
+            )
 
             # storage for diagnostic information
             self.n_iterations = 0
@@ -182,7 +186,8 @@ class EnsembleSampler(MarkovChain):
         # sample the stretch distance
         z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
         prop = self.process_proposal(
-            self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :])
+            self.walker_positions[i, :]
+            + z * (self.walker_positions[j, :] - self.walker_positions[i, :])
         )
         return prop, z
 
@@ -190,10 +195,10 @@ class EnsembleSampler(MarkovChain):
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.__proposal(i)
             p = self.posterior(Y)
-            q = exp((self.n_params - 1) * log(z) + p - self.probs[i])
+            q = exp((self.n_params - 1) * log(z) + p - self.walker_probs[i])
             if random() <= q:
-                self.theta[i, :] = Y
-                self.probs[i] = p
+                self.walker_positions[i, :] = Y
+                self.walker_probs[i] = p
                 self.total_proposals[i].append(attempts)
                 break
         else:
@@ -221,8 +226,8 @@ class EnsembleSampler(MarkovChain):
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
         for k in range(iterations):
             self.__advance_all()
-            sample_arrays.append(self.theta.copy())
-            prob_arrays.append(self.probs.copy())
+            sample_arrays.append(self.walker_positions.copy())
+            prob_arrays.append(self.walker_probs.copy())
 
             # display the progress status message
             self.ProgressPrinter.iterations_progress(t_start, k, iterations)
@@ -413,10 +418,10 @@ class EnsembleSampler(MarkovChain):
 
     def save(self, filename):
         D = {
-            "theta": self.theta,
+            "walker_positions": self.walker_positions,
             "n_params": self.n_params,
             "n_walkers": self.n_walkers,
-            "probs": self.probs,
+            "walker_probs": self.walker_probs,
             "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
             "alpha": self.alpha,
@@ -451,10 +456,10 @@ class EnsembleSampler(MarkovChain):
             display_progress=bool(D["display_progress"]),
         )
 
-        sampler.theta = D["theta"]
+        sampler.walker_positions = D["walker_positions"]
         sampler.n_params = int(D["n_params"])
         sampler.n_walkers = int(D["n_walkers"])
-        sampler.probs = D["probs"]
+        sampler.walker_probs = D["walker_probs"]
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
         sampler.max_attempts = int(D["max_attempts"])
