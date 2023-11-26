@@ -13,10 +13,8 @@ def test_hamiltonian_chain_take_step():
     chain.take_step()
 
     assert chain.chain_length == first_n + 1
-    chain.burn = 0
-    assert len(chain.get_parameter(0)) == chain.chain_length
-    assert len(chain.get_parameter(1)) == chain.chain_length
-    assert len(chain.get_parameter(2)) == chain.chain_length
+    for i in range(3):
+        assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
 
 
@@ -30,10 +28,8 @@ def test_hamiltonian_chain_advance():
     chain.advance(steps)
 
     assert chain.chain_length == first_n + steps
-    chain.burn = 0
-    assert len(chain.get_parameter(0)) == chain.chain_length
-    assert len(chain.get_parameter(1)) == chain.chain_length
-    assert len(chain.get_parameter(2)) == chain.chain_length
+    for i in range(3):
+        assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
 
 
@@ -45,10 +41,8 @@ def test_hamiltonian_chain_advance_no_gradient():
     chain.advance(steps)
 
     assert chain.chain_length == first_n + steps
-    chain.burn = 0
-    assert len(chain.get_parameter(0)) == chain.chain_length
-    assert len(chain.get_parameter(1)) == chain.chain_length
-    assert len(chain.get_parameter(2)) == chain.chain_length
+    for i in range(3):
+        assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
 
 
@@ -63,9 +57,6 @@ def test_hamiltonian_chain_burn_in():
 
     assert 0 < burn <= steps
 
-    chain.autoselect_burn()
-    assert chain.burn == burn
-
 
 def test_hamiltonian_chain_advance_bounds(line_posterior):
     chain = HamiltonianChain(
@@ -75,11 +66,11 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
     )
     chain.advance(10)
 
-    gradient = array(chain.get_parameter(0))
+    gradient = chain.get_parameter(0)
     assert all(gradient >= 0.45)
     assert all(gradient <= 0.55)
 
-    offset = array(chain.get_parameter(1))
+    offset = chain.get_parameter(1)
     assert all(offset >= 0)
 
 
@@ -98,4 +89,4 @@ def test_hamiltonian_chain_restore(tmp_path):
 
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
-    assert all(new_chain.get_last() == chain.get_last())
+    assert (new_chain.get_last() == chain.get_last()).all()

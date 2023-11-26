@@ -112,24 +112,6 @@ def test_gibbs_chain_burn_in():
 
     assert 0 < burn <= steps
 
-    chain.autoselect_burn()
-    assert chain.burn == burn
-
-
-def test_gibbs_chain_thin():
-    start_location = array([2.0, -4.0])
-    width_guesses = array([5.0, 0.05])
-
-    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    steps = 50
-    chain.advance(steps)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        chain.autoselect_thin()
-
-    assert 0 < chain.thin <= steps
-
 
 def test_gibbs_chain_restore(tmp_path):
     start_location = array([2.0, -4.0])
@@ -146,8 +128,8 @@ def test_gibbs_chain_restore(tmp_path):
     _ = GibbsChain.load(filename, posterior=rosenbrock)
 
     assert new_chain.chain_length == chain.chain_length
-    assert new_chain.probs == chain.probs
-    assert new_chain.get_sample() == chain.get_sample()
+    assert (new_chain.get_probabilities() == chain.get_probabilities()).all()
+    assert (new_chain.get_sample() == chain.get_sample()).all()
 
 
 def test_gibbs_chain_non_negative(line_posterior):
