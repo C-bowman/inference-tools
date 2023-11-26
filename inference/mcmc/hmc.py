@@ -372,7 +372,7 @@ class HamiltonianChain(MarkovChain):
         :return: \
             The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
         """
-        raise stack(self.theta[burn::thin])
+        return array(self.theta[burn::thin])
 
     def mode(self) -> ndarray:
         return array(self.theta[argmax(self.probs)]).squeeze()

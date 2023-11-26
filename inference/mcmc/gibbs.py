@@ -364,7 +364,7 @@ class MetropolisChain(MarkovChain):
         :return: \
             The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
         """
-        return array([p.samples[burn::thin] for p in self.params])
+        return array([p.samples[burn::thin] for p in self.params]).T
 
     def mode(self) -> ndarray:
         """

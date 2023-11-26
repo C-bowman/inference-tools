@@ -61,7 +61,5 @@ def line_posterior():
     return LinePosterior(x=x, y=y, err=ones(N) * sigma)
 
 
-def expected_len(length, start=1, step=1):
-    """Expected length of an iterable"""
-    real_length = length - (start - 1)
-    return (real_length // step) + (real_length % step)
+def sliced_length(length, start, step):
+    return (length - start - 1) // step + 1

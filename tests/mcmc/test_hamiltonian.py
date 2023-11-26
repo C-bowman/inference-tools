@@ -1,5 +1,7 @@
+import pytest
 from numpy import array
-from mcmc_utils import ToroidalGaussian, line_posterior
+from itertools import product
+from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain
 
 
@@ -23,14 +25,25 @@ def test_hamiltonian_chain_advance():
     chain = HamiltonianChain(
         posterior=posterior, start=array([1, 0.1, 0.1]), grad=posterior.gradient
     )
-    first_n = chain.chain_length
-    steps = 10
+    n_params = chain.n_parameters
+    initial_length = chain.chain_length
+    steps = 16
     chain.advance(steps)
+    assert chain.chain_length == initial_length + steps
 
-    assert chain.chain_length == first_n + steps
     for i in range(3):
-        assert chain.get_parameter(i, burn=0).size == chain.chain_length
-    assert len(chain.probs) == chain.chain_length
+        assert chain.chain_length == chain.get_parameter(i, burn=0, thin=1).size
+    assert chain.chain_length == chain.get_probabilities(burn=0, thin=1).size
+    assert (chain.chain_length, n_params) == chain.get_sample(burn=0, thin=1).shape
+
+    burns = [0, 5, 8, 15]
+    thins = [1, 3, 10, 50]
+    for burn, thin in product(burns, thins):
+        expected_len = sliced_length(chain.chain_length, start=burn, step=thin)
+        assert expected_len == chain.get_parameter(0, burn=burn, thin=thin).size
+        assert expected_len == chain.get_probabilities(burn=burn, thin=thin).size
+        assert (expected_len, n_params) == chain.get_sample(burn=burn, thin=thin).shape
+
 
 
 def test_hamiltonian_chain_advance_no_gradient():
@@ -90,3 +103,28 @@ def test_hamiltonian_chain_restore(tmp_path):
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
     assert (new_chain.get_last() == chain.get_last()).all()
+
+
+def test_hamiltonian_chain_plots():
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(
+        posterior=posterior, start=array([2, 0.1, 0.1]), grad=posterior.gradient
+    )
+
+    # confirm that plotting with no samples raises error
+    with pytest.raises(ValueError):
+        chain.trace_plot()
+    with pytest.raises(ValueError):
+        chain.matrix_plot()
+
+    # check that plots work with samples
+    steps = 200
+    chain.advance(steps)
+    chain.trace_plot(show=False)
+    chain.matrix_plot(show=False)
+
+    # check plots raise error with bad burn / thin values
+    with pytest.raises(ValueError):
+        chain.trace_plot(burn=200)
+    with pytest.raises(ValueError):
+        chain.matrix_plot(thin=500)
