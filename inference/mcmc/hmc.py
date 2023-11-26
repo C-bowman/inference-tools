@@ -114,8 +114,6 @@ class HamiltonianChain(MarkovChain):
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
-        self.burn = 1
-        self.thin = 1
 
         self.display_progress = display_progress
         self.ProgressPrinter = ChainProgressPrinter(
@@ -206,7 +204,7 @@ class HamiltonianChain(MarkovChain):
     def replace_last(self, theta):
         self.theta[-1] = theta
 
-    def get_parameter(self, index: int, burn=None, thin=None):
+    def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
         """
         Return sample values for a chosen parameter.
 
@@ -214,20 +212,16 @@ class HamiltonianChain(MarkovChain):
             Index of the parameter for which samples are to be returned.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified, the
-            value of self.burn is used instead.
+            Number of samples to discard from the start of the chain.
 
         :param int thin: \
             Instead of returning every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
+            every *m*'th sample is returned for a specified integer *m*.
 
         :return: \
-            List of samples for parameter *n*'th parameter.
+            Samples for the parameter specified by ``index`` as a ``numpy.ndarray``.
         """
-        burn = self.burn if burn is None else burn
-        thin = self.thin if thin is None else thin
-        return [v[index] for v in self.theta[burn::thin]]
+        return array([v[index] for v in self.theta[burn::thin]]).squeeze()
 
     def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
@@ -343,7 +337,7 @@ class HamiltonianChain(MarkovChain):
             fig.clear()
             plt.close(fig)
 
-    def get_probabilities(self, burn: int = 0, thin: int = 1) -> ndarray:
+    def get_probabilities(self, burn: int = 1, thin: int = 1) -> ndarray:
         """
         Return the log-probability values for each step in the chain.
 
@@ -361,7 +355,7 @@ class HamiltonianChain(MarkovChain):
         """
         return array(self.probs[burn::thin])
 
-    def get_sample(self, burn: int = 0, thin: int = 1):
+    def get_sample(self, burn: int = 1, thin: int = 1):
         """
         Return the sample as a 2D ``numpy.ndarray``.
 
@@ -384,7 +378,7 @@ class HamiltonianChain(MarkovChain):
     def mode(self):
         return self.theta[argmax(self.probs)]
 
-    def estimate_burn_in(self):
+    def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
         prob_estimate = argmax(self.probs > percentile(self.probs, 99))
@@ -405,8 +399,6 @@ class HamiltonianChain(MarkovChain):
             "n_variables": self.n_variables,
             "chain_length": self.chain_length,
             "steps": self.steps,
-            "burn": self.burn,
-            "thin": self.thin,
             "display_progress": self.display_progress,
         }
         if self.bounds is not None:
@@ -446,8 +438,6 @@ class HamiltonianChain(MarkovChain):
         chain.n_variables = int(D["n_variables"])
         chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
-        chain.burn = int(D["burn"])
-        chain.thin = int(D["thin"])
 
         t = D["theta"]
         chain.theta = [t[i, :] for i in range(t.shape[0])]

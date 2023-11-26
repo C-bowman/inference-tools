@@ -190,8 +190,6 @@ class PcaChain(MetropolisChain):
             "chain_length": self.chain_length,
             "n_variables": self.n_variables,
             "probs": self.probs,
-            "burn": self.burn,
-            "thin": self.thin,
             "inv_temp": self.inv_temp,
             "display_progress": self.display_progress,
             "dir_update_interval": self.dir_update_interval,
@@ -237,8 +235,6 @@ class PcaChain(MetropolisChain):
         chain.chain_length = int(D["chain_length"])
         chain.n_variables = int(D["n_variables"])
         chain.probs = list(D["probs"])
-        chain.burn = int(D["burn"])
-        chain.thin = int(D["thin"])
         chain.inv_temp = float(D["inv_temp"])
         chain.dir_update_interval = int(D["dir_update_interval"])
         chain.dir_growth_factor = float(D["dir_growth_factor"])
