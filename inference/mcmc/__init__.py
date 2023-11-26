@@ -1,4 +1,4 @@
-from inference.mcmc.markov import GibbsChain
+from inference.mcmc.gibbs import GibbsChain
 from inference.mcmc.pca import PcaChain
 from inference.mcmc.ensemble import EnsembleSampler
 from inference.mcmc.hmc import HamiltonianChain

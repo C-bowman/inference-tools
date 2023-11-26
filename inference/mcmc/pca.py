@@ -7,7 +7,7 @@ from numpy import sqrt, exp, dot, cov
 from numpy.random import random, normal
 from scipy.linalg import eigh
 
-from inference.mcmc.markov import MetropolisChain, Parameter
+from inference.mcmc.gibbs import MetropolisChain, Parameter
 
 
 class PcaChain(MetropolisChain):
