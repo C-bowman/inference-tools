@@ -45,7 +45,6 @@ def test_hamiltonian_chain_advance():
         assert (expected_len, n_params) == chain.get_sample(burn=burn, thin=thin).shape
 
 
-
 def test_hamiltonian_chain_advance_no_gradient():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(posterior=posterior, start=array([1, 0.1, 0.1]))
