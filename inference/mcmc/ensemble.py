@@ -65,6 +65,7 @@ class EnsembleSampler(MarkovChain):
 
             # storage for diagnostic information
             self.n_iterations = 0
+            self.chain_length = 0
             self.total_proposals = [[] for _ in range(self.n_walkers)]
             self.failed_updates = []
 
@@ -234,6 +235,7 @@ class EnsembleSampler(MarkovChain):
         self.ProgressPrinter.iterations_final(iterations)
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
+        self.chain_length = self.sample_probs.size
 
     @staticmethod
     def pass_through(prop):
