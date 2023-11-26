@@ -158,7 +158,7 @@ class MarkovChain(ABC):
         return sample, probs
 
     def matrix_plot(
-        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+        self, params: list[int] = None, burn: int = 0, thin: int = 1, **kwargs
     ):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
@@ -179,12 +179,13 @@ class MarkovChain(ABC):
             plot. If ``thin`` is set to some integer value *m*, then only every
             *m*'th sample is used, and the remainder are ignored.
         """
+        self.__plot_checks(burn, thin, "matrix")
         params = params if params is not None else range(self.n_parameters)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
     def trace_plot(
-        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
+        self, params: list[int] = None, burn: int = 0, thin: int = 1, **kwargs
     ):
         """
         Construct a 'trace plot' of the parameters (or a subset) which displays
@@ -205,6 +206,28 @@ class MarkovChain(ABC):
             plot. If ``thin`` is set to some integer value *m*, then only every
             *m*'th sample is used, and the remainder are ignored.
         """
+        self.__plot_checks(burn, thin, "trace")
         params = params if params is not None else range(self.n_parameters)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)
+
+    def __plot_checks(self, burn: int, thin: int, plot_type: str):
+        if self.chain_length < 2:
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> Cannot generate the {plot_type} plot as no samples have
+                \r>> been produced - current chain length is {self.chain_length}.
+                """
+            )
+
+        reduced_length = max(self.chain_length - burn - 1, 0) // thin + 1
+        if reduced_length < 2:
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> The given values of 'burn' and 'thin' leave insufficient
+                \r>> samples to generate the {plot_type} plot.
+                \r>> Number of samples after burn / thin is {reduced_length}.
+                """
+            )
