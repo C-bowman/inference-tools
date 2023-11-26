@@ -163,7 +163,7 @@ class MarkovChain(ABC):
         """
         Construct a 'matrix plot' of the parameters (or a subset) which displays
         all 1D and 2D marginal distributions. See the documentation of
-        inference.plotting.matrix_plot for a description of other allowed
+        ``inference.plotting.matrix_plot`` for a description of other allowed
         keyword arguments.
 
         :param params: \
@@ -171,13 +171,13 @@ class MarkovChain(ABC):
             be plotted. If not specified, all parameters are plotted.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain.
+            Sets the number of samples from the beginning of the chain which are
+            ignored when generating the plot.
 
         :param int thin: \
-            Rather than using every sample which is not discarded as part of the
-            burn-in, every *m*'th sample is used for a specified integer *m*. If
-            not specified, the value of ``self.thin`` is used instead, which has
-            a default value of 1.
+            Sets the factor by which the sample is 'thinned' before generating the
+            plot. If ``thin`` is set to some integer value *m*, then only every
+            *m*'th sample is used, and the remainder are ignored.
         """
         params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
@@ -189,7 +189,7 @@ class MarkovChain(ABC):
         """
         Construct a 'trace plot' of the parameters (or a subset) which displays
         the value of the parameters as a function of step number in the chain.
-        See the documentation of inference.plotting.trace_plot for a description
+        See the documentation of ``inference.plotting.trace_plot`` for a description
         of other allowed keyword arguments.
 
         :param params: \
@@ -197,11 +197,13 @@ class MarkovChain(ABC):
             be plotted. If not specified, all parameters are plotted.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain.
+            Sets the number of samples from the beginning of the chain which are
+            ignored when generating the plot.
 
         :param int thin: \
-            Rather than using every sample which is not discarded as part of the
-            burn-in, every *m*'th sample is used for a specified integer *m*.
+            Sets the factor by which the sample is 'thinned' before generating the
+            plot. If ``thin`` is set to some integer value *m*, then only every
+            *m*'th sample is used, and the remainder are ignored.
         """
         params = params if params is not None else range(self.n_variables)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
