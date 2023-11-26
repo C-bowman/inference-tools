@@ -90,7 +90,7 @@ class HamiltonianChain(MarkovChain):
             self.theta = [start]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
-            self.n_variables = len(start)
+            self.n_parameters = len(start)
         self.chain_length = 1
 
         # set either the bounded or unbounded leapfrog update
@@ -126,7 +126,7 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = normal(size=self.n_variables, scale=self.sqrt_mass)
+            r0 = normal(size=self.n_parameters, scale=self.sqrt_mass)
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
@@ -191,9 +191,9 @@ class HamiltonianChain(MarkovChain):
 
     def finite_diff(self, t: ndarray) -> ndarray:
         p = self.posterior(t) * self.inv_temp
-        G = zeros(self.n_variables)
-        for i in range(self.n_variables):
-            delta = zeros(self.n_variables) + 1
+        G = zeros(self.n_parameters)
+        for i in range(self.n_parameters):
+            delta = zeros(self.n_parameters) + 1
             delta[i] += 1e-5
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
@@ -250,7 +250,7 @@ class HamiltonianChain(MarkovChain):
             burn = self.estimate_burn_in()
         param_ESS = [
             effective_sample_size(array(self.get_parameter(i, burn=burn, thin=1)))
-            for i in range(self.n_variables)
+            for i in range(self.n_parameters)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -281,14 +281,16 @@ class HamiltonianChain(MarkovChain):
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
-        if self.n_variables < 50:
+        if self.n_parameters < 50:
             ax3.bar(
-                range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+                range(self.n_parameters),
+                param_ESS,
+                color=["C0", "C1", "C2", "C3", "C4"],
             )
             ax3.set_xlabel("parameter", fontsize=12)
             ax3.set_ylabel("effective sample size", fontsize=12)
             ax3.set_title("Parameter effective sample size estimate")
-            ax3.set_xticks(range(self.n_variables))
+            ax3.set_xticks(range(self.n_parameters))
         else:
             ax3.hist(param_ESS, bins=20)
             ax3.set_xlabel("effective sample size", fontsize=12)
@@ -393,7 +395,7 @@ class HamiltonianChain(MarkovChain):
             "theta": self.theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
-            "n_variables": self.n_variables,
+            "n_parameters": self.n_parameters,
             "chain_length": self.chain_length,
             "steps": self.steps,
             "display_progress": self.display_progress,
@@ -432,7 +434,7 @@ class HamiltonianChain(MarkovChain):
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
-        chain.n_variables = int(D["n_variables"])
+        chain.n_parameters = int(D["n_parameters"])
         chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
 

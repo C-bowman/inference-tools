@@ -11,7 +11,7 @@ from inference.mcmc.utilities import ChainProgressPrinter
 
 class MarkovChain(ABC):
     chain_length: int
-    n_variables: int
+    n_parameters: int
     ProgressPrinter: ChainProgressPrinter
 
     @abstractmethod
@@ -45,7 +45,7 @@ class MarkovChain(ABC):
 
     def run_for(self, minutes=0, hours=0, days=0):
         """
-        Advances the chain for a chosen amount of computation time
+        Advances the chain for a chosen amount of computation time.
 
         :param int minutes: number of minutes for which to run the chain.
         :param int hours: number of hours for which to run the chain.
@@ -179,7 +179,7 @@ class MarkovChain(ABC):
             plot. If ``thin`` is set to some integer value *m*, then only every
             *m*'th sample is used, and the remainder are ignored.
         """
-        params = params if params is not None else range(self.n_variables)
+        params = params if params is not None else range(self.n_parameters)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         matrix_plot(samples, **kwargs)
 
@@ -205,6 +205,6 @@ class MarkovChain(ABC):
             plot. If ``thin`` is set to some integer value *m*, then only every
             *m*'th sample is used, and the remainder are ignored.
         """
-        params = params if params is not None else range(self.n_variables)
+        params = params if params is not None else range(self.n_parameters)
         samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
         trace_plot(samples, **kwargs)

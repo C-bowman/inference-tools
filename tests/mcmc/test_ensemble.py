@@ -14,7 +14,7 @@ def test_ensemble_sampler_advance(line_posterior):
     chain = EnsembleSampler(posterior=line_posterior, starting_positions=starts)
 
     assert chain.n_walkers == n_walkers
-    assert chain.n_params == 2
+    assert chain.n_parameters == 2
 
     n_iterations = 25
     chain.advance(iterations=n_iterations)

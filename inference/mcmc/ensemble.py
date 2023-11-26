@@ -1,6 +1,5 @@
 from typing import Sequence
 from time import time
-from warnings import warn
 import matplotlib.pyplot as plt
 
 from numpy import array, ndarray, linspace, concatenate, savez, load
@@ -8,7 +7,6 @@ from numpy import sqrt, var, cov, diag, isfinite, triu, exp, log, median
 from numpy.random import random, randint
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter
-from inference.plotting import matrix_plot, trace_plot
 from inference.mcmc.base import MarkovChain
 
 
@@ -60,7 +58,7 @@ class EnsembleSampler(MarkovChain):
             self.walker_positions = self.__validate_starting_positions(
                 starting_positions
             )
-            self.n_walkers, self.n_params = starting_positions.shape
+            self.n_walkers, self.n_parameters = starting_positions.shape
             self.walker_probs = array(
                 [self.posterior(t) for t in self.walker_positions]
             )
@@ -71,7 +69,7 @@ class EnsembleSampler(MarkovChain):
             self.failed_updates = []
 
         if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.n_params:
+            if len(parameter_boundaries) == self.n_parameters:
                 self.bounds = Bounds(
                     lower=array([k[0] for k in parameter_boundaries]),
                     upper=array([k[1] for k in parameter_boundaries]),
@@ -80,10 +78,10 @@ class EnsembleSampler(MarkovChain):
                 self.process_proposal = self.bounds.reflect
             else:
                 raise ValueError(
-                    """
-                    [ EnsembleSampler error ]
-                    >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters.
+                    f"""\n
+                    \r[ EnsembleSampler error ]
+                    \r>> The number of given lower/upper bounds pairs does not match
+                    \r>> the number of model parameters.
                     """
                 )
         else:
@@ -93,9 +91,9 @@ class EnsembleSampler(MarkovChain):
         # proposal settings
         if not alpha > 1.0:
             raise ValueError(
-                """
-                [ EnsembleSampler error ]
-                >> The given value of the 'alpha' parameter must be greater than 1.
+                """\n
+                \r[ EnsembleSampler error ]
+                \r>> The given value of the 'alpha' parameter must be greater than 1.
                 """
             )
         self.alpha = alpha
@@ -116,9 +114,9 @@ class EnsembleSampler(MarkovChain):
         if not isinstance(positions, ndarray):
             raise ValueError(
                 f"""\n
-                [ EnsembleSampler error ]
-                >> 'starting_positions' should be a numpy.ndarray, but instead has type:
-                >> {type(positions)}
+                \r[ EnsembleSampler error ]
+                \r>> 'starting_positions' should be a numpy.ndarray, but instead has type:
+                \r>> {type(positions)}
                 """
             )
 
@@ -129,19 +127,19 @@ class EnsembleSampler(MarkovChain):
         if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
             raise ValueError(
                 f"""\n
-                [ EnsembleSampler error ]
-                >> 'starting_positions' should be a numpy.ndarray with shape
-                >> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
-                >> Instead, the given array has shape {positions.shape}.
+                \r[ EnsembleSampler error ]
+                \r>> 'starting_positions' should be a numpy.ndarray with shape
+                \r>> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
+                \r>> Instead, the given array has shape {positions.shape}.
                 """
             )
 
         if not isfinite(theta).all():
             raise ValueError(
                 """\n
-                [ EnsembleSampler error ]
-                >> The given 'starting_positions' array contains at least one
-                >> value which is non-finite.
+                \r[ EnsembleSampler error ]
+                \r>> The given 'starting_positions' array contains at least one
+                \r>> value which is non-finite.
                 """
             )
 
@@ -150,9 +148,9 @@ class EnsembleSampler(MarkovChain):
             if var(theta) == 0:
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> The values given in 'starting_positions' have zero variance,
-                    >> and therefore the walkers are unable to move.
+                    \r[ EnsembleSampler error ]
+                    \r>> The values given in 'starting_positions' have zero variance,
+                    \r>> and therefore the walkers are unable to move.
                     """
                 )
         else:
@@ -161,10 +159,10 @@ class EnsembleSampler(MarkovChain):
             if (std_dev == 0).any():
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> For one or more variables, The values given in 'starting_positions' 
-                    >> have zero variance, and therefore the walkers are unable to move
-                    >> in those variables.
+                    \r[ EnsembleSampler error ]
+                    \r>> For one or more variables, The values given in 'starting_positions' 
+                    \r>> have zero variance, and therefore the walkers are unable to move
+                    \r>> in those variables.
                     """
                 )
             # now check if any pairs of variables are approximately co-linear
@@ -172,10 +170,10 @@ class EnsembleSampler(MarkovChain):
             if (abs(triu(correlation, k=1)) > 0.999).any():
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> The values given in 'starting_positions' are approximately
-                    >> co-linear for one or more pair of variables. This will
-                    >> prevent the walkers from moving properly in those variables.
+                    \r[ EnsembleSampler error ]
+                    \r>> The values given in 'starting_positions' are approximately
+                    \r>> co-linear for one or more pair of variables. This will
+                    \r>> prevent the walkers from moving properly in those variables.
                     """
                 )
         return theta
@@ -195,7 +193,7 @@ class EnsembleSampler(MarkovChain):
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.__proposal(i)
             p = self.posterior(Y)
-            q = exp((self.n_params - 1) * log(z) + p - self.walker_probs[i])
+            q = exp((self.n_parameters - 1) * log(z) + p - self.walker_probs[i])
             if random() <= q:
                 self.walker_positions[i, :] = Y
                 self.walker_probs[i] = p
@@ -355,7 +353,7 @@ class EnsembleSampler(MarkovChain):
     def save(self, filename):
         D = {
             "walker_positions": self.walker_positions,
-            "n_params": self.n_params,
+            "n_parameters": self.n_parameters,
             "n_walkers": self.n_walkers,
             "walker_probs": self.walker_probs,
             "n_iterations": self.n_iterations,
@@ -393,7 +391,7 @@ class EnsembleSampler(MarkovChain):
         )
 
         sampler.walker_positions = D["walker_positions"]
-        sampler.n_params = int(D["n_params"])
+        sampler.n_parameters = int(D["n_parameters"])
         sampler.n_walkers = int(D["n_walkers"])
         sampler.walker_probs = D["walker_probs"]
         sampler.n_iterations = int(D["n_iterations"])

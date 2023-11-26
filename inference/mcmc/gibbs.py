@@ -261,7 +261,7 @@ class MetropolisChain(MarkovChain):
 
             # create storage
             self.chain_length = 1  # tracks total length of the chain
-            self.n_variables = len(start)  # number of posterior parameters
+            self.n_parameters = len(start)  # number of posterior parameters
             self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
@@ -271,10 +271,10 @@ class MetropolisChain(MarkovChain):
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
                     ValueError(
-                        """
-                        [ MarkovChain error ]
-                        >> 'posterior' argument callable returns a non-finite value
-                        >> for the starting position given to the 'start' argument.
+                        """\n
+                        \r[ MetropolisChain error ]
+                        \r>> 'posterior' argument callable returns a non-finite value
+                        \r>> for the starting position given to the 'start' argument.
                         """
                     )
 
@@ -423,7 +423,7 @@ class MetropolisChain(MarkovChain):
         burn = self.estimate_burn_in()
         param_ESS = [
             effective_sample_size(array(self.get_parameter(i, burn=burn)))
-            for i in range(self.n_variables)
+            for i in range(self.n_parameters)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -464,12 +464,12 @@ class MetropolisChain(MarkovChain):
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
         ax3.bar(
-            range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+            range(self.n_parameters), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
         )
         ax3.set_xlabel("parameter", fontsize=12)
         ax3.set_ylabel("effective sample size", fontsize=12)
         ax3.set_title("Parameter effective sample size estimate")
-        ax3.set_xticks(range(self.n_variables))
+        ax3.set_xticks(range(self.n_parameters))
 
         # summary stats text plot
         ax4 = fig.add_subplot(224)
@@ -523,7 +523,7 @@ class MetropolisChain(MarkovChain):
         # get the chain attributes
         items = {
             "chain_length": self.chain_length,
-            "n_variables": self.n_variables,
+            "n_parameters": self.n_parameters,
             "probs": self.probs,
             "inv_temp": self.inv_temp,
             "display_progress": self.display_progress,
@@ -560,13 +560,13 @@ class MetropolisChain(MarkovChain):
         # re-build the chain's attributes
         chain.posterior = posterior
         chain.chain_length = int(D["chain_length"])
-        chain.n_variables = int(D["n_variables"])
+        chain.n_parameters = int(D["n_parameters"])
         chain.probs = list(D["probs"])
         chain.inv_temp = float(D["inv_temp"])
 
         # re-build all the parameter objects
         chain.params = [
-            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_parameters)
         ]
         return chain
 
