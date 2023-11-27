@@ -13,26 +13,26 @@ def rosenbrock(t):
     return -X2 - b * (Y - X2) ** 2 - 0.5 * (X2 + Y**2) / v
 
 
-class ToroidalGaussian(object):
+class ToroidalGaussian:
     def __init__(self):
         self.R0 = 1.0  # torus major radius
         self.ar = 10.0  # torus aspect ratio
-        self.w2 = (self.R0 / self.ar) ** 2
+        self.inv_w2 = (self.ar / self.R0) ** 2
 
     def __call__(self, theta):
         x, y, z = theta
-        r = sqrt(z**2 + (sqrt(x**2 + y**2) - self.R0) ** 2)
-        return -0.5 * r**2 / self.w2
+        r_sqr = z**2 + (sqrt(x**2 + y**2) - self.R0) ** 2
+        return -0.5 * r_sqr * self.inv_w2
 
     def gradient(self, theta):
         x, y, z = theta
         R = sqrt(x**2 + y**2)
         K = 1 - self.R0 / R
         g = array([K * x, K * y, z])
-        return -g / self.w2
+        return -g * self.inv_w2
 
 
-class LinePosterior(object):
+class LinePosterior:
     """
     This is a simple posterior for straight-line fitting
     with gaussian errors.
@@ -61,7 +61,5 @@ def line_posterior():
     return LinePosterior(x=x, y=y, err=ones(N) * sigma)
 
 
-def expected_len(length, start=1, step=1):
-    """Expected length of an iterable"""
-    real_length = length - (start - 1)
-    return (real_length // step) + (real_length % step)
+def sliced_length(length, start, step):
+    return (length - start - 1) // step + 1

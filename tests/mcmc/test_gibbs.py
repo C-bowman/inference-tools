@@ -3,8 +3,8 @@ import warnings
 
 from numpy import array
 from inference.mcmc import GibbsChain
-from mcmc_utils import line_posterior, rosenbrock, expected_len
-
+from mcmc_utils import line_posterior, rosenbrock, sliced_length
+from itertools import product
 from freezegun import freeze_time
 import pytest
 
@@ -49,55 +49,27 @@ def test_gibbs_chain_advance():
     assert len(chain.probs) == chain.chain_length
 
 
-def test_gibbs_chain_get_parameter():
+def test_gibbs_chain_results_access():
     start_location = array([2.0, -4.0])
     width_guesses = array([5.0, 0.05])
 
     chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
+    n_params = chain.n_parameters
 
-    steps = 5
+    steps = 16
     chain.advance(steps)
 
-    samples = chain.get_parameter(0)
-    assert len(samples) == expected_len(steps)
+    assert chain.chain_length == chain.get_parameter(0, burn=0, thin=1).size
+    assert chain.chain_length == chain.get_probabilities(burn=0, thin=1).size
+    assert (chain.chain_length, n_params) == chain.get_sample(burn=0, thin=1).shape
 
-    burn = 2
-    samples = chain.get_parameter(0, burn=burn)
-    assert len(samples) == expected_len(steps, burn)
-
-    thin = 2
-    samples = chain.get_parameter(1, thin=thin)
-    assert len(samples) == expected_len(steps, step=thin)
-
-    samples = chain.get_parameter(1, burn=burn, thin=thin)
-    assert len(samples) == expected_len(steps, start=burn, step=thin)
-
-
-def test_gibbs_chain_get_probabilities():
-    start_location = array([2.0, -4.0])
-    width_guesses = array([5.0, 0.05])
-
-    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    steps = 10
-    chain.advance(steps)
-
-    probabilities = chain.get_probabilities()
-    assert len(probabilities) == steps
-    assert probabilities[-1] > probabilities[0]
-
-    burn = 2
-    probabilities = chain.get_probabilities(burn=burn)
-    assert len(probabilities) == expected_len(steps, start=burn)
-    assert probabilities[-1] > probabilities[0]
-
-    thin = 2
-    probabilities = chain.get_probabilities(thin=thin)
-    assert len(probabilities) == expected_len(steps, step=thin)
-    assert probabilities[-1] > probabilities[0]
-
-    probabilities = chain.get_probabilities(burn=burn, thin=thin)
-    assert len(probabilities) == expected_len(steps, start=burn, step=thin)
-    assert probabilities[-1] > probabilities[0]
+    burns = [0, 5, 8, 15]
+    thins = [1, 3, 10, 50]
+    for burn, thin in product(burns, thins):
+        expected_len = sliced_length(chain.chain_length, start=burn, step=thin)
+        assert expected_len == chain.get_parameter(0, burn=burn, thin=thin).size
+        assert expected_len == chain.get_probabilities(burn=burn, thin=thin).size
+        assert (expected_len, n_params) == chain.get_sample(burn=burn, thin=thin).shape
 
 
 def test_gibbs_chain_burn_in():
@@ -111,24 +83,6 @@ def test_gibbs_chain_burn_in():
     burn = chain.estimate_burn_in()
 
     assert 0 < burn <= steps
-
-    chain.autoselect_burn()
-    assert chain.burn == burn
-
-
-def test_gibbs_chain_thin():
-    start_location = array([2.0, -4.0])
-    width_guesses = array([5.0, 0.05])
-
-    chain = GibbsChain(posterior=rosenbrock, start=start_location, widths=width_guesses)
-    steps = 50
-    chain.advance(steps)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        chain.autoselect_thin()
-
-    assert 0 < chain.thin <= steps
 
 
 def test_gibbs_chain_restore(tmp_path):
@@ -146,8 +100,8 @@ def test_gibbs_chain_restore(tmp_path):
     _ = GibbsChain.load(filename, posterior=rosenbrock)
 
     assert new_chain.chain_length == chain.chain_length
-    assert new_chain.probs == chain.probs
-    assert new_chain.get_sample() == chain.get_sample()
+    assert (new_chain.get_probabilities() == chain.get_probabilities()).all()
+    assert (new_chain.get_sample() == chain.get_sample()).all()
 
 
 def test_gibbs_chain_non_negative(line_posterior):

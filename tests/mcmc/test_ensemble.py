@@ -14,7 +14,7 @@ def test_ensemble_sampler_advance(line_posterior):
     chain = EnsembleSampler(posterior=line_posterior, starting_positions=starts)
 
     assert chain.n_walkers == n_walkers
-    assert chain.n_params == 2
+    assert chain.n_parameters == 2
 
     n_iterations = 25
     chain.advance(iterations=n_iterations)
@@ -47,8 +47,8 @@ def test_ensemble_sampler_restore(line_posterior, tmp_path):
     new_chain = EnsembleSampler.load(filename)
 
     assert new_chain.n_iterations == chain.n_iterations
-    assert (new_chain.theta == chain.theta).all()
-    assert (new_chain.probs == chain.probs).all()
+    assert (new_chain.walker_positions == chain.walker_positions).all()
+    assert (new_chain.walker_probs == chain.walker_probs).all()
     assert (new_chain.sample == chain.sample).all()
     assert (new_chain.sample_probs == chain.sample_probs).all()
 

@@ -1,19 +1,16 @@
 from warnings import warn
 from copy import copy, deepcopy
-from time import time
 
 import matplotlib.pyplot as plt
 from numpy import float64, ndarray
 from numpy import array
 from numpy import exp, log, mean, sqrt, argmax, diff
 from numpy import percentile
-from numpy import isfinite, sort, argsort, savez, load
+from numpy import isfinite, savez, load
 
 from numpy.random import normal, random
-
-from inference.pdf import UnimodalPdf, GaussianKDE
-from inference.plotting import matrix_plot, trace_plot
 from inference.mcmc.utilities import ChainProgressPrinter, effective_sample_size
+from inference.mcmc.base import MarkovChain
 
 
 class Parameter:
@@ -219,7 +216,7 @@ class Parameter:
         return param
 
 
-class MarkovChain:
+class MetropolisChain(MarkovChain):
     """
     Implementation of the metropolis-hastings algorithm using a multivariate-normal
     proposal distribution.
@@ -264,7 +261,7 @@ class MarkovChain:
 
             # create storage
             self.chain_length = 1  # tracks total length of the chain
-            self.n_variables = len(start)  # number of posterior parameters
+            self.n_parameters = len(start)  # number of posterior parameters
             self.probs = []  # list of probabilities for all steps
 
             # add starting point as first step in chain
@@ -274,16 +271,12 @@ class MarkovChain:
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
                     ValueError(
-                        """
-                        [ MarkovChain error ]
-                        >> 'posterior' argument callable returns a non-finite value
-                        >> for the starting position given to the 'start' argument.
+                        """\n
+                        \r[ MetropolisChain error ]
+                        \r>> 'posterior' argument callable returns a non-finite value
+                        \r>> for the starting position given to the 'start' argument.
                         """
                     )
-
-            # add default burn and thin values
-            self.burn = 1  # remove the starting position by default
-            self.thin = 1  # no thinning by default
 
             self.display_progress = display_progress
             self.ProgressPrinter = ChainProgressPrinter(
@@ -312,52 +305,6 @@ class MarkovChain:
 
         self.chain_length += 1
 
-    def advance(self, m):
-        """
-        Advances the chain by taking ``m`` new steps.
-
-        :param int m: Number of steps the chain will advance.
-        """
-        k = 100  # divide chain steps into k groups to track progress
-        t_start = time()
-        for j in range(k):
-            for i in range(m // k):
-                self.take_step()
-            self.ProgressPrinter.percent_progress(t_start, j, k)
-
-        # cleanup
-        if m % k != 0:
-            for i in range(m % k):
-                self.take_step()
-        self.ProgressPrinter.percent_final(t_start, m)
-
-    def run_for(self, minutes=0, hours=0, days=0):
-        """
-        Advances the chain for a chosen amount of computation time
-
-        :param int minutes: number of minutes for which to run the chain.
-        :param int hours: number of hours for which to run the chain.
-        :param int days: number of days for which to run the chain.
-        """
-        update_interval = 20  # small initial guess for the update interval
-        start_length = copy(self.chain_length)
-
-        # first find the runtime in seconds:
-        run_time = ((days * 24.0 + hours) * 60.0 + minutes) * 60.0
-        start_time = time()
-        current_time = start_time
-        end_time = start_time + run_time
-
-        while current_time < end_time:
-            for i in range(update_interval):
-                self.take_step()
-            # set the interval such that updates are roughly once per second
-            steps_taken = self.chain_length - start_length
-            current_time = time()
-            update_interval = int(steps_taken / (current_time - start_time))
-            self.ProgressPrinter.countdown_progress(end_time, steps_taken)
-        self.ProgressPrinter.countdown_final(run_time, steps_taken)
-
     def get_last(self):
         return array([p.samples[-1] for p in self.params], dtype=float64)
 
@@ -365,131 +312,68 @@ class MarkovChain:
         for p, t in zip(self.params, theta):
             p.samples[-1] = t
 
-    def get_parameter(self, n, burn=None, thin=None):
+    def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
         """
         Return sample values for a chosen parameter.
 
-        :param int n: Index of the parameter for which samples are to be returned.
+        :param int index: \
+            Index of the parameter for which samples are to be returned.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified,
-            the value of self.burn is used instead.
+            Number of samples to discard from the start of the chain.
 
         :param int thin: \
             Instead of returning every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
+            every *m*'th sample is returned for a specified integer *m*.
 
-        :return: List of samples for parameter *n*'th parameter.
+        :return: \
+            Samples for the parameter specified by ``index`` as a ``numpy.ndarray``.
         """
-        burn = burn if burn is not None else self.burn
-        thin = thin if thin is not None else self.thin
-        return self.params[n].samples[burn::thin]
+        return array(self.params[index].samples[burn::thin])
 
-    def get_probabilities(self, burn=None, thin=None):
+    def get_probabilities(self, burn: int = 1, thin: int = 1) -> ndarray:
         """
-        Return log-probability values for each step in the chain
+        Return the log-probability values for each step in the chain.
 
         :param int burn: \
-            Number of steps to discard from the start of the chain. If not specified, the
-            value of self.burn is used instead.
+            Number of steps from the start of the chain which are ignored.
 
         :param int thin: \
-            Instead of returning every step which is not discarded as part of the burn-in,
-            every *m*'th step is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
+            Sets the factor by which the sample is 'thinned' before returning
+            corresponding log-probabilities. If ``thin`` is set to some integer
+            value *m*, then only every *m*'th sample is used, and the remainder
+            are ignored.
 
-        :return: List of log-probability values for each step in the chain.
+        :return: \
+            Log-probability values as a ``numpy.ndarray``.
         """
-        burn = burn if burn is not None else self.burn
-        thin = thin if thin is not None else self.thin
-        return self.probs[burn::thin]
+        return array(self.probs[burn::thin])
 
-    def get_sample(self, burn=None, thin=None):
+    def get_sample(self, burn: int = 1, thin: int = 1) -> ndarray:
         """
-        Return the sample generated by the chain as a list of tuples
+        Return the sample as a 2D ``numpy.ndarray``.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified,
-            the value of self.burn is used instead.
+            Number of steps from the start of the chain which are ignored.
 
         :param int thin: \
-            Instead of returning every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
+            Sets the factor by which the sample is 'thinned' before being returned.
+            If ``thin`` is set to some integer value *m*, then only every *m*'th
+            sample is used, and the remainder are ignored.
 
-        :return: List containing sample points stored as tuples.
+        :return: \
+            The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
         """
-        burn = burn if burn is not None else self.burn
-        thin = thin if thin is not None else self.thin
-        return list(zip(*[p.samples[burn::thin] for p in self.params]))
+        return array([p.samples[burn::thin] for p in self.params]).T
 
-    def get_interval(self, interval=0.95, burn=None, thin=None, samples=None):
-        """
-        Return the samples from the chain which lie inside a chosen highest-density interval.
-
-        :param float interval: \
-            Total probability of the desired interval. For example, if interval = 0.95, then
-            the samples corresponding to the top 95% of posterior probability values are returned.
-
-        :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified, the
-            value of self.burn is used instead.
-
-        :param int thin: \
-            Instead of returning every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
-
-        :param int samples: \
-            The number of samples that should be returned from the requested interval. Note
-            that specifying *samples* overrides the value of *thin*.
-
-        :return: List containing sample points stored as tuples, and a corresponding list of
-                 log-probability values
-        """
-        burn = burn if burn is not None else self.burn
-
-        # get the sorting indices for the probabilities
-        probs = array(self.probs[burn:])
-        inds = probs.argsort()
-        # sort the sample by probability
-        arrays = [array(p.samples[burn:])[inds] for p in self.params]
-        probs = probs[inds]
-        # trim lowest-probability samples
-        cutoff = int(len(probs) * (1 - interval))
-        arrays = [a[cutoff:] for a in arrays]
-        probs = probs[cutoff:]
-        # if a specific number of samples is requested we override the thin value
-        if samples is not None:
-            thin = max(len(probs) // samples, 1)
-        elif thin is None:
-            thin = self.thin
-
-        # thin the sample
-        arrays = [a[::thin] for a in arrays]
-        probs = probs[::thin]
-
-        if samples is not None:
-            # we may need to trim some extra samples to meet the requested number,
-            # but as they arranged in order of increasing probability, we must remove
-            # elements at random in order not to introduce bias.
-            n_trim = len(probs) - samples
-            if n_trim > 0:
-                trim = sort(argsort(random(size=len(probs)))[n_trim:])
-                arrays = [a[trim] for a in arrays]
-                probs = probs[trim]
-
-        return list(zip(*arrays)), probs
-
-    def mode(self):
+    def mode(self) -> ndarray:
         """
         Return the sample with the current highest posterior probability.
 
-        :return: List containing parameter values.
+        :return: Parameter values as a ``numpy.ndarray``.
         """
         ind = argmax(self.probs)
-        return [p.samples[ind] for p in self.params]
+        return array([p.samples[ind] for p in self.params])
 
     def set_non_negative(self, parameter, flag=True):
         """
@@ -513,39 +397,6 @@ class MarkovChain:
             self.params[parameter].remove_boundaries()
         else:
             self.params[parameter].set_boundaries(*boundaries)
-
-    def get_marginal(self, n, thin=None, burn=None, unimodal=False):
-        """
-        Estimate the 1D marginal distribution of a chosen parameter.
-
-        :param int n: \
-            Index of the parameter for which the marginal distribution is to be estimated.
-
-        :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified,
-            the value of self.burn is used instead.
-
-        :param int thin: \
-            Rather than using every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is used for a specified integer *m*. If not specified, the
-            value of self.thin is used instead, which has a default value of 1.
-
-        :param bool unimodal: \
-            Selects the type of density estimation to be used. The default value is False,
-            which causes a GaussianKDE object to be returned. If however the marginal
-            distribution being estimated is known to be unimodal, setting `unimodal = True`
-            will result in the UnimodalPdf class being used to estimate the density.
-
-        Returns one of two 'density estimator' objects which can be
-        called as functions to return the estimated PDF at any point.
-        """
-        burn = burn if burn is not None else self.burn
-        thin = thin if thin is not None else self.thin
-
-        if unimodal:
-            return UnimodalPdf(self.get_parameter(n, burn=burn, thin=thin))
-        else:
-            return GaussianKDE(self.get_parameter(n, burn=burn, thin=thin))
 
     def plot_diagnostics(self, show=True, filename=None):
         """
@@ -572,7 +423,7 @@ class MarkovChain:
         burn = self.estimate_burn_in()
         param_ESS = [
             effective_sample_size(array(self.get_parameter(i, burn=burn)))
-            for i in range(self.n_variables)
+            for i in range(self.n_parameters)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -613,12 +464,12 @@ class MarkovChain:
         # parameter ESS plot
         ax3 = fig.add_subplot(223)
         ax3.bar(
-            range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+            range(self.n_parameters), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
         )
         ax3.set_xlabel("parameter", fontsize=12)
         ax3.set_ylabel("effective sample size", fontsize=12)
         ax3.set_title("Parameter effective sample size estimate")
-        ax3.set_xticks(range(self.n_variables))
+        ax3.set_xticks(range(self.n_parameters))
 
         # summary stats text plot
         ax4 = fig.add_subplot(224)
@@ -663,59 +514,6 @@ class MarkovChain:
             fig.clear()
             plt.close(fig)
 
-    def matrix_plot(
-        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
-    ):
-        """
-        Construct a 'matrix plot' of the parameters (or a subset) which displays
-        all 1D and 2D marginal distributions. See the documentation of
-        inference.plotting.matrix_plot for a description of other allowed
-        keyword arguments.
-
-        :param params: \
-            A list of integers specifying the indices of parameters which are to
-            be plotted. If not specified, all parameters are plotted.
-
-        :param int burn: \
-            Number of samples to discard from the start of the chain. If not
-            specified, the value of ``self.burn`` is used instead.
-
-        :param int thin: \
-            Rather than using every sample which is not discarded as part of the
-            burn-in, every *m*'th sample is used for a specified integer *m*. If
-            not specified, the value of ``self.thin`` is used instead, which has
-            a default value of 1.
-        """
-        burn = burn if burn is not None else self.burn
-        thin = thin if thin is not None else self.thin
-        params = params if params is not None else range(self.n_variables)
-        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
-        matrix_plot(samples, **kwargs)
-
-    def trace_plot(
-        self, params: list[int] = None, thin: int = None, burn: int = None, **kwargs
-    ):
-        """
-        Construct a 'trace plot' of the parameters (or a subset) which displays
-        the value of the parameters as a function of step number in the chain.
-        See the documentation of inference.plotting.trace_plot for a description
-        of other allowed keyword arguments.
-
-        :param params: \
-            A list of integers specifying the indices of parameters which are to
-            be plotted. If not specified, all parameters are plotted.
-
-        :param int burn: \
-            Number of samples to discard from the start of the chain.
-
-        :param int thin: \
-            Rather than using every sample which is not discarded as part of the
-            burn-in, every *m*'th sample is used for a specified integer *m*.
-        """
-        params = params if params is not None else range(self.n_variables)
-        samples = [self.get_parameter(i, burn=burn, thin=thin) for i in params]
-        trace_plot(samples, **kwargs)
-
     def save(self, filename: str):
         """
         Save the entire state of the chain object as an .npz file.
@@ -725,10 +523,8 @@ class MarkovChain:
         # get the chain attributes
         items = {
             "chain_length": self.chain_length,
-            "n_variables": self.n_variables,
+            "n_parameters": self.n_parameters,
             "probs": self.probs,
-            "burn": self.burn,
-            "thin": self.thin,
             "inv_temp": self.inv_temp,
             "display_progress": self.display_progress,
         }
@@ -764,15 +560,13 @@ class MarkovChain:
         # re-build the chain's attributes
         chain.posterior = posterior
         chain.chain_length = int(D["chain_length"])
-        chain.n_variables = int(D["n_variables"])
+        chain.n_parameters = int(D["n_parameters"])
         chain.probs = list(D["probs"])
         chain.inv_temp = float(D["inv_temp"])
-        chain.burn = int(D["burn"])
-        chain.thin = int(D["thin"])
 
         # re-build all the parameter objects
         chain.params = [
-            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_parameters)
         ]
         return chain
 
@@ -793,38 +587,8 @@ class MarkovChain:
         width_estimate = mean(width_estimates)
         return int(max(prob_estimate, width_estimate))
 
-    def autoselect_burn(self):
-        self.burn = self.estimate_burn_in()
-        msg = "[ burn-in set to {} | {:.1%} of total samples ]".format(
-            self.burn, self.burn / self.chain_length
-        )
-        print(msg)
 
-    def autoselect_thin(self):
-        param_ESS = [
-            effective_sample_size(array(self.get_parameter(i, thin=1)))
-            for i in range(self.n_variables)
-        ]
-        self.thin = int((self.chain_length - self.burn) / min(param_ESS))
-        if self.thin < 1:
-            self.thin = 1
-        elif (self.chain_length - self.burn) / self.thin < 1:
-            self.thin = 1
-            warn("Thinning not performed as lowest ESS is below 1")
-        elif (self.chain_length - self.burn) / self.thin < 100:
-            warn("Sample size after thinning is less than 100")
-
-        thin_size = len(self.probs[self.burn :: self.thin])
-        print(
-            f"[ thinning factor set to {self.thin} | thinned sample size is {thin_size} ]"
-        )
-
-    def autoselect_burn_and_thin(self):
-        self.autoselect_burn()
-        self.autoselect_thin()
-
-
-class GibbsChain(MarkovChain):
+class GibbsChain(MetropolisChain):
     """
     A class for sampling from distributions using Gibbs-sampling.
 

@@ -3,12 +3,12 @@ from copy import copy
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
-from numpy import array, savez, savez_compressed, load, zeros
+from numpy import array, savez, savez_compressed, load, zeros, stack
 from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
 from numpy.random import random, normal
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
-from inference.mcmc.markov import MarkovChain
+from inference.mcmc.base import MarkovChain
 
 
 class HamiltonianChain(MarkovChain):
@@ -90,7 +90,7 @@ class HamiltonianChain(MarkovChain):
             self.theta = [start]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
-            self.n_variables = len(start)
+            self.n_parameters = len(start)
         self.chain_length = 1
 
         # set either the bounded or unbounded leapfrog update
@@ -114,8 +114,6 @@ class HamiltonianChain(MarkovChain):
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
         self.steps = 50
-        self.burn = 1
-        self.thin = 1
 
         self.display_progress = display_progress
         self.ProgressPrinter = ChainProgressPrinter(
@@ -128,7 +126,7 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = normal(size=self.n_variables, scale=self.sqrt_mass)
+            r0 = normal(size=self.n_parameters, scale=self.sqrt_mass)
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
@@ -193,20 +191,20 @@ class HamiltonianChain(MarkovChain):
 
     def finite_diff(self, t: ndarray) -> ndarray:
         p = self.posterior(t) * self.inv_temp
-        G = zeros(self.n_variables)
-        for i in range(self.n_variables):
-            delta = zeros(self.n_variables) + 1
+        G = zeros(self.n_parameters)
+        for i in range(self.n_parameters):
+            delta = zeros(self.n_parameters) + 1
             delta[i] += 1e-5
             G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
         return G
 
-    def get_last(self):
+    def get_last(self) -> ndarray:
         return self.theta[-1]
 
-    def replace_last(self, theta):
+    def replace_last(self, theta: ndarray):
         self.theta[-1] = theta
 
-    def get_parameter(self, index: int, burn=None, thin=None):
+    def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
         """
         Return sample values for a chosen parameter.
 
@@ -214,20 +212,16 @@ class HamiltonianChain(MarkovChain):
             Index of the parameter for which samples are to be returned.
 
         :param int burn: \
-            Number of samples to discard from the start of the chain. If not specified, the
-            value of self.burn is used instead.
+            Number of samples to discard from the start of the chain.
 
         :param int thin: \
             Instead of returning every sample which is not discarded as part of the burn-in,
-            every *m*'th sample is returned for a specified integer *m*. If not specified,
-            the value of self.thin is used instead.
+            every *m*'th sample is returned for a specified integer *m*.
 
         :return: \
-            List of samples for parameter *n*'th parameter.
+            Samples for the parameter specified by ``index`` as a ``numpy.ndarray``.
         """
-        burn = self.burn if burn is None else burn
-        thin = self.thin if thin is None else thin
-        return [v[index] for v in self.theta[burn::thin]]
+        return array([v[index] for v in self.theta[burn::thin]]).squeeze()
 
     def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
@@ -256,7 +250,7 @@ class HamiltonianChain(MarkovChain):
             burn = self.estimate_burn_in()
         param_ESS = [
             effective_sample_size(array(self.get_parameter(i, burn=burn, thin=1)))
-            for i in range(self.n_variables)
+            for i in range(self.n_parameters)
         ]
 
         fig = plt.figure(figsize=(12, 9))
@@ -287,14 +281,16 @@ class HamiltonianChain(MarkovChain):
         ax2.grid()
 
         ax3 = fig.add_subplot(223)
-        if self.n_variables < 50:
+        if self.n_parameters < 50:
             ax3.bar(
-                range(self.n_variables), param_ESS, color=["C0", "C1", "C2", "C3", "C4"]
+                range(self.n_parameters),
+                param_ESS,
+                color=["C0", "C1", "C2", "C3", "C4"],
             )
             ax3.set_xlabel("parameter", fontsize=12)
             ax3.set_ylabel("effective sample size", fontsize=12)
             ax3.set_title("Parameter effective sample size estimate")
-            ax3.set_xticks(range(self.n_variables))
+            ax3.set_xticks(range(self.n_parameters))
         else:
             ax3.hist(param_ESS, bins=20)
             ax3.set_xlabel("effective sample size", fontsize=12)
@@ -343,16 +339,45 @@ class HamiltonianChain(MarkovChain):
             fig.clear()
             plt.close(fig)
 
-    def get_sample(self, burn=None, thin=None):
-        raise ValueError("This method is not available for HamiltonianChain")
+    def get_probabilities(self, burn: int = 1, thin: int = 1) -> ndarray:
+        """
+        Return the log-probability values for each step in the chain.
 
-    def get_interval(self, interval=None, burn=None, thin=None, samples=None):
-        raise ValueError("This method is not available for HamiltonianChain")
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
 
-    def mode(self):
-        return self.theta[argmax(self.probs)]
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before returning
+            corresponding log-probabilities. If ``thin`` is set to some integer
+            value *m*, then only every *m*'th sample is used, and the remainder
+            are ignored.
 
-    def estimate_burn_in(self):
+        :return: \
+            Log-probability values as a ``numpy.ndarray``.
+        """
+        return array(self.probs[burn::thin])
+
+    def get_sample(self, burn: int = 1, thin: int = 1):
+        """
+        Return the sample as a 2D ``numpy.ndarray``.
+
+        :param int burn: \
+            Number of steps from the start of the chain which are ignored.
+
+        :param int thin: \
+            Sets the factor by which the sample is 'thinned' before being returned.
+            If ``thin`` is set to some integer value *m*, then only every *m*'th
+            sample is used, and the remainder are ignored.
+
+        :return: \
+            The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
+        """
+        return array(self.theta[burn::thin])
+
+    def mode(self) -> ndarray:
+        return array(self.theta[argmax(self.probs)]).squeeze()
+
+    def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
         prob_estimate = argmax(self.probs > percentile(self.probs, 99))
@@ -370,11 +395,9 @@ class HamiltonianChain(MarkovChain):
             "theta": self.theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
-            "n_variables": self.n_variables,
+            "n_parameters": self.n_parameters,
             "chain_length": self.chain_length,
             "steps": self.steps,
-            "burn": self.burn,
-            "thin": self.thin,
             "display_progress": self.display_progress,
         }
         if self.bounds is not None:
@@ -411,11 +434,9 @@ class HamiltonianChain(MarkovChain):
         chain.temperature = 1.0 / chain.inv_temp
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
-        chain.n_variables = int(D["n_variables"])
+        chain.n_parameters = int(D["n_parameters"])
         chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
-        chain.burn = int(D["burn"])
-        chain.thin = int(D["thin"])
 
         t = D["theta"]
         chain.theta = [t[i, :] for i in range(t.shape[0])]

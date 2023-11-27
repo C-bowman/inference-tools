@@ -1,6 +1,5 @@
 from typing import Sequence
 from time import time
-from warnings import warn
 import matplotlib.pyplot as plt
 
 from numpy import array, ndarray, linspace, concatenate, savez, load
@@ -8,10 +7,10 @@ from numpy import sqrt, var, cov, diag, isfinite, triu, exp, log, median
 from numpy.random import random, randint
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter
-from inference.plotting import matrix_plot, trace_plot
+from inference.mcmc.base import MarkovChain
 
 
-class EnsembleSampler:
+class EnsembleSampler(MarkovChain):
     """
     ``EnsembleSampler`` is an implementation of the affine-invariant ensemble sampler
     proposed by Goodman & Weare. This algorithm is based on an 'ensemble' of points
@@ -56,17 +55,22 @@ class EnsembleSampler:
 
         if starting_positions is not None:
             # store core data
-            self.theta = self.__validate_starting_positions(starting_positions)
-            self.n_walkers, self.n_params = starting_positions.shape
-            self.probs = array([self.posterior(t) for t in self.theta])
+            self.walker_positions = self.__validate_starting_positions(
+                starting_positions
+            )
+            self.n_walkers, self.n_parameters = starting_positions.shape
+            self.walker_probs = array(
+                [self.posterior(t) for t in self.walker_positions]
+            )
 
             # storage for diagnostic information
             self.n_iterations = 0
+            self.chain_length = 0
             self.total_proposals = [[] for _ in range(self.n_walkers)]
             self.failed_updates = []
 
         if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.n_params:
+            if len(parameter_boundaries) == self.n_parameters:
                 self.bounds = Bounds(
                     lower=array([k[0] for k in parameter_boundaries]),
                     upper=array([k[1] for k in parameter_boundaries]),
@@ -75,10 +79,10 @@ class EnsembleSampler:
                 self.process_proposal = self.bounds.reflect
             else:
                 raise ValueError(
-                    """
-                    [ EnsembleSampler error ]
-                    >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters.
+                    f"""\n
+                    \r[ EnsembleSampler error ]
+                    \r>> The number of given lower/upper bounds pairs does not match
+                    \r>> the number of model parameters.
                     """
                 )
         else:
@@ -88,9 +92,9 @@ class EnsembleSampler:
         # proposal settings
         if not alpha > 1.0:
             raise ValueError(
-                """
-                [ EnsembleSampler error ]
-                >> The given value of the 'alpha' parameter must be greater than 1.
+                """\n
+                \r[ EnsembleSampler error ]
+                \r>> The given value of the 'alpha' parameter must be greater than 1.
                 """
             )
         self.alpha = alpha
@@ -111,9 +115,9 @@ class EnsembleSampler:
         if not isinstance(positions, ndarray):
             raise ValueError(
                 f"""\n
-                [ EnsembleSampler error ]
-                >> 'starting_positions' should be a numpy.ndarray, but instead has type:
-                >> {type(positions)}
+                \r[ EnsembleSampler error ]
+                \r>> 'starting_positions' should be a numpy.ndarray, but instead has type:
+                \r>> {type(positions)}
                 """
             )
 
@@ -124,19 +128,19 @@ class EnsembleSampler:
         if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
             raise ValueError(
                 f"""\n
-                [ EnsembleSampler error ]
-                >> 'starting_positions' should be a numpy.ndarray with shape
-                >> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
-                >> Instead, the given array has shape {positions.shape}.
+                \r[ EnsembleSampler error ]
+                \r>> 'starting_positions' should be a numpy.ndarray with shape
+                \r>> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
+                \r>> Instead, the given array has shape {positions.shape}.
                 """
             )
 
         if not isfinite(theta).all():
             raise ValueError(
                 """\n
-                [ EnsembleSampler error ]
-                >> The given 'starting_positions' array contains at least one
-                >> value which is non-finite.
+                \r[ EnsembleSampler error ]
+                \r>> The given 'starting_positions' array contains at least one
+                \r>> value which is non-finite.
                 """
             )
 
@@ -145,9 +149,9 @@ class EnsembleSampler:
             if var(theta) == 0:
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> The values given in 'starting_positions' have zero variance,
-                    >> and therefore the walkers are unable to move.
+                    \r[ EnsembleSampler error ]
+                    \r>> The values given in 'starting_positions' have zero variance,
+                    \r>> and therefore the walkers are unable to move.
                     """
                 )
         else:
@@ -156,10 +160,10 @@ class EnsembleSampler:
             if (std_dev == 0).any():
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> For one or more variables, The values given in 'starting_positions' 
-                    >> have zero variance, and therefore the walkers are unable to move
-                    >> in those variables.
+                    \r[ EnsembleSampler error ]
+                    \r>> For one or more variables, The values given in 'starting_positions' 
+                    \r>> have zero variance, and therefore the walkers are unable to move
+                    \r>> in those variables.
                     """
                 )
             # now check if any pairs of variables are approximately co-linear
@@ -167,10 +171,10 @@ class EnsembleSampler:
             if (abs(triu(correlation, k=1)) > 0.999).any():
                 raise ValueError(
                     """\n
-                    [ EnsembleSampler error ]
-                    >> The values given in 'starting_positions' are approximately
-                    >> co-linear for one or more pair of variables. This will
-                    >> prevent the walkers from moving properly in those variables.
+                    \r[ EnsembleSampler error ]
+                    \r>> The values given in 'starting_positions' are approximately
+                    \r>> co-linear for one or more pair of variables. This will
+                    \r>> prevent the walkers from moving properly in those variables.
                     """
                 )
         return theta
@@ -181,7 +185,8 @@ class EnsembleSampler:
         # sample the stretch distance
         z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
         prop = self.process_proposal(
-            self.theta[i, :] + z * (self.theta[j, :] - self.theta[i, :])
+            self.walker_positions[i, :]
+            + z * (self.walker_positions[j, :] - self.walker_positions[i, :])
         )
         return prop, z
 
@@ -189,10 +194,10 @@ class EnsembleSampler:
         for attempts in range(1, self.max_attempts + 1):
             Y, z = self.__proposal(i)
             p = self.posterior(Y)
-            q = exp((self.n_params - 1) * log(z) + p - self.probs[i])
+            q = exp((self.n_parameters - 1) * log(z) + p - self.walker_probs[i])
             if random() <= q:
-                self.theta[i, :] = Y
-                self.probs[i] = p
+                self.walker_positions[i, :] = Y
+                self.walker_probs[i] = p
                 self.total_proposals[i].append(attempts)
                 break
         else:
@@ -201,8 +206,7 @@ class EnsembleSampler:
 
     def __advance_all(self):
         self.failed_updates.append(0)
-        for i in range(self.n_walkers):
-            self.__advance_walker(i)
+        [self.__advance_walker(i) for i in range(self.n_walkers)]
         self.n_iterations += 1
 
     def advance(self, iterations: int):
@@ -221,8 +225,8 @@ class EnsembleSampler:
         prob_arrays = [] if self.sample_probs is None else [self.sample_probs]
         for k in range(iterations):
             self.__advance_all()
-            sample_arrays.append(self.theta.copy())
-            prob_arrays.append(self.probs.copy())
+            sample_arrays.append(self.walker_positions.copy())
+            prob_arrays.append(self.walker_probs.copy())
 
             # display the progress status message
             self.ProgressPrinter.iterations_progress(t_start, k, iterations)
@@ -231,6 +235,7 @@ class EnsembleSampler:
         self.ProgressPrinter.iterations_final(iterations)
         self.sample = concatenate(sample_arrays)
         self.sample_probs = concatenate(prob_arrays)
+        self.chain_length = self.sample_probs.size
 
     @staticmethod
     def pass_through(prop):
@@ -281,70 +286,6 @@ class EnsembleSampler:
 
         plt.tight_layout()
         plt.show()
-
-    def matrix_plot(self, params=None, burn=0, thin=1, **kwargs):
-        """
-        Construct a 'matrix plot' of the parameters (or a subset) which displays
-        all 1D and 2D marginal distributions. See the documentation of
-        ``inference.plotting.matrix_plot`` for a description of other allowed
-        keyword arguments.
-
-        :param params: \
-            A list of integers specifying the indices of parameters which are to
-            be plotted.
-
-        :param int burn: \
-            Sets the number of samples from the beginning of the chain which are
-            ignored when generating the plot.
-
-        :param int thin: \
-            Sets the factor by which the sample is 'thinned' before generating the
-            plot. If ``thin`` is set to some integer value *m*, then only every
-            *m*'th sample is used, and the remainder are ignored.
-        """
-        if self.sample is not None:
-            params = range(self.n_params) if params is None else params
-            samples = [self.sample[burn::thin, p] for p in params]
-            matrix_plot(samples=samples, **kwargs)
-        else:
-            warn(
-                """\n
-                [ EnsembleSampler warning ]
-                >> Cannot generate matrix plot as no samples have been produced.
-                """
-            )
-
-    def trace_plot(self, params=None, burn=0, thin=1, **kwargs):
-        """
-        Construct a 'trace plot' of the parameters (or a subset) which displays
-        the value of the parameters as a function of step number in the chain.
-        See the documentation of ``inference.plotting.trace_plot`` for a description
-        of other allowed keyword arguments.
-
-        :param params: \
-            A list of integers specifying the indices of parameters which are to
-            be plotted.
-
-        :param int burn: \
-            Sets the number of samples from the beginning of the chain which are
-            ignored when generating the plot.
-
-        :param int thin: \
-            Sets the factor by which the sample is 'thinned' before generating the
-            plot. If ``thin`` is set to some integer value *m*, then only every
-            *m*'th sample is used, and the remainder are ignored.
-        """
-        if self.sample is not None:
-            params = range(self.n_params) if params is None else params
-            samples = [self.sample[burn::thin, p] for p in params]
-            trace_plot(samples=samples, **kwargs)
-        else:
-            warn(
-                """\n
-                [ EnsembleSampler warning ]
-                >> Cannot generate trace plot as no samples have been produced.
-                """
-            )
 
     def mode(self) -> ndarray:
         """
@@ -413,10 +354,10 @@ class EnsembleSampler:
 
     def save(self, filename):
         D = {
-            "theta": self.theta,
-            "n_params": self.n_params,
+            "walker_positions": self.walker_positions,
+            "n_parameters": self.n_parameters,
             "n_walkers": self.n_walkers,
-            "probs": self.probs,
+            "walker_probs": self.walker_probs,
             "n_iterations": self.n_iterations,
             "total_proposals": array(self.total_proposals),
             "alpha": self.alpha,
@@ -451,10 +392,10 @@ class EnsembleSampler:
             display_progress=bool(D["display_progress"]),
         )
 
-        sampler.theta = D["theta"]
-        sampler.n_params = int(D["n_params"])
+        sampler.walker_positions = D["walker_positions"]
+        sampler.n_parameters = int(D["n_parameters"])
         sampler.n_walkers = int(D["n_walkers"])
-        sampler.probs = D["probs"]
+        sampler.walker_probs = D["walker_probs"]
         sampler.n_iterations = int(D["n_iterations"])
         sampler.total_proposals = [list(v) for v in D["total_proposals"]]
         sampler.max_attempts = int(D["max_attempts"])

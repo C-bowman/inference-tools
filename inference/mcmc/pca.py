@@ -7,10 +7,10 @@ from numpy import sqrt, exp, dot, cov
 from numpy.random import random, normal
 from scipy.linalg import eigh
 
-from inference.mcmc.markov import MarkovChain, Parameter
+from inference.mcmc.gibbs import MetropolisChain, Parameter
 
 
-class PcaChain(MarkovChain):
+class PcaChain(MetropolisChain):
     """
     A class which performs Gibbs sampling over the eigenvectors of the covariance matrix.
 
@@ -58,9 +58,9 @@ class PcaChain(MarkovChain):
                 p.target_rate = 0.5
 
         self.directions = []
-        if hasattr(self, "n_variables"):
-            for i in range(self.n_variables):
-                v = zeros(self.n_variables)
+        if hasattr(self, "n_parameters"):
+            for i in range(self.n_parameters):
+                v = zeros(self.n_parameters)
                 v[i] = 1.0
                 self.directions.append(v)
 
@@ -76,7 +76,7 @@ class PcaChain(MarkovChain):
 
         # Set-up for imposing boundaries if specified
         if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.n_variables:
+            if len(parameter_boundaries) == self.n_parameters:
                 self.lower = array([k[0] for k in parameter_boundaries])
                 self.upper = array([k[1] for k in parameter_boundaries])
                 self.width = self.upper - self.lower
@@ -95,7 +95,10 @@ class PcaChain(MarkovChain):
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
         data = array(
-            [self.get_parameter(i)[self.last_update :] for i in range(self.n_variables)]
+            [
+                self.get_parameter(i)[self.last_update :]
+                for i in range(self.n_parameters)
+            ]
         )
         if hasattr(self, "covar"):
             nu = min(2 * self.dir_update_interval / self.last_update, 0.5)
@@ -108,13 +111,13 @@ class PcaChain(MarkovChain):
         # find the sine of the angle between the old and new eigenvectors to track convergence
         angles = [
             sqrt(1.0 - dot(V[:, i], self.directions[i]) ** 2)
-            for i in range(self.n_variables)
+            for i in range(self.n_parameters)
         ]
         self.angles_history.append(angles)
         self.update_history.append(copy(self.chain_length))
 
         # store the new directions and plan the next update
-        self.directions = [V[:, i] for i in range(self.n_variables)]
+        self.directions = [V[:, i] for i in range(self.n_parameters)]
         self.last_update = copy(self.chain_length)
         self.dir_update_interval = int(
             self.dir_update_interval * self.dir_growth_factor
@@ -122,7 +125,7 @@ class PcaChain(MarkovChain):
         self.next_update = self.last_update + self.dir_update_interval
 
     def directions_diagnostics(self):
-        for i in range(self.n_variables):
+        for i in range(self.n_parameters):
             prods = [v[i] for v in self.angles_history]
             plt.plot(self.update_history, prods, ".-")
         plt.plot(
@@ -188,10 +191,8 @@ class PcaChain(MarkovChain):
         # get the chain attributes
         items = {
             "chain_length": self.chain_length,
-            "n_variables": self.n_variables,
+            "n_parameters": self.n_parameters,
             "probs": self.probs,
-            "burn": self.burn,
-            "thin": self.thin,
             "inv_temp": self.inv_temp,
             "display_progress": self.display_progress,
             "dir_update_interval": self.dir_update_interval,
@@ -235,10 +236,8 @@ class PcaChain(MarkovChain):
         # re-build the chain's attributes
         chain.posterior = posterior
         chain.chain_length = int(D["chain_length"])
-        chain.n_variables = int(D["n_variables"])
+        chain.n_parameters = int(D["n_parameters"])
         chain.probs = list(D["probs"])
-        chain.burn = int(D["burn"])
-        chain.thin = int(D["thin"])
         chain.inv_temp = float(D["inv_temp"])
         chain.dir_update_interval = int(D["dir_update_interval"])
         chain.dir_growth_factor = float(D["dir_growth_factor"])
@@ -255,7 +254,7 @@ class PcaChain(MarkovChain):
 
         # re-build all the parameter objects
         chain.params = [
-            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_variables)
+            Parameter.load(dictionary=D, param_id=i) for i in range(chain.n_parameters)
         ]
 
         return chain

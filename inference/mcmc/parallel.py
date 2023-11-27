@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 from numpy import arange, exp, identity, zeros
 from numpy.random import random, shuffle, seed, randint
 from inference.plotting import transition_matrix_plot
-from inference.mcmc.markov import MarkovChain
+from inference.mcmc.base import MarkovChain
 
 
 class ChainPool:
