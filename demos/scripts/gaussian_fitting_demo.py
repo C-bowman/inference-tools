@@ -1,4 +1,3 @@
-
 from numpy import array, exp, linspace, sqrt, pi
 import matplotlib.pyplot as plt
 
@@ -6,14 +5,20 @@ import matplotlib.pyplot as plt
 # Gaussian peak plus a constant background. Our goal in this example is to
 # infer the area of the Gaussian.
 
-x_data = [0.00, 0.80, 1.60, 2.40, 3.20, 4.00, 4.80, 5.60,
-          6.40, 7.20, 8.00, 8.80, 9.60, 10.4, 11.2, 12.0]
+x_data = array([
+    0.00, 0.80, 1.60, 2.40, 3.20, 4.00, 4.80, 5.60,
+    6.40, 7.20, 8.00, 8.80, 9.60, 10.4, 11.2, 12.0
+])
 
-y_data = [2.473, 1.329, 2.370, 1.135, 5.861, 7.045, 9.942, 7.335,
-          3.329, 5.348, 1.462, 2.476, 3.096, 0.784, 3.342, 1.877]
+y_data = array([
+    2.473, 1.329, 2.370, 1.135, 5.861, 7.045, 9.942, 7.335,
+    3.329, 5.348, 1.462, 2.476, 3.096, 0.784, 3.342, 1.877
+])
 
-y_error = [1., 1., 1., 1., 1., 1., 1., 1.,
-           1., 1., 1., 1., 1., 1., 1., 1.]
+y_error = array([
+    1., 1., 1., 1., 1., 1., 1., 1.,
+    1., 1., 1., 1., 1., 1., 1., 1.
+])
 
 plt.errorbar(x_data, y_data, yerr=y_error, ls='dashed', marker='D', c='red', markerfacecolor='none')
 plt.ylabel('y')
@@ -26,7 +31,7 @@ plt.show()
 # it is becomes useful to build them as classes.
 
 
-class PeakModel(object):
+class PeakModel:
     def __init__(self, x_data):
         """
         The __init__ should be used to pass in any data which is required
@@ -47,10 +52,10 @@ class PeakModel(object):
         area, width, center, background = theta
         # return the prediction of the data
         z = (x - center) / width
-        gaussian = exp(-0.5*z**2)/(sqrt(2*pi)*width)
-        return area*gaussian + background
+        gaussian = exp(-0.5 * z**2) / (sqrt(2 * pi) * width)
+        return area * gaussian + background
 
-# Inference-tools has a variety of Likelihood classes which allow you to easily construct a
+# inference-tools has a variety of Likelihood classes which allow you to easily construct a
 # likelihood function given the measured data and your forward-model.
 from inference.likelihoods import GaussianLikelihood
 likelihood = GaussianLikelihood(y_data=y_data, sigma=y_error, forward_model=PeakModel(x_data))
@@ -107,17 +112,17 @@ chain.advance(25000)
 chain.plot_diagnostics()
 
 # The burn-in (how many samples from the start of the chain are discarded)
-# can be chosen by setting the burn attribute of the chain object:
-chain.burn = 5000
+# can be specified as an argument to methods which act on the samples:
+burn = 5000
 
 # we can get a quick overview of the posterior using the matrix_plot method
 # of chain objects, which plots all possible 1D & 2D marginal distributions
 # of the full parameter set (or a chosen sub-set).
-chain.matrix_plot(labels=['area', 'width', 'center', 'background'])
+chain.matrix_plot(labels=['area', 'width', 'center', 'background'], burn=burn)
 
 # We can easily estimate 1D marginal distributions for any parameter
 # using the get_marginal method:
-area_pdf = chain.get_marginal(0)
+area_pdf = chain.get_marginal(0, burn=burn)
 area_pdf.plot_summary(label='Gaussian area')
 
 
@@ -125,9 +130,9 @@ area_pdf.plot_summary(label='Gaussian area')
 # through the forward-model and observing the distribution of model expressions that result:
 
 # generate an axis on which to evaluate the model
-x_fits = linspace(0, 12, 500)
+x_fits = linspace(-2, 14, 500)
 # get the sample
-sample = chain.get_sample()
+sample = chain.get_sample(burn=burn)
 # pass each through the forward model
 curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 
@@ -137,7 +142,7 @@ curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 # A better option is to use the hdi_plot function from the plotting module to plot
 # highest-density intervals for each point where the model is evaluated:
 from inference.plotting import hdi_plot
-fig = plt.figure(figsize=(8, 5))
+fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111)
 hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 
@@ -145,10 +150,13 @@ hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 MAP_prediction = PeakModel.forward_model(x_fits, chain.mode())
 ax.plot(x_fits, MAP_prediction, ls='dashed', lw=3, c='C0', label='MAP estimate')
 # build the rest of the plot
-ax.errorbar(x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
-             marker='D', markerfacecolor='none', markeredgewidth=1.5, markersize=6)
+ax.errorbar(
+    x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
+    marker='o', markerfacecolor='none', markeredgewidth=1.5, markersize=8
+)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
+ax.set_xlim([-0.5, 12.5])
 ax.legend()
 ax.grid()
 plt.tight_layout()

@@ -21,51 +21,56 @@ self-tuning version, such as the NUTS algorithm.
 
 
 # define a non-linearly correlated posterior distribution
-class ToroidalGaussian(object):
+class ToroidalGaussian:
     def __init__(self):
-        self.R0 = 1. # torus major radius
-        self.ar = 10. # torus aspect ratio
-        self.w2 = (self.R0/self.ar)**2
+        self.R0 = 1.0  # torus major radius
+        self.ar = 10.0  # torus aspect ratio
+        self.inv_w2 = (self.ar / self.R0) ** 2
 
     def __call__(self, theta):
         x, y, z = theta
-        r = sqrt(z**2 + (sqrt(x**2 + y**2) - self.R0)**2)
-        return -0.5*r**2 / self.w2
+        r_sqr = z**2 + (sqrt(x**2 + y**2) - self.R0) ** 2
+        return -0.5 * r_sqr * self.inv_w2
 
     def gradient(self, theta):
         x, y, z = theta
         R = sqrt(x**2 + y**2)
-        K = 1 - self.R0/R
-        g = array([K*x, K*y, z])
-        return -g/self.w2
+        K = 1 - self.R0 / R
+        g = array([K * x, K * y, z])
+        return -g * self.inv_w2
 
 
 # create an instance of our posterior class
 posterior = ToroidalGaussian()
 
 # create the chain object
-chain = HamiltonianChain(posterior = posterior, grad = posterior.gradient, start = [1,0.1,0.1])
+chain = HamiltonianChain(
+    posterior=posterior, grad=posterior.gradient, start=array([1, 0.1, 0.1])
+)
 
 # advance the chain to generate the sample
 chain.advance(6000)
 
 # choose how many samples will be thrown away from the start
 # of the chain as 'burn-in'
-chain.burn = 2000
+burn = 2000
 
 # extract sample and probability data from the chain
-probs = chain.get_probabilities()
-colors = exp(probs - max(probs))
-xs, ys, zs = [ chain.get_parameter(i) for i in [0,1,2] ]
+probs = chain.get_probabilities(burn=burn)
+colors = exp(probs - probs.max())
+xs, ys, zs = [chain.get_parameter(i, burn=burn) for i in [0, 1, 2]]
 
 # Plot the sample we've generated as a 3D scatterplot
-fig = plt.figure(figsize = (10,10))
-ax = fig.add_subplot(111, projection='3d')
-L = 1.5
-ax.set_xlim([-L,L]); ax.set_ylim([-L,L]); ax.set_zlim([-L,L])
-ax.set_xlabel('x'); ax.set_ylabel('y'); ax.set_zlabel('z')
+fig = plt.figure(figsize=(10, 10))
+ax = fig.add_subplot(111, projection="3d")
+L = 1.2
+ax.set_xlim([-L, L])
+ax.set_ylim([-L, L])
+ax.set_zlim([-L, L])
+ax.set_xlabel("x")
+ax.set_ylabel("y")
+ax.set_zlabel("z")
 ax.scatter(xs, ys, zs, c=colors)
-
 plt.tight_layout()
 plt.show()
 
