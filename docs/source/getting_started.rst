@@ -187,11 +187,11 @@ We can check the status of the chain using the ``plot_diagnostics`` method:
 .. image:: ./images/getting_started_images/plot_diagnostics_example.png
 
 The burn-in (how many samples from the start of the chain are discarded)
-can be chosen by setting the ``burn`` attribute of the chain object:
+can be passed as an argument to methods which access or plot sampling results:
 
 .. code-block:: python
 
-   chain.burn = 5000
+   burn = 5000
 
 
 Using the sample to infer the model parameters
@@ -204,7 +204,7 @@ of the full parameter set (or a chosen sub-set).
 .. code-block:: python
 
    labels = ['area', 'width', 'center', 'background']
-   chain.matrix_plot(labels=labels)
+   chain.matrix_plot(labels=labels, burn=burn)
 
 .. image:: ./images/getting_started_images/matrix_plot_example.png
 
@@ -213,7 +213,7 @@ using the ``get_marginal`` method:
 
 .. code-block:: python
 
-   area_pdf = chain.get_marginal(0)
+   area_pdf = chain.get_marginal(0, burn=burn)
    area_pdf.plot_summary(label='Gaussian area')
 
 .. image:: ./images/getting_started_images/pdf_summary_example.png
@@ -224,9 +224,9 @@ through the forward-model and observing the distribution of model expressions th
 .. code-block:: python
 
    # generate an axis on which to evaluate the model
-   x_fits = linspace(0, 12, 500)
+   x_fits = linspace(-1, 13, 500)
    # get the sample
-   sample = chain.get_sample()
+   sample = chain.get_sample(burn=burn)
    # pass each through the forward model
    curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 

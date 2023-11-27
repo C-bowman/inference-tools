@@ -132,7 +132,7 @@ area_pdf.plot_summary(label='Gaussian area', filename='pdf_summary_example.png')
 # through the forward-model and observing the distribution of model expressions that result:
 
 # generate an axis on which to evaluate the model
-x_fits = linspace(0, 12, 500)
+x_fits = linspace(-1, 13, 500)
 # get the sample
 sample = chain.get_sample()
 # pass each through the forward model
@@ -144,17 +144,20 @@ curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 # A better option is to use the hdi_plot function from the plotting module to plot
 # highest-density intervals for each point where the model is evaluated:
 from inference.plotting import hdi_plot
-fig = plt.figure(figsize=(8, 5))
+fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111)
 hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 
 # plot the MAP estimate (the sample with the single highest posterior probability)
 ax.plot(x_fits, PeakModel.forward_model(x_fits, chain.mode()), ls='dashed', lw=3, c='C0', label='MAP estimate')
 # build the rest of the plot
-ax.errorbar(x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
-             marker='D', markerfacecolor='none', markeredgewidth=1.5, markersize=6)
+ax.errorbar(
+    x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
+    marker='o', markerfacecolor='none', markeredgewidth=1.5, markersize=8
+)
 ax.set_xlabel('x')
 ax.set_ylabel('y')
+ax.set_xlim([-0.5, 12.5])
 ax.legend()
 ax.grid()
 plt.tight_layout()
