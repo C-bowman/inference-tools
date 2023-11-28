@@ -3,7 +3,7 @@ from copy import copy
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
-from numpy import array, savez, savez_compressed, load, zeros, stack
+from numpy import array, savez, savez_compressed, load, zeros
 from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
 from numpy.random import random, normal
 
@@ -47,8 +47,9 @@ class HamiltonianChain(MarkovChain):
         tempering and should be otherwise left unspecified.
 
     :param bounds: \
-        A list or tuple containing two numpy arrays which specify the upper and lower
-        bounds for the parameters in the form (lower_bounds, upper_bounds).
+        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
+        ``numpy.ndarray`` specifying the upper and lower bounds for the parameters
+        in the form ``(lower_bounds, upper_bounds)``.
 
     :param inverse_mass: \
         A vector specifying the inverse-mass value to be used for each parameter. The
@@ -68,7 +69,7 @@ class HamiltonianChain(MarkovChain):
         grad: callable = None,
         epsilon: float = 0.1,
         temperature: float = 1.0,
-        bounds: Sequence[ndarray] = None,
+        bounds: Bounds = None,
         inverse_mass: ndarray = None,
         display_progress=True,
     ):
@@ -99,17 +100,14 @@ class HamiltonianChain(MarkovChain):
             self.bounds = None
         else:
             self.run_leapfrog = self.bounded_leapfrog
-            self.bounds = Bounds(
-                lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
-            )
-
-            if not self.bounds.inside(self.theta[0]):
-                raise ValueError(
-                    """
-                    [ HamiltonianChain error ]
-                    >> Starting location for the chain is outside specified bounds.
-                    """
+            if isinstance(bounds, Bounds):
+                self.bounds = bounds
+            else:
+                self.bounds = Bounds(
+                    lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
                 )
+
+            self.bounds.validate_start_point(start, error_source="HamiltonianChain")
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)

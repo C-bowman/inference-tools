@@ -34,9 +34,10 @@ class EnsembleSampler(MarkovChain):
         ``alpha`` must be greater than 1, as the jump distance becomes
         zero when ``alpha = 1``.
 
-    :param parameter_boundaries: \
-        A list of length-2 tuples specifying the lower and upper bounds to be set on
-        each parameter, in the form (lower, upper).
+    :param bounds: \
+        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
+        ``numpy.ndarray`` specifying the upper and lower bounds for the parameters
+        in the form ``(lower_bounds, upper_bounds)``.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
@@ -48,7 +49,7 @@ class EnsembleSampler(MarkovChain):
         posterior: callable,
         starting_positions: ndarray,
         alpha: float = 2.0,
-        parameter_boundaries: Sequence = None,
+        bounds: Bounds = None,
         display_progress=True,
     ):
         self.posterior = posterior
@@ -69,25 +70,20 @@ class EnsembleSampler(MarkovChain):
             self.total_proposals = [[] for _ in range(self.n_walkers)]
             self.failed_updates = []
 
-        if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.n_parameters:
-                self.bounds = Bounds(
-                    lower=array([k[0] for k in parameter_boundaries]),
-                    upper=array([k[1] for k in parameter_boundaries]),
-                    error_source="EnsembleSampler",
-                )
-                self.process_proposal = self.bounds.reflect
-            else:
-                raise ValueError(
-                    f"""\n
-                    \r[ EnsembleSampler error ]
-                    \r>> The number of given lower/upper bounds pairs does not match
-                    \r>> the number of model parameters.
-                    """
-                )
-        else:
+        if bounds is None:
             self.process_proposal = self.pass_through
             self.bounds = None
+        else:
+            if isinstance(bounds, Bounds):
+                self.bounds = bounds
+            else:
+                self.bounds = Bounds(
+                    lower=bounds[0],
+                    upper=bounds[1],
+                    error_source="EnsembleSampler",
+                )
+            self.bounds.validate_start_point()
+            self.process_proposal = self.bounds.reflect
 
         # proposal settings
         if not alpha > 1.0:
@@ -387,7 +383,7 @@ class EnsembleSampler(MarkovChain):
         sampler = cls(
             posterior=posterior,
             starting_positions=None,
-            parameter_boundaries=bounds,
+            bounds=bounds,
             alpha=D["alpha"],
             display_progress=bool(D["display_progress"]),
         )
