@@ -1,3 +1,4 @@
+from numpy import array
 from mcmc_utils import line_posterior
 from inference.mcmc import PcaChain
 
@@ -25,8 +26,22 @@ def test_pca_chain_advance(line_posterior):
     assert len(chain.probs) == chain.chain_length
 
 
+def test_pca_chain_advance_bounded(line_posterior):
+    bounds = [array([0.4, 0.0]), array([0.6, 0.5])]
+    chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1], bounds=bounds)
+    first_n = chain.chain_length
+
+    steps = 104
+    chain.advance(steps)
+
+    assert chain.chain_length == first_n + steps
+    assert len(chain.params[0].samples) == chain.chain_length
+    assert len(chain.probs) == chain.chain_length
+
+
 def test_pca_chain_restore(line_posterior, tmp_path):
-    chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1])
+    bounds = [array([0.4, 0.0]), array([0.6, 0.5])]
+    chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1], bounds=bounds)
     steps = 200
     chain.advance(steps)
 
@@ -38,4 +53,4 @@ def test_pca_chain_restore(line_posterior, tmp_path):
 
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
-    assert all(new_chain.get_last() == chain.get_last())
+    assert (new_chain.get_last() == chain.get_last()).all()
