@@ -82,7 +82,7 @@ class EnsembleSampler(MarkovChain):
                     error_source="EnsembleSampler",
                 )
             # check the starting positions are inside the bounds
-            if self.walker_positions is not None:
+            if hasattr(self, "walker_positions"):
                 for v in self.walker_positions:
                     self.bounds.validate_start_point(v, error_source="EnsembleSampler")
 
