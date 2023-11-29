@@ -97,8 +97,8 @@ def effective_sample_size(x: ndarray) -> int:
 
 class Bounds:
     def __init__(self, lower: ndarray, upper: ndarray, error_source="Bounds"):
-        self.lower = lower if isinstance(lower, ndarray) else array(lower)
-        self.upper = upper if isinstance(upper, ndarray) else array(upper)
+        self.lower = lower if isinstance(lower, ndarray) else array(lower).squeeze()
+        self.upper = upper if isinstance(upper, ndarray) else array(upper).squeeze()
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
             raise ValueError(
@@ -127,6 +127,25 @@ class Bounds:
             )
 
         self.width = self.upper - self.lower
+        self.n_bounds = self.width.size
+
+    def validate_start_point(self, start: ndarray, error_source="Bounds"):
+        if self.n_bounds != start.size:
+            raise ValueError(
+                f"""\n
+                \r[ {error_source} error ]
+                \r>> The number of parameters ({start.size}) does not
+                \r>> match the given number of bounds ({self.n_bounds}).
+                """
+            )
+
+        if not self.inside(start):
+            raise ValueError(
+                f"""\n
+                \r[ {error_source} error ]
+                \r>> Starting location for the chain is outside specified bounds.
+                """
+            )
 
     def reflect(self, theta: ndarray) -> ndarray:
         q, rem = np_divmod(theta - self.lower, self.width)

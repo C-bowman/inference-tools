@@ -2,7 +2,7 @@ import pytest
 from numpy import array
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
-from inference.mcmc import HamiltonianChain
+from inference.mcmc import HamiltonianChain, Bounds
 
 
 def test_hamiltonian_chain_take_step():
@@ -88,8 +88,12 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
 
 def test_hamiltonian_chain_restore(tmp_path):
     posterior = ToroidalGaussian()
+    bounds = Bounds(lower=array([-2.0, -2.0, -1.0]), upper=array([2.0, 2.0, 1.0]))
     chain = HamiltonianChain(
-        posterior=posterior, start=array([1.0, 0.1, 0.1]), grad=posterior.gradient
+        posterior=posterior,
+        start=array([1.0, 0.1, 0.1]),
+        grad=posterior.gradient,
+        bounds=bounds,
     )
     steps = 10
     chain.advance(steps)
@@ -102,6 +106,8 @@ def test_hamiltonian_chain_restore(tmp_path):
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
     assert (new_chain.get_last() == chain.get_last()).all()
+    assert (new_chain.bounds.lower == chain.bounds.lower).all()
+    assert (new_chain.bounds.upper == chain.bounds.upper).all()
 
 
 def test_hamiltonian_chain_plots():

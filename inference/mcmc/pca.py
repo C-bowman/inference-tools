@@ -8,6 +8,7 @@ from numpy.random import random, normal
 from scipy.linalg import eigh
 
 from inference.mcmc.gibbs import MetropolisChain, Parameter
+from inference.mcmc.utilities import Bounds
 
 
 class PcaChain(MetropolisChain):
@@ -40,16 +41,17 @@ class PcaChain(MetropolisChain):
         the proposal distribution for each model parameter. If not specified, the starting
         widths will be approximated as 5% of the values in 'start'.
 
-    :param parameter_boundaries: \
-        A list of length-2 tuples specifying the lower and upper bounds to be set on each
-        parameter, in the form (lower, upper).
+    :param bounds: \
+        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
+        in the form ``(lower_bounds, upper_bounds)``.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
         showing the current progress and an estimated time until completion.
     """
 
-    def __init__(self, *args, parameter_boundaries=None, **kwargs):
+    def __init__(self, *args, bounds=None, **kwargs):
         super(PcaChain, self).__init__(*args, **kwargs)
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
@@ -74,23 +76,23 @@ class PcaChain(MetropolisChain):
         self.angles_history = []
         self.update_history = []
 
-        # Set-up for imposing boundaries if specified
-        if parameter_boundaries is not None:
-            if len(parameter_boundaries) == self.n_parameters:
-                self.lower = array([k[0] for k in parameter_boundaries])
-                self.upper = array([k[1] for k in parameter_boundaries])
-                self.width = self.upper - self.lower
-                self.process_proposal = self.impose_boundaries
-            else:
-                warn(
-                    """
-                    [ PcaChain warning ]
-                    >> The number of given lower/upper bounds pairs does not match
-                    >> the number of model parameters - bounds were not imposed.
-                    """
-                )
-        else:
+        if bounds is None:
             self.process_proposal = self.pass_through
+            self.bounds = None
+        else:
+            if isinstance(bounds, Bounds):
+                self.bounds = bounds
+            else:
+                self.bounds = Bounds(
+                    lower=bounds[0], upper=bounds[1], error_source="PcaChain"
+                )
+
+            self.process_proposal = self.bounds.reflect
+
+            if hasattr(self, "params"):
+                self.bounds.validate_start_point(
+                    start=self.get_last(), error_source="PcaChain"
+                )
 
     def update_directions(self):
         # re-estimate the covariance and find its eigenvectors
@@ -205,9 +207,15 @@ class PcaChain(MetropolisChain):
             "covar": self.covar,
         }
 
+        if self.bounds is not None:
+            items |= {
+                "lower_bounds": self.bounds.lower,
+                "upper_bounds": self.bounds.upper,
+            }
+
         # get the parameter attributes
         for i, p in enumerate(self.params):
-            items.update(p.get_items(param_id=i))
+            items |= p.get_items(param_id=i)
 
         # save as npz
         savez(filename, **items)
@@ -226,10 +234,22 @@ class PcaChain(MetropolisChain):
         """
         # load the data and create a chain instance
         D = load(filename)
+
+        # check if there are bounds to load
+        if all(k in D for k in ["lower_bounds", "upper_bounds"]):
+            bounds = Bounds(
+                lower=D["lower_bounds"],
+                upper=D["upper_bounds"],
+                error_source="PcaChain",
+            )
+        else:
+            bounds = None
+
         chain = cls(
             posterior=None,
             start=None,
             widths=None,
+            bounds=bounds,
             display_progress=bool(D["display_progress"]),
         )
 
@@ -276,11 +296,6 @@ class PcaChain(MetropolisChain):
              the parameter_boundaries keyword argument.
              """
         )
-
-    def impose_boundaries(self, prop):
-        d = prop - self.lower
-        n = (d // self.width) % 2
-        return self.lower + (1 - 2 * n) * (d % self.width) + n * self.width
 
     def pass_through(self, prop):
         return prop
