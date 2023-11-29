@@ -43,7 +43,7 @@ class PcaChain(MetropolisChain):
 
     :param bounds: \
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
-        ``numpy.ndarray`` specifying the upper and lower bounds for the parameters
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
         in the form ``(lower_bounds, upper_bounds)``.
 
     :param bool display_progress: \

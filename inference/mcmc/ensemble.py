@@ -1,4 +1,3 @@
-from typing import Sequence
 from time import time
 import matplotlib.pyplot as plt
 
@@ -36,7 +35,7 @@ class EnsembleSampler(MarkovChain):
 
     :param bounds: \
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
-        ``numpy.ndarray`` specifying the upper and lower bounds for the parameters
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
         in the form ``(lower_bounds, upper_bounds)``.
 
     :param bool display_progress: \
@@ -82,7 +81,11 @@ class EnsembleSampler(MarkovChain):
                     upper=bounds[1],
                     error_source="EnsembleSampler",
                 )
-            self.bounds.validate_start_point()
+            # check the starting positions are inside the bounds
+            if self.walker_positions is not None:
+                for v in self.walker_positions:
+                    self.bounds.validate_start_point(v, error_source="EnsembleSampler")
+
             self.process_proposal = self.bounds.reflect
 
         # proposal settings
@@ -362,8 +365,8 @@ class EnsembleSampler(MarkovChain):
         }
 
         if self.bounds is not None:
-            D["lower"] = self.bounds.lower
-            D["upper"] = self.bounds.upper
+            D["lower_bounds"] = self.bounds.lower
+            D["upper_bounds"] = self.bounds.upper
 
         if self.sample is not None:
             D["sample"] = self.sample
@@ -375,8 +378,12 @@ class EnsembleSampler(MarkovChain):
     def load(cls, filename: str, posterior=None):
         D = load(filename)
 
-        if "lower" in D and "upper" in D:
-            bounds = [(l, u) for l, u in zip(D["lower"], D["upper"])]
+        if all(k in D for k in ["lower_bounds", "upper_bounds"]):
+            bounds = Bounds(
+                lower=D["lower_bounds"],
+                upper=D["upper_bounds"],
+                error_source="EnsembleSampler",
+            )
         else:
             bounds = None
 

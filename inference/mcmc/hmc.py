@@ -1,4 +1,3 @@
-from typing import Sequence
 from copy import copy
 import matplotlib.pyplot as plt
 
@@ -48,7 +47,7 @@ class HamiltonianChain(MarkovChain):
 
     :param bounds: \
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
-        ``numpy.ndarray`` specifying the upper and lower bounds for the parameters
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
         in the form ``(lower_bounds, upper_bounds)``.
 
     :param inverse_mass: \
@@ -107,7 +106,8 @@ class HamiltonianChain(MarkovChain):
                     lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
                 )
 
-            self.bounds.validate_start_point(start, error_source="HamiltonianChain")
+            if start is not None:
+                self.bounds.validate_start_point(start, error_source="HamiltonianChain")
 
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
@@ -400,7 +400,7 @@ class HamiltonianChain(MarkovChain):
         }
         if self.bounds is not None:
             items.update(
-                {"lwr_bounds": self.bounds.lower, "upr_bounds": self.bounds.upper}
+                {"lower_bounds": self.bounds.lower, "upper_bounds": self.bounds.upper}
             )
         items.update(self.ES.get_items())
 
@@ -414,8 +414,12 @@ class HamiltonianChain(MarkovChain):
     def load(cls, filename: str, posterior=None, grad=None):
         D = load(filename)
 
-        if "lwr_bounds" in D and "upr_bounds" in D:
-            bounds = [D["lwr_bounds"], D["upr_bounds"]]
+        if all(k in D for k in ["lower_bounds", "upper_bounds"]):
+            bounds = Bounds(
+                lower=D["lower_bounds"],
+                upper=D["upper_bounds"],
+                error_source="HamiltonianChain",
+            )
         else:
             bounds = None
 
