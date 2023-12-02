@@ -10,8 +10,8 @@ Code to demonstrate the use of the GaussianKDE class.
 # first generate a test sample
 N = 150000
 sample = zeros(N)
-sample[:N//3] = normal(size=N//3)*0.5 + 1.8
-sample[N//3:] = normal(size=2*(N//3))*0.5 + 3.5
+sample[: N // 3] = normal(size=N // 3) * 0.5 + 1.8
+sample[N // 3 :] = normal(size=2 * (N // 3)) * 0.5 + 3.5
 
 # GaussianKDE takes an array of sample values as its only argument
 pdf = GaussianKDE(sample)
@@ -36,7 +36,7 @@ mode = pdf.mode
 
 # The highest-density interval for any fraction of total probability
 # can is returned by the interval() method
-hdi_95 = pdf.interval(frac = 0.95)
+hdi_95 = pdf.interval(frac=0.95)
 
 # the mean, variance, skewness and excess kurtosis are returned
 # by the moments() method:
@@ -53,26 +53,26 @@ mu, var, skew, kurt = pdf.moments()
 # to demonstrate, lets create a new sample:
 N = 30000
 sample = zeros(N)
-sample[:N//3] = normal(size=N//3)
-sample[N//3:] = normal(size=2*(N//3)) + 10
+sample[: N // 3] = normal(size=N // 3)
+sample[N // 3 :] = normal(size=2 * (N // 3)) + 10
 
 # now construct estimators using the simple and cross-validation estimators
 pdf_simple = GaussianKDE(sample)
-pdf_crossval = GaussianKDE(sample, cross_validation = True)
+pdf_crossval = GaussianKDE(sample, cross_validation=True)
 
 # now build an axis on which to evaluate the estimates
-x = linspace(-4,14,500)
+x = linspace(-4, 14, 500)
 
 # for comparison also compute the real distribution
-exact = (exp(-0.5*x**2)/3 + 2*exp(-0.5*(x-10)**2)/3)/sqrt(2*pi)
+exact = (exp(-0.5 * x**2) / 3 + 2 * exp(-0.5 * (x - 10) ** 2) / 3) / sqrt(2 * pi)
 
 # plot everything together
-plt.plot(x, pdf_simple(x), label = 'simple')
-plt.plot(x, pdf_crossval(x), label = 'cross-validation')
-plt.plot(x, exact, label = 'exact')
+plt.plot(x, pdf_simple(x), label="simple")
+plt.plot(x, pdf_crossval(x), label="cross-validation")
+plt.plot(x, exact, label="exact")
 
-plt.ylabel('probability density')
-plt.xlabel('x')
+plt.ylabel("probability density")
+plt.xlabel("x")
 
 plt.grid()
 plt.legend()

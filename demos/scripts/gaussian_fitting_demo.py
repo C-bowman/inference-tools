@@ -16,19 +16,27 @@ y_data = array([
 ])
 
 y_error = array([
-    1., 1., 1., 1., 1., 1., 1., 1.,
-    1., 1., 1., 1., 1., 1., 1., 1.
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+    1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0
 ])
 
-plt.errorbar(x_data, y_data, yerr=y_error, ls='dashed', marker='D', c='red', markerfacecolor='none')
-plt.ylabel('y')
-plt.xlabel('x')
+plt.errorbar(
+    x_data,
+    y_data,
+    yerr=y_error,
+    ls="dashed",
+    marker="D",
+    c="red",
+    markerfacecolor="none",
+)
+plt.ylabel("y")
+plt.xlabel("x")
 plt.grid()
 plt.show()
 
 # The first step is to implement our model. For simple models like this one
 # this can be done using just a function, but as models become more complex
-# it is becomes useful to build them as classes.
+# it becomes useful to build them as classes.
 
 
 class PeakModel:
@@ -55,14 +63,18 @@ class PeakModel:
         gaussian = exp(-0.5 * z**2) / (sqrt(2 * pi) * width)
         return area * gaussian + background
 
+
 # inference-tools has a variety of Likelihood classes which allow you to easily construct a
 # likelihood function given the measured data and your forward-model.
 from inference.likelihoods import GaussianLikelihood
-likelihood = GaussianLikelihood(y_data=y_data, sigma=y_error, forward_model=PeakModel(x_data))
+
+likelihood = GaussianLikelihood(
+    y_data=y_data, sigma=y_error, forward_model=PeakModel(x_data)
+)
 
 # Instances of the likelihood classes can be called as functions, and return the log-likelihood
 # when passed a vector of model parameters:
-initial_guess = array([10., 2., 5., 2.])
+initial_guess = array([10.0, 2.0, 5.0, 2.0])
 guess_log_likelihood = likelihood(initial_guess)
 print(guess_log_likelihood)
 
@@ -79,8 +91,8 @@ from inference.priors import ExponentialPrior, UniformPrior, JointPrior
 # case where we give three variables an exponential prior and one a uniform prior, we first
 # construct each type of prior separately:
 prior_components = [
-    ExponentialPrior(beta=[50., 20., 20.], variable_indices=[0, 1, 3]),
-    UniformPrior(lower=0., upper=12., variable_indices=[2])
+    ExponentialPrior(beta=[50.0, 20.0, 20.0], variable_indices=[0, 1, 3]),
+    UniformPrior(lower=0.0, upper=12.0, variable_indices=[2]),
 ]
 # Now we use the JointPrior class to combine the various components into a single prior
 # distribution which covers all the model parameters.
@@ -118,12 +130,12 @@ burn = 5000
 # we can get a quick overview of the posterior using the matrix_plot method
 # of chain objects, which plots all possible 1D & 2D marginal distributions
 # of the full parameter set (or a chosen sub-set).
-chain.matrix_plot(labels=['area', 'width', 'center', 'background'], burn=burn)
+chain.matrix_plot(labels=["area", "width", "center", "background"], burn=burn)
 
 # We can easily estimate 1D marginal distributions for any parameter
 # using the get_marginal method:
 area_pdf = chain.get_marginal(0, burn=burn)
-area_pdf.plot_summary(label='Gaussian area')
+area_pdf.plot_summary(label="Gaussian area")
 
 
 # We can assess the level of uncertainty in the model predictions by passing each sample
@@ -142,33 +154,31 @@ curves = array([PeakModel.forward_model(x_fits, theta) for theta in sample])
 # A better option is to use the hdi_plot function from the plotting module to plot
 # highest-density intervals for each point where the model is evaluated:
 from inference.plotting import hdi_plot
+
 fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111)
 hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
 
 # plot the MAP estimate (the sample with the single highest posterior probability)
 MAP_prediction = PeakModel.forward_model(x_fits, chain.mode())
-ax.plot(x_fits, MAP_prediction, ls='dashed', lw=3, c='C0', label='MAP estimate')
+ax.plot(x_fits, MAP_prediction, ls="dashed", lw=3, c="C0", label="MAP estimate")
 # build the rest of the plot
 ax.errorbar(
-    x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
-    marker='o', markerfacecolor='none', markeredgewidth=1.5, markersize=8
+    x_data,
+    y_data,
+    yerr=y_error,
+    linestyle="none",
+    c="red",
+    label="data",
+    marker="o",
+    markerfacecolor="none",
+    markeredgewidth=1.5,
+    markersize=8,
 )
-ax.set_xlabel('x')
-ax.set_ylabel('y')
+ax.set_xlabel("x")
+ax.set_ylabel("y")
 ax.set_xlim([-0.5, 12.5])
 ax.legend()
 ax.grid()
 plt.tight_layout()
 plt.show()
-
-
-
-
-
-
-
-
-
-
-

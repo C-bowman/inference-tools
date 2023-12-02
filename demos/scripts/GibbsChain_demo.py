@@ -81,7 +81,7 @@ p = chain.get_probabilities(burn=burn, thin=thin)  # color the points by their p
 plt.scatter(
     chain.get_parameter(index=0, burn=burn, thin=thin),
     chain.get_parameter(index=1, burn=burn, thin=thin),
-    c=exp(p - max(p)),
+    c=exp(p - p.max()),
     marker="."
 )
 plt.xlabel("parameter 1")
