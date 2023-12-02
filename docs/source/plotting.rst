@@ -16,17 +16,17 @@ Create a spatial axis and use it to define a Gaussian process
    from numpy import linspace, zeros, subtract, exp
 
    N = 8
-   x = linspace(1,N,N)
+   x = linspace(1, N, N)
    mean = zeros(N)
-   covariance = exp(-0.1*subtract.outer(x,x)**2)
+   covariance = exp(-0.1 * subtract.outer(x, x)**2)
 
 Sample from the Gaussian process
 
 .. code-block:: python
 
    from numpy.random import multivariate_normal
-   samples = multivariate_normal(mean, covariance, size = 20000)
-   samples = [ samples[:,i] for i in range(N) ]
+   samples = multivariate_normal(mean, covariance, size=20000)
+   samples = [samples[:, i] for i in range(N)]
 
 Use ``matrix_plot`` to visualise the sample data
 

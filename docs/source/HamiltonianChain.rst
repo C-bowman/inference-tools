@@ -46,7 +46,7 @@ Build the posterior and chain objects then generate the sample:
        posterior = posterior,
        grad=posterior.gradient,
        start = [1, 0.1, 0.1]
-       )
+   )
 
    # advance the chain to generate the sample
    chain.advance(6000)
