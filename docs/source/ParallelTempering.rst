@@ -17,10 +17,10 @@ for a single chain to explore:
 
    # define a posterior with multiple separate peaks
    def multimodal_posterior(theta):
-      x,y = theta
+      x, y = theta
       r = sqrt(x**2 + y**2)
-      phi = arctan2(y,x)
-      z = ((r - (0.5 + pi - phi*0.5))/0.1)
+      phi = arctan2(y, x)
+      z = (r - (0.5 + pi - phi*0.5)) / 0.1
       return -0.5*z**2  + 4*log(sin(phi*2.)**2)
 
 Define a set of temperature levels:
@@ -35,7 +35,10 @@ Create a set of chains - one with each temperature:
 .. code-block:: python
 
    from inference.mcmc import GibbsChain, ParallelTempering
-   chains = [ GibbsChain( posterior=multimodal_posterior, start=[0.5,0.5], temperature=T) for T in temperatures ]
+   chains = [
+       GibbsChain(posterior=multimodal_posterior, start=[0.5, 0.5], temperature=T)
+       for T in temperatures
+   ]
 
 When an instance of ``ParallelTempering`` is created, a dedicated process for each
 chain is spawned. These separate processes will automatically make use of the available

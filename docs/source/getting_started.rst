@@ -70,7 +70,7 @@ function to return a prediction of the y-data values.
 
 .. code-block:: python
 
-   class PeakModel(object):
+   class PeakModel:
        def __init__(self, x_data):
            """
            The __init__ should be used to pass in any data which is required
@@ -91,8 +91,8 @@ function to return a prediction of the y-data values.
            area, width, center, background = theta
            # calculate and return the prediction of the y-data values
            z = (x - center) / width
-           gaussian = exp(-0.5*z**2)/(sqrt(2*pi)*width)
-           return area*gaussian + background
+           gaussian = exp(-0.5 * z**2) / (sqrt(2 * pi) * width)
+           return area * gaussian + background
 
 Inference-tools has a variety of likelihood classes which allow you to easily construct
 a likelihood function given the measured data and your forward-model.
@@ -103,7 +103,11 @@ As in this example we assume the errors on the y-data values to be Gaussian, we 
 .. code-block:: python
 
    from inference.likelihoods import GaussianLikelihood
-   likelihood = GaussianLikelihood(y_data=y_data, sigma=y_error, forward_model=PeakModel(x_data))
+   likelihood = GaussianLikelihood(
+       y_data=y_data,
+       sigma=y_error,
+       forward_model=PeakModel(x_data)
+   )
 
 Instances of the likelihood classes can be called as functions, and return the
 log-likelihood when passed a vector of model parameters.
