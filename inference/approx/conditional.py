@@ -18,18 +18,23 @@ class Conditional:
         return self.posterior(t)
 
 
-def binary_search(func: callable, target: float, limits: list, tol=0.05) -> float:
-    x1, x2 = limits
-    for i in range(10):
-        x3 = 0.5 * (x1 + x2)
-        y3 = func(x3)
-        if y3 < target:
-            x1 = x3
-        else:
-            x2 = x3
-        if abs(y3 - target) < tol:
+def linear_search(
+    func: callable, target: float, x: ndarray, y: ndarray, tol=0.05, max_itr=10
+) -> float:
+    x1, x2 = x
+    y1, y2 = y
+    for i in range(max_itr):
+        x_new = (target - y1) * (x2 - x1) / (y2 - y1) + x1
+        y_new = func(x_new)
+
+        if abs(y_new - target) < tol:
             break
-    return x3
+
+        if (y_new > target) ^ (y2 > target):
+            x1, y1 = x_new, y_new
+        else:
+            x2, y2 = x_new, y_new
+    return x_new
 
 
 def trapezium_full(x, dh):
@@ -82,19 +87,35 @@ def evaluate_conditional(func: callable, points: ndarray, grid_size=64):
     x = points.copy()
     threshold = 8.0
 
-    for i in range(8):
+    # iteratively add new points around the highest probability
+    # to get a better estimate of the mode position
+    for i in range(6):
         ind = min(max(p.argmax(), 1), p.size - 2)
         x1, x2 = 0.5 * (x[ind - 1] + x[ind]), 0.5 * (x[ind + 1] + x[ind])
         p1, p2 = func(x1), func(x2)
         x = insert(x, [ind, ind + 1], [x1, x2])
         p = insert(p, [ind, ind + 1], [p1, p2])
 
-    mode_ind = p.argmax()
-    p_mode = p[mode_ind]
-    x_mode = x[mode_ind]
+    # find all the indices that are above the threshold
+    p_mode = p.max()
+    p_target = p_mode - threshold
+    inds = (p > (p_mode - threshold)).nonzero()[0]
+    # get the first indices below the threshold on either side of the mode
+    lwr_ind = max(inds[0] - 1, 0)
+    upr_ind = min(inds[-1] + 1, p.size - 1)
 
-    x_lwr = binary_search(func, p_mode - threshold, [x[0], x_mode])
-    x_upr = binary_search(func, p_mode - threshold, [x[-1], x_mode])
+    # search for the specific x-values where the threshold is crossed
+    if p[lwr_ind] >= p_target:
+        x_lwr = x[lwr_ind]
+    else:
+        slc = slice(lwr_ind, lwr_ind + 2)
+        x_lwr = linear_search(func, p_target, x[slc], p[slc])
+
+    if p[upr_ind] >= p_target:
+        x_upr = x[upr_ind]
+    else:
+        slc = slice(upr_ind - 1, upr_ind + 1)
+        x_upr = linear_search(func, p_target, x[slc], p[slc])
 
     x_cond = linspace(x_lwr, x_upr, grid_size)
     p_cond = array([func(x) for x in x_cond])

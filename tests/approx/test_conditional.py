@@ -28,7 +28,7 @@ def conditional_test_distribution(theta):
 
 
 def test_get_conditionals():
-    bounds = [(0.0, 15.0), (-15, 100), (1e-2, 50), (0.0, 1.0)]
+    bounds = [(0.0, 15.0), (-15, 100), (1e-2, 50), (1e-4, 1.0 - 1e-4)]
     conditioning_point = array([0.1, 3.0, 10.0, 0.8])
     axes, probs = get_conditionals(
         posterior=conditional_test_distribution,
@@ -45,7 +45,7 @@ def test_get_conditionals():
 
 
 def test_conditional_sample():
-    bounds = [(0.0, 15.0), (-15, 100), (1e-2, 50), (0.0, 1.0)]
+    bounds = [(0.0, 15.0), (-15, 100), (1e-2, 50), (1e-4, 1.0 - 1e-4)]
     conditioning_point = array([0.1, 3.0, 10.0, 0.8])
     samples = conditional_sample(
         posterior=conditional_test_distribution,
