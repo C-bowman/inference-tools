@@ -21,7 +21,7 @@ Jupyter notebook demos
 
 In addition to the example code present in the online documentation for each class/function
 in the package, there is also a set of Jupyter notebook demos which can be found in the
-`/demos/ <https://github.com/C-bowman/inference-tools/tree/PyPI-release/demos>`_ directory
+`/demos/ <https://github.com/C-bowman/inference-tools/tree/master/demos>`_ directory
 of the source code.
 
 Example - Gaussian peak fitting
