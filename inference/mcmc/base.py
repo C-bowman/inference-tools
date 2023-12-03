@@ -231,3 +231,30 @@ class MarkovChain(ABC):
                 \r>> Number of samples after burn / thin is {reduced_length}.
                 """
             )
+
+    @property
+    def burn(self):
+        self.__burn_thin_error()
+
+    @burn.setter
+    def burn(self, val):
+        self.__burn_thin_error()
+
+    @property
+    def thin(self):
+        self.__burn_thin_error()
+
+    @thin.setter
+    def thin(self, val):
+        self.__burn_thin_error()
+
+    def __burn_thin_error(self):
+        raise AttributeError(
+            f"""\n
+            \r[ {self.__class__.__name__} error ]
+            \r>> The 'burn' and 'thin' instance attributes of inference-tools
+            \r>> mcmc samplers were removed in version 0.13.0. Burn and thin
+            \r>> values should now be passed explicitly to any methods with
+            \r>> 'burn' and 'thin' keyword arguments.
+            """
+        )

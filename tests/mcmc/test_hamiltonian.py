@@ -133,3 +133,18 @@ def test_hamiltonian_chain_plots():
         chain.trace_plot(burn=200)
     with pytest.raises(ValueError):
         chain.matrix_plot(thin=500)
+
+
+def test_hamiltonian_chain_burn_thin_error():
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(
+        posterior=posterior, start=array([1, 0.1, 0.1]), grad=posterior.gradient
+    )
+    with pytest.raises(AttributeError):
+        chain.burn = 10
+    with pytest.raises(AttributeError):
+        burn = chain.burn
+    with pytest.raises(AttributeError):
+        chain.thin = 5
+    with pytest.raises(AttributeError):
+        thin = chain.thin
