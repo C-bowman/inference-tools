@@ -57,15 +57,11 @@ class DensityEstimator(ABC):
         sigma_3 = ensure_is_nested_list(self.interval(frac=0.9973))
         mu, var, skw, kur = self.moments()
 
-        if type(self) is GaussianKDE:
-            lwr = sigma_3[0][0] - 5 * self.h
-            upr = sigma_3[0][1] + 5 * self.h
-        else:
-            s_min = sigma_3[0][0]
-            s_max = sigma_3[-1][1]
+        s_min = sigma_3[0][0]
+        s_max = sigma_3[-1][1]
 
-            lwr = s_min - 0.1 * (s_max - s_min)
-            upr = s_max + 0.1 * (s_max - s_min)
+        lwr = s_min - 0.1 * (s_max - s_min)
+        upr = s_max + 0.1 * (s_max - s_min)
 
         axis = linspace(lwr, upr, 500)
 
