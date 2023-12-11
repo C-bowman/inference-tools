@@ -11,21 +11,22 @@ from warnings import warn
 from itertools import product
 from functools import reduce
 from collections.abc import Sequence
+from abc import ABC, abstractmethod
 import matplotlib.pyplot as plt
 
 
-class DensityEstimator:
+class DensityEstimator(ABC):
     """
-    Parent class for the 1D density estimation classes GaussianKDE and UnimodalPdf.
+    Abstract base class for 1D density estimators.
     """
 
-    def __init__(self):
-        self.lwr_limit = None
-        self.upr_limit = None
-        self.mode = None
+    @abstractmethod
+    def __call__(self, x: ndarray) -> ndarray:
+        pass
 
-    def __call__(self, x):
-        return None
+    @abstractmethod
+    def moments(self) -> tuple:
+        pass
 
     def interval(self, frac=0.95):
         p_max = self(self.mode)
@@ -43,16 +44,18 @@ class DensityEstimator:
         lwr, upr = self.get_interval(z)
         return quad(self, lwr, upr, limit=100)[0]
 
-    def moments(self):
-        pass
-
     def plot_summary(self, filename=None, show=True, label=None):
         """
         Plot the estimated PDF along with summary statistics.
 
-        :keyword str filename: Filename to which the plot will be saved. If unspecified, the plot will not be saved.
-        :keyword bool show: Boolean value indicating whether the plot should be displayed in a window. (Default is True)
-        :keyword str label: The label to be used for the x-axis on the plot as a string.
+        :keyword str filename: \
+            Filename to which the plot will be saved. If unspecified, the plot will not be saved.
+
+        :keyword bool show: \
+            Boolean value indicating whether the plot should be displayed in a window. (Default is True)
+
+        :keyword str label: \
+            The label to be used for the x-axis on the plot as a string.
         """
 
         def ensure_is_nested_list(var):
@@ -333,7 +336,7 @@ class GaussianKDE(DensityEstimator):
         an appropriate width is estimated based on sample data.
 
     :param bool cross_validation: \
-        Indicate whether or not cross-validation should be used to estimate
+        Indicate whether cross-validation should be used to estimate
         the bandwidth in place of the simple 'rule of thumb' estimate which
         is normally used.
 
