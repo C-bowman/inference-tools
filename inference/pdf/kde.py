@@ -1,9 +1,12 @@
 from functools import reduce
-from numpy import sort, array, linspace, searchsorted, argsort, argmax, ndarray
+from itertools import pairwise
+from numpy import arange, array, ndarray, atleast_1d, zeros
+from numpy import sort, linspace, searchsorted, argsort, argmax, unique
 from numpy import sqrt, pi, log, exp, std, logaddexp, cov
 from numpy.random import random
 from scipy.integrate import simps
 from scipy.optimize import minimize_scalar
+from scipy.special import erf
 from inference.pdf.hdi import sample_hdi
 from inference.pdf.base import DensityEstimator
 
@@ -41,16 +44,15 @@ class GaussianKDE(DensityEstimator):
         self, sample, bandwidth=None, cross_validation=False, max_cv_samples=5000
     ):
         self.s = sort(array(sample).flatten())  # sorted array of the samples
-        self.max_cvs = (
-            max_cv_samples  # maximum number of samples to be used for cross-validation
-        )
+        # maximum number of samples to be used for cross-validation
+        self.max_cvs = max_cv_samples
 
         if self.s.size < 3:
             raise ValueError(
                 """\n
-                [ GaussianKDE error ]
-                Not enough samples were given to estimate the PDF.
-                At least 3 samples are required.
+                \r[ GaussianKDE error ]
+                \r>> Not enough samples were given to estimate the PDF.
+                \r>> At least 3 samples are required.
                 """
             )
 
@@ -78,41 +80,58 @@ class GaussianKDE(DensityEstimator):
         # get the cutoff indices
         lwr_inds = searchsorted(self.s, mids - self.cutoff)
         upr_inds = searchsorted(self.s, mids + self.cutoff)
-        slices = [slice(l, u) for l, u in zip(lwr_inds, upr_inds)]
-
-        # now build a dict that maps midpoints to the slices
-        self.slice_map = dict(zip(mids, slices))
+        self.slices = [slice(l, u) for l, u in zip(lwr_inds, upr_inds)]
+        self.cdf_offsets = lwr_inds / self.s.size
 
         # build a binary tree which allows fast look-up of which
         # region contains a given value
         self.tree = BinaryTree(n, (self.s[0], self.s[-1]))
 
-        #: The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
+        # The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
         self.mode = self.locate_mode()
+        print(self.mode)
 
-    def __call__(self, x_vals):
+    def __call__(self, x: ndarray) -> ndarray:
         """
-        Evaluate the PDF estimate at a set of given axis positions.
+        Evaluate the estimate of the probability distribution function (PDF)
+        at the given parameter values.
 
-        :param x_vals: axis location(s) at which to evaluate the estimate.
+        :param x: axis location(s) at which to evaluate the estimate.
         :return: values of the PDF estimate at the specified locations.
         """
-        if hasattr(x_vals, "__iter__"):
-            return [self.density(x) for x in x_vals]
-        else:
-            return self.density(x_vals)
-
-    def density(self, x):
+        x = atleast_1d(x)
+        pdf = zeros(x.size)
         # look-up the region
-        region = self.tree.lookup(x)
-        # look-up the cutting points
-        slc = self.slice_map[region[2]]
+        regions, index_groups = self.tree.region_groups(x)
         # evaluate the density estimate from the slice
-        return self.norm * exp(-(((x - self.s[slc]) * self.q) ** 2)).sum()
+        for r, g in zip(regions, index_groups):
+            dx = x[g, None] - self.s[None, self.slices[r]]
+            pdf[g] = exp(-((dx * self.q) ** 2)).sum(axis=1)
+        return self.norm * pdf
+
+    def cdf(self, x: ndarray) -> ndarray:
+        """
+        Evaluate the estimate of the cumulative distribution function (CDF)
+        at the given parameter values.
+
+        :param x: axis location(s) at which to evaluate the estimate.
+        :return: values of the PDF estimate at the specified locations.
+        """
+        x = atleast_1d(x)
+        cdf = zeros(x.size)
+        # look-up the region
+        regions, index_groups = self.tree.region_groups(x)
+        coeff = 0.5 / self.s.size
+        # evaluate the density estimate from the slice
+        for r, g in zip(regions, index_groups):
+            dx = x[g, None] - self.s[None, self.slices[r]]
+            k = 1 + erf(dx * self.q)
+            cdf[g] = coeff * k.sum(axis=1) + self.cdf_offsets[r]
+        return cdf
 
     def simple_bandwidth_estimator(self):
         # A simple estimate which assumes the distribution close to a Gaussian
-        return 1.06 * std(self.s) / (len(self.s) ** 0.2)
+        return 1.06 * std(self.s) / (self.s.size**0.2)
 
     def cross_validation_bandwidth_estimator(self, initial_h):
         """
@@ -277,12 +296,28 @@ class BinaryTree:
         self.n = layers
         self.lims = limits
         self.edges = linspace(limits[0], limits[1], 2**self.n + 1)
+        self.regions = arange(-1, self.edges.size)
+        self.regions[0] = 0
+        self.regions[-1] = self.edges.size - 2
 
-        self.p = [
-            [a, b, 0.5 * (a + b)] for a, b in zip(self.edges[:-1], self.edges[1:])
-        ]
-        self.p.insert(0, self.p[0])
-        self.p.append(self.p[-1])
+    def region_groups(self, values: ndarray):
+        region_indices = self.regions[searchsorted(self.edges, values)]
+        return unique_index_groups(region_indices)
 
-    def lookup(self, val):
-        return self.p[searchsorted(self.edges, val)]
+
+def unique_index_groups(values: ndarray) -> tuple[ndarray, list[ndarray]]:
+    """
+    For the given 'values' array, generates a list of numpy arrays which
+    contain the indices corresponding to the groupings each of the unique values.
+    """
+    unique_values, inverse_inds, counts = unique(
+        values, return_inverse=True, return_counts=True
+    )
+    # get ordered groups of the indices of the unique values
+    unique_inds = inverse_inds.argsort()
+    # use cumulative sum of the counts to get slicing positions for index groups
+    cuts = zeros(counts.size + 1, dtype=int)
+    cuts[1:] = counts.cumsum()
+    # slice the indices into groups for each unique value
+    groups = [unique_inds[i:j] for i, j in pairwise(cuts)]
+    return unique_values, groups
