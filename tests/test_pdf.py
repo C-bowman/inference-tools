@@ -156,7 +156,7 @@ def test_sample_hdi_invalid_fractions():
 def test_binary_tree():
     limit_left, limit_right = [-1.0, 1.0]
     tree = BinaryTree(2, (limit_left, limit_right))
-    vals = array([-10. -1.0, -0.9, 0., 0.4, 10.])
+    vals = array([-10.0 - 1.0, -0.9, 0.0, 0.4, 10.0])
     region_inds, groups = tree.region_groups(vals)
     assert (region_inds == array([0, 1, 2, 3])).all()
 
@@ -167,7 +167,7 @@ def test_binary_tree():
         default_rng(1).integers(low=0, high=6, size=124),
         default_rng(2).random(size=64),
         zeros(5, dtype=int) + 1,
-        array([5.])
+        array([5.0]),
     ],
 )
 def test_unique_index_groups(values):
