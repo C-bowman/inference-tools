@@ -1,5 +1,5 @@
 from itertools import product
-from numpy import array, linspace, cos, pi, log, exp, mean, sqrt, tanh
+from numpy import array, ndarray, linspace, cos, pi, log, exp, mean, sqrt, tanh
 from scipy.integrate import simps
 from scipy.optimize import minimize
 from inference.pdf.base import DensityEstimator
@@ -12,7 +12,7 @@ class UnimodalPdf(DensityEstimator):
 
     The UnimodalPdf class is designed to robustly estimate univariate, unimodal probability
     distributions given a sample drawn from that distribution. This is a parametric method
-    based on an heavily modified student-t distribution, which is extremely flexible.
+    based on a heavily modified student-t distribution, which is extremely flexible.
 
     :param sample: 1D array of samples from which to estimate the probability distribution
     """
@@ -84,7 +84,7 @@ class UnimodalPdf(DensityEstimator):
 
         return mu, sig, skew
 
-    def __call__(self, x):
+    def __call__(self, x: ndarray) -> ndarray:
         """
         Evaluate the PDF estimate at a set of given axis positions.
 

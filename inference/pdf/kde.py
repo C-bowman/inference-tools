@@ -41,7 +41,11 @@ class GaussianKDE(DensityEstimator):
     """
 
     def __init__(
-        self, sample, bandwidth=None, cross_validation=False, max_cv_samples=5000
+        self,
+        sample: ndarray,
+        bandwidth=None,
+        cross_validation=False,
+        max_cv_samples=5000,
     ):
         self.s = sort(array(sample).flatten())  # sorted array of the samples
         # maximum number of samples to be used for cross-validation
@@ -89,7 +93,6 @@ class GaussianKDE(DensityEstimator):
 
         # The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
         self.mode = self.locate_mode()
-        print(self.mode)
 
     def __call__(self, x: ndarray) -> ndarray:
         """
@@ -222,7 +225,7 @@ class GaussianKDE(DensityEstimator):
             lwr, upr = self.s[0], self.s[-1]
 
         result = minimize_scalar(
-            lambda x: -self(x), bounds=[lwr, upr], method="bounded"
+            lambda x: -self(x)[0], bounds=[lwr, upr], method="bounded"
         )
         return result.x
 
@@ -235,14 +238,18 @@ class GaussianKDE(DensityEstimator):
         Note that these quantities are calculated directly from the estimated PDF, and
         not from the sample values.
         """
-        N = 1000
+        N = int(5 * (self.upr_limit - self.lwr_limit) / self.h)
         x = linspace(self.lwr_limit, self.upr_limit, N)
         p = self(x)
 
         mu = simps(p * x, x=x)
-        var = simps(p * (x - mu) ** 2, x=x)
-        skw = simps(p * (x - mu) ** 3, x=x) / var * 1.5
-        kur = (simps(p * (x - mu) ** 4, x=x) / var**2) - 3.0
+        dx = x - mu
+        I = p * dx**2
+        var = simps(I, x=x)
+        I *= dx
+        skw = simps(I, x=x) / var * 1.5
+        I *= dx
+        kur = (simps(I, x=x) / var**2) - 3.0
         return mu, var, skw, kur
 
     def interval(self, frac=0.95):
@@ -301,6 +308,10 @@ class BinaryTree:
         self.regions[-1] = self.edges.size - 2
 
     def region_groups(self, values: ndarray):
+        """
+        Finds the indices of the given 'values' array which correspond to each of the
+        regions covered by the tree.
+        """
         region_indices = self.regions[searchsorted(self.edges, values)]
         return unique_index_groups(region_indices)
 
@@ -308,7 +319,7 @@ class BinaryTree:
 def unique_index_groups(values: ndarray) -> tuple[ndarray, list[ndarray]]:
     """
     For the given 'values' array, generates a list of numpy arrays which
-    contain the indices corresponding to the groupings each of the unique values.
+    contain the indices corresponding to the groupings of each of the unique values.
     """
     unique_values, inverse_inds, counts = unique(
         values, return_inverse=True, return_counts=True

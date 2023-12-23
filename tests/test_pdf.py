@@ -1,9 +1,9 @@
 from inference.pdf.hdi import sample_hdi
 from inference.pdf.unimodal import UnimodalPdf
-from inference.pdf.kde import GaussianKDE, BinaryTree
-from numpy.random import default_rng
+from inference.pdf.kde import GaussianKDE, BinaryTree, unique_index_groups
 
-from numpy import isclose, linspace, concatenate
+from numpy.random import default_rng
+from numpy import array, arange, isclose, linspace, concatenate, zeros
 
 import pytest
 from hypothesis import given, strategies as st
@@ -153,16 +153,29 @@ def test_sample_hdi_invalid_fractions():
         sample_hdi(1, fraction=0.95)
 
 
-@given(st.floats())
-def test_binary_tree(value):
-    limit_left, limit_right = [-1, 1]
+def test_binary_tree():
+    limit_left, limit_right = [-1.0, 1.0]
+    tree = BinaryTree(2, (limit_left, limit_right))
+    vals = array([-10. -1.0, -0.9, 0., 0.4, 10.])
+    region_inds, groups = tree.region_groups(vals)
+    assert (region_inds == array([0, 1, 2, 3])).all()
 
-    tree = BinaryTree(4, [limit_left, limit_right])
-    left, right, _ = tree.lookup(value)
 
-    if limit_left <= value <= limit_right:
-        assert left <= value <= right
-    elif value < limit_left:
-        assert value < left < right
-    elif value > limit_right:
-        assert value > right > left
+@pytest.mark.parametrize(
+    "values",
+    [
+        default_rng(1).integers(low=0, high=6, size=124),
+        default_rng(2).random(size=64),
+        zeros(5, dtype=int) + 1,
+        array([5.])
+    ],
+)
+def test_unique_index_groups(values):
+    uniques, groups = unique_index_groups(values)
+
+    for u, g in zip(uniques, groups):
+        assert (u == values[g]).all()
+
+    k = concatenate(groups)
+    k.sort()
+    assert (k == arange(k.size)).all()
