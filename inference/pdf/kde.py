@@ -1,5 +1,4 @@
 from functools import reduce
-from itertools import pairwise
 from numpy import arange, array, ndarray, atleast_1d, zeros
 from numpy import sort, linspace, searchsorted, argsort, argmax, unique
 from numpy import sqrt, pi, log, exp, std, logaddexp, cov
@@ -330,5 +329,5 @@ def unique_index_groups(values: ndarray) -> tuple[ndarray, list[ndarray]]:
     cuts = zeros(counts.size + 1, dtype=int)
     cuts[1:] = counts.cumsum()
     # slice the indices into groups for each unique value
-    groups = [unique_inds[i:j] for i, j in pairwise(cuts)]
+    groups = [unique_inds[i:j] for i, j in zip(cuts[:-1], cuts[1:])]
     return unique_values, groups
