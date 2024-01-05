@@ -1,6 +1,7 @@
 from itertools import product
-from numpy import array, ndarray, linspace, cos, pi, log, exp, mean, sqrt, tanh
-from scipy.integrate import simps
+from numpy import cos, pi, log, exp, mean, sqrt, tanh
+from numpy import array, ndarray, linspace, zeros, atleast_1d
+from scipy.integrate import simps, quad
 from scipy.optimize import minimize
 from inference.pdf.base import DensityEstimator
 
@@ -14,12 +15,13 @@ class UnimodalPdf(DensityEstimator):
     distributions given a sample drawn from that distribution. This is a parametric method
     based on a heavily modified student-t distribution, which is extremely flexible.
 
-    :param sample: 1D array of samples from which to estimate the probability distribution
+    :param sample: \
+        1D array of samples from which to estimate the probability distribution.
     """
 
-    def __init__(self, sample):
-        self.sample = array(sample)
-        self.n_samps = len(sample)
+    def __init__(self, sample: ndarray):
+        self.sample = array(sample).flatten()
+        self.n_samps = sample.size
 
         # chebyshev quadtrature weights and axes
         self.sd = 0.2
@@ -40,10 +42,11 @@ class UnimodalPdf(DensityEstimator):
         guesses = self.generate_guesses()
 
         # sort the guesses by the lowest score
-        guesses = sorted(guesses, key=self.minfunc)
+        minfunc = lambda x: -self.posterior(x)
+        guesses = sorted(guesses, key=minfunc)
 
         # minimise based on the best guess
-        self.min_result = minimize(self.minfunc, guesses[0], method="Nelder-Mead")
+        self.min_result = minimize(minfunc, guesses[0], method="Nelder-Mead")
         self.MAP = self.min_result.x
         self.mode = self.MAP[0]
 
@@ -51,7 +54,7 @@ class UnimodalPdf(DensityEstimator):
         if self.skip > 1:
             self.x = self.sample
             self.n = self.n_samps
-            self.min_result = minimize(self.minfunc, self.MAP, method="Nelder-Mead")
+            self.min_result = minimize(minfunc, self.MAP, method="Nelder-Mead")
             self.MAP = self.min_result.x
             self.mode = self.MAP[0]
 
@@ -93,6 +96,22 @@ class UnimodalPdf(DensityEstimator):
         """
         return exp(self.log_pdf_model(x, self.MAP) - self.map_lognorm)
 
+    def cdf(self, x: ndarray) -> ndarray:
+        x = atleast_1d(x)
+        sorter = x.argsort()
+        inverse_sort = sorter.argsort()
+        v = x[sorter]
+        intervals = zeros(x.size)
+        intervals[0] = (
+            quad(self.__call__, self.lwr_limit, v[0])[0]
+            if v[0] > self.lwr_limit
+            else 0.0
+        )
+        for i in range(1, x.size):
+            intervals[i] = quad(self.__call__, v[i - 1], v[i])[0]
+        integral = intervals.cumsum()[inverse_sort]
+        return integral if x.size > 1 else integral[0]
+
     def posterior(self, paras):
         x0, s0, v, f, k, q = paras
 
@@ -102,9 +121,6 @@ class UnimodalPdf(DensityEstimator):
             return self.log_pdf_model(self.x, paras).sum() - normalisation
         else:
             return -1e50
-
-    def minfunc(self, paras):
-        return -self.posterior(paras)
 
     def norm(self, pvec):
         v = self.pdf_model(self.u, [0.0, self.sd, *pvec[2:]])
