@@ -14,6 +14,10 @@ class DensityEstimator(ABC):
         pass
 
     @abstractmethod
+    def cdf(self, x: ndarray) -> ndarray:
+        pass
+
+    @abstractmethod
     def moments(self) -> tuple:
         pass
 
@@ -73,9 +77,7 @@ class DensityEstimator(ABC):
         )
         ax[0].plot(axis, self(axis), lw=1, c="C0")
         ax[0].fill_between(axis, self(axis), color="C0", alpha=0.1)
-        ax[0].plot(
-            [self.mode, self.mode], [0.0, self(self.mode)[0]], c="red", ls="dashed"
-        )
+        ax[0].plot([self.mode, self.mode], [0.0, self(self.mode)], c="red", ls="dashed")
 
         ax[0].set_xlabel(label or "argument", fontsize=13)
         ax[0].set_ylabel("probability density", fontsize=13)
