@@ -109,7 +109,8 @@ class GaussianKDE(DensityEstimator):
         for r, g in zip(regions, index_groups):
             dx = x[g, None] - self.s[None, self.slices[r]]
             pdf[g] = exp(-((dx * self.q) ** 2)).sum(axis=1)
-        return self.norm * pdf
+        pdf *= self.norm
+        return pdf if pdf.size > 1 else pdf[0]
 
     def cdf(self, x: ndarray) -> ndarray:
         """
@@ -129,7 +130,7 @@ class GaussianKDE(DensityEstimator):
             dx = x[g, None] - self.s[None, self.slices[r]]
             k = 1 + erf(dx * self.q)
             cdf[g] = coeff * k.sum(axis=1) + self.cdf_offsets[r]
-        return cdf
+        return cdf if cdf.size > 1 else cdf[0]
 
     def simple_bandwidth_estimator(self):
         # A simple estimate which assumes the distribution close to a Gaussian
@@ -224,7 +225,7 @@ class GaussianKDE(DensityEstimator):
             lwr, upr = self.s[0], self.s[-1]
 
         result = minimize_scalar(
-            lambda x: -self(x)[0], bounds=[lwr, upr], method="bounded"
+            lambda x: -self(x), bounds=[lwr, upr], method="bounded"
         )
         return result.x
 
