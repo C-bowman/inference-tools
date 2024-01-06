@@ -87,12 +87,17 @@ class DensityEstimator(ABC):
 
         sigma_1 = self.interval(fraction=0.68268)
         sigma_2 = self.interval(fraction=0.95449)
-        sigma_3 = self.interval(fraction=0.9973)
         mu, var, skw, kur = self.moments()
-        s_min, s_max = sigma_3
+        s_min, s_max = sigma_2
+        maxprob = self(self.mode)
 
-        lwr = s_min - 0.1 * (s_max - s_min)
-        upr = s_max + 0.1 * (s_max - s_min)
+        delta = 0.1 * (s_max - s_min)
+        lwr = s_min - delta
+        upr = s_max + delta
+        while self(lwr) / maxprob > 5e-3:
+            lwr -= delta
+        while self(upr) / maxprob > 5e-3:
+            upr += delta
 
         axis = linspace(lwr, upr, 500)
 
@@ -104,7 +109,7 @@ class DensityEstimator(ABC):
         )
         ax[0].plot(axis, self(axis), lw=1, c="C0")
         ax[0].fill_between(axis, self(axis), color="C0", alpha=0.1)
-        ax[0].plot([self.mode, self.mode], [0.0, self(self.mode)], c="red", ls="dashed")
+        ax[0].plot([self.mode, self.mode], [0.0, maxprob], c="red", ls="dashed")
 
         ax[0].set_xlabel(label or "argument", fontsize=13)
         ax[0].set_ylabel("probability density", fontsize=13)
@@ -146,7 +151,6 @@ class DensityEstimator(ABC):
 
         h = write_sigma(h, "1-sigma:", sigma_1)
         h = write_sigma(h, "2-sigma:", sigma_2)
-        h = write_sigma(h, "3-sigma:", sigma_3)
         h -= gap
 
         h = section_title(h, "Higher moments")
