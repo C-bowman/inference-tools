@@ -247,7 +247,7 @@ class GaussianKDE(DensityEstimator):
         I = p * dx**2
         var = simps(I, x=x)
         I *= dx
-        skw = simps(I, x=x) / var ** 1.5
+        skw = simps(I, x=x) / var**1.5
         I *= dx
         kur = (simps(I, x=x) / var**2) - 3.0
         return mu, var, skw, kur

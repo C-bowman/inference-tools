@@ -156,6 +156,6 @@ class UnimodalPdf(DensityEstimator):
 
         mu = simps(p * x, x=x)
         var = simps(p * (x - mu) ** 2, x=x)
-        skw = simps(p * (x - mu) ** 3, x=x) / var ** 1.5
+        skw = simps(p * (x - mu) ** 3, x=x) / var**1.5
         kur = (simps(p * (x - mu) ** 4, x=x) / var**2) - 3.0
         return mu, var, skw, kur
