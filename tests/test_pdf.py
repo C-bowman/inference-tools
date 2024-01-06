@@ -2,46 +2,105 @@ from inference.pdf.hdi import sample_hdi
 from inference.pdf.unimodal import UnimodalPdf
 from inference.pdf.kde import GaussianKDE, BinaryTree, unique_index_groups
 
+from dataclasses import dataclass
 from numpy.random import default_rng
-from numpy import array, arange, isclose, linspace, concatenate, zeros
+from numpy import array, ndarray, arange, isclose, linspace, concatenate, zeros
 
 import pytest
 from hypothesis import given, strategies as st
 
 
-def test_gaussian_kde_moments():
-    N = 20000
-    expected_mu = 5.0
-    expected_sigma = 2.0
+@dataclass
+class DensityTestCase:
+    samples: ndarray
+    fraction: float
+    interval: tuple[float, float]
+    mean: float
+    variance: float
+    skewness: float
+    kurtosis: float
 
-    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
-    pdf = GaussianKDE(sample)
+    @classmethod
+    def normal(cls, n_samples=20000):
+        rng = default_rng(13)
+        mu, sigma = 5.0, 2.0
+        samples = rng.normal(loc=mu, scale=sigma, size=n_samples)
+        return cls(
+            samples=samples,
+            fraction=0.68269,
+            interval=(mu - sigma, mu + sigma),
+            mean=mu,
+            variance=sigma**2,
+            skewness=0.0,
+            kurtosis=0.0,
+        )
+
+    @classmethod
+    def expgauss(cls, n_samples=20000):
+        rng = default_rng(7)
+        mu, sigma, lmbda = 5.0, 2.0, 0.25
+        samples = rng.normal(loc=mu, scale=sigma, size=n_samples) + rng.exponential(
+            scale=1.0 / lmbda, size=n_samples
+        )
+        v = 1 / (sigma * lmbda) ** 2
+        return cls(
+            samples=samples,
+            fraction=0.68269,
+            interval=(4.047, 11.252),
+            mean=mu + 1.0 / lmbda,
+            variance=sigma**2 + lmbda**-2,
+            skewness=2.0 * (1 + 1 / v) ** -1.5,
+            kurtosis=3 * (1 + 2 * v + 3 * v**2) / (1 + v) ** 2 - 3,
+        )
+
+
+def test_gaussian_kde_moments():
+    testcase = DensityTestCase.expgauss()
+    pdf = GaussianKDE(testcase.samples)
     mu, variance, skew, kurt = pdf.moments()
 
-    tolerance = 0.2
-    assert isclose(pdf.mode, expected_mu, rtol=tolerance, atol=tolerance)
-    assert isclose(mu, expected_mu, rtol=tolerance, atol=tolerance)
-    assert isclose(variance, expected_sigma**2, rtol=tolerance, atol=tolerance)
-    assert isclose(skew, 0.0, rtol=tolerance, atol=tolerance)
-    assert isclose(kurt, 0.0, rtol=tolerance, atol=tolerance)
+    tolerance = 0.1
+    assert isclose(mu, testcase.mean, rtol=tolerance, atol=0.0)
+    assert isclose(variance, testcase.variance, rtol=tolerance, atol=0.0)
+    assert isclose(skew, testcase.skewness, rtol=tolerance, atol=0.0)
+    assert isclose(kurt, testcase.kurtosis, rtol=tolerance, atol=0.0)
 
 
-def test_gaussian_kde_interval():
-    N = 20000
-    expected_mu = 5.0
-    expected_sigma = 2.0
+def test_unimodal_pdf_moments():
+    testcase = DensityTestCase.expgauss(n_samples=5000)
+    pdf = UnimodalPdf(testcase.samples)
+    mu, variance, skew, kurt = pdf.moments()
 
-    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
-    pdf = GaussianKDE(sample)
-    left, right = pdf.interval()
+    assert isclose(mu, testcase.mean, rtol=0.1, atol=0.0)
+    assert isclose(variance, testcase.variance, rtol=0.1, atol=0.0)
+    assert isclose(skew, testcase.skewness, rtol=0.1, atol=0.0)
+    assert isclose(kurt, testcase.kurtosis, rtol=0.2, atol=0.0)
 
-    tolerance = 0.2
-    assert isclose(
-        left, expected_mu - (expected_sigma**2), rtol=tolerance, atol=tolerance
-    )
-    assert isclose(
-        right, expected_mu + (expected_sigma**2), rtol=tolerance, atol=tolerance
-    )
+
+@pytest.mark.parametrize(
+    "testcase",
+    [DensityTestCase.normal(), DensityTestCase.expgauss()],
+)
+def test_gaussian_kde_interval(testcase):
+    pdf = GaussianKDE(testcase.samples)
+    left, right = pdf.interval(fraction=testcase.fraction)
+    left_target, right_target = testcase.interval
+    tolerance = (right_target - left_target) * 0.05
+    assert isclose(left, left_target, rtol=0.0, atol=tolerance)
+    assert isclose(right, right_target, rtol=0.0, atol=tolerance)
+
+
+@pytest.mark.parametrize(
+    "testcase",
+    [DensityTestCase.normal(n_samples=5000), DensityTestCase.expgauss(n_samples=5000)],
+)
+def test_unimodal_pdf_interval(testcase):
+    pdf = UnimodalPdf(testcase.samples)
+    left, right = pdf.interval(fraction=testcase.fraction)
+    left_target, right_target = testcase.interval
+    tolerance = (right_target - left_target) * 0.05
+    assert isclose(left, left_target, rtol=0.0, atol=tolerance)
+    assert isclose(right, right_target, rtol=0.0, atol=tolerance)
 
 
 def test_gaussian_kde_plotting():
@@ -60,34 +119,6 @@ def test_gaussian_kde_plotting():
     assert right >= max_value
     assert bottom <= 0.0
     assert top >= pdf(expected_mu)
-
-
-def test_unimodal_pdf_moments():
-    N = 5000
-    # Create some samples from the exponentially-modified Gaussian distribution
-    rng = default_rng(1234)
-    sample = rng.normal(size=N) + rng.exponential(scale=3.0, size=N)
-    pdf = UnimodalPdf(sample)
-    mu, variance, skew, kurt = pdf.moments()
-    tolerance = 0.2
-    assert isclose(pdf.mode, 1.0, rtol=tolerance, atol=tolerance)
-    assert isclose(mu, 3.0, rtol=tolerance, atol=tolerance)
-    assert isclose(variance, 10.0, rtol=tolerance, atol=tolerance)
-    assert isclose(skew, 7.5, rtol=tolerance, atol=tolerance)
-    assert isclose(kurt, 3.5, rtol=1.0, atol=1.0)
-
-
-def test_unimodal_pdf_interval():
-    N = 5000
-    # Create some samples from the exponentially-modified Gaussian distribution
-    rng = default_rng(1234)
-    sample = rng.normal(size=N) + rng.exponential(scale=3.0, size=N)
-    pdf = UnimodalPdf(sample)
-    left, right = pdf.interval()
-
-    tolerance = 0.2
-    assert isclose(left, -1.75, rtol=tolerance, atol=tolerance)
-    assert isclose(right, 9.5, rtol=tolerance, atol=tolerance)
 
 
 def test_sample_hdi_95():
