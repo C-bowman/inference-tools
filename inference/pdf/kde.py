@@ -46,11 +46,11 @@ class GaussianKDE(DensityEstimator):
         cross_validation=False,
         max_cv_samples=5000,
     ):
-        self.s = sort(array(sample).flatten())  # sorted array of the samples
+        self.sample = sort(array(sample).flatten())  # sorted array of the samples
         # maximum number of samples to be used for cross-validation
         self.max_cvs = max_cv_samples
 
-        if self.s.size < 3:
+        if self.sample.size < 3:
             raise ValueError(
                 """\n
                 \r[ GaussianKDE error ]
@@ -67,28 +67,28 @@ class GaussianKDE(DensityEstimator):
             self.h = bandwidth
 
         # define some useful constants
-        self.norm = 1.0 / (len(self.s) * sqrt(2 * pi) * self.h)
+        self.norm = 1.0 / (len(self.sample) * sqrt(2 * pi) * self.h)
         self.cutoff = self.h * 4
         self.q = 1.0 / (sqrt(2) * self.h)
-        self.lwr_limit = self.s[0] - self.cutoff * 0.5
-        self.upr_limit = self.s[-1] + self.cutoff * 0.5
+        self.lwr_limit = self.sample[0] - self.cutoff * 0.5
+        self.upr_limit = self.sample[-1] + self.cutoff * 0.5
 
         # decide how many regions the axis should be divided into
-        n = int(log((self.s[-1] - self.s[0]) / self.h) / log(2)) + 1
+        n = int(log((self.sample[-1] - self.sample[0]) / self.h) / log(2)) + 1
 
         # now generate midpoints of these regions
-        mids = linspace(self.s[0], self.s[-1], 2**n + 1)
+        mids = linspace(self.sample[0], self.sample[-1], 2**n + 1)
         mids = 0.5 * (mids[1:] + mids[:-1])
 
         # get the cutoff indices
-        lwr_inds = searchsorted(self.s, mids - self.cutoff)
-        upr_inds = searchsorted(self.s, mids + self.cutoff)
+        lwr_inds = searchsorted(self.sample, mids - self.cutoff)
+        upr_inds = searchsorted(self.sample, mids + self.cutoff)
         self.slices = [slice(l, u) for l, u in zip(lwr_inds, upr_inds)]
-        self.cdf_offsets = lwr_inds / self.s.size
+        self.cdf_offsets = lwr_inds / self.sample.size
 
         # build a binary tree which allows fast look-up of which
         # region contains a given value
-        self.tree = BinaryTree(n, (self.s[0], self.s[-1]))
+        self.tree = BinaryTree(n, (self.sample[0], self.sample[-1]))
 
         # The mode of the pdf, calculated automatically when an instance of GaussianKDE is created.
         self.mode = self.locate_mode()
@@ -107,7 +107,7 @@ class GaussianKDE(DensityEstimator):
         regions, index_groups = self.tree.region_groups(x)
         # evaluate the density estimate from the slice
         for r, g in zip(regions, index_groups):
-            dx = x[g, None] - self.s[None, self.slices[r]]
+            dx = x[g, None] - self.sample[None, self.slices[r]]
             pdf[g] = exp(-((dx * self.q) ** 2)).sum(axis=1)
         pdf *= self.norm
         return pdf if pdf.size > 1 else pdf[0]
@@ -124,17 +124,17 @@ class GaussianKDE(DensityEstimator):
         cdf = zeros(x.size)
         # look-up the region
         regions, index_groups = self.tree.region_groups(x)
-        coeff = 0.5 / self.s.size
+        coeff = 0.5 / self.sample.size
         # evaluate the density estimate from the slice
         for r, g in zip(regions, index_groups):
-            dx = x[g, None] - self.s[None, self.slices[r]]
+            dx = x[g, None] - self.sample[None, self.slices[r]]
             k = 1 + erf(dx * self.q)
             cdf[g] = coeff * k.sum(axis=1) + self.cdf_offsets[r]
         return cdf if cdf.size > 1 else cdf[0]
 
     def simple_bandwidth_estimator(self):
         # A simple estimate which assumes the distribution close to a Gaussian
-        return 1.06 * std(self.s) / (self.s.size**0.2)
+        return 1.06 * std(self.sample) / (self.sample.size**0.2)
 
     def cross_validation_bandwidth_estimator(self, initial_h):
         """
@@ -142,11 +142,11 @@ class GaussianKDE(DensityEstimator):
         using a 'leave-one-out cross-validation' approach.
         """
         # first check if we need to sub-sample for computational cost reduction
-        if len(self.s) > self.max_cvs:
-            scrambler = argsort(random(size=len(self.s)))
-            samples = (self.s[scrambler])[: self.max_cvs]
+        if len(self.sample) > self.max_cvs:
+            scrambler = argsort(random(size=len(self.sample)))
+            samples = (self.sample[scrambler])[: self.max_cvs]
         else:
-            samples = self.s
+            samples = self.sample
 
         # create a grid in log-bandwidth space and evaluate the log-prob across it
         dh = 0.5
@@ -219,10 +219,10 @@ class GaussianKDE(DensityEstimator):
 
     def locate_mode(self):
         # if there are enough samples, use the 20% HDI to bound the search for the mode
-        if self.s.size > 50:
-            lwr, upr = sample_hdi(self.s, 0.2)
+        if self.sample.size > 50:
+            lwr, upr = sample_hdi(self.sample, 0.2)
         else:  # else just use the entire range of the samples
-            lwr, upr = self.s[0], self.s[-1]
+            lwr, upr = self.sample[0], self.sample[-1]
 
         result = minimize_scalar(
             lambda x: -self(x), bounds=[lwr, upr], method="bounded"
@@ -247,19 +247,10 @@ class GaussianKDE(DensityEstimator):
         I = p * dx**2
         var = simps(I, x=x)
         I *= dx
-        skw = simps(I, x=x) / var * 1.5
+        skw = simps(I, x=x) / var ** 1.5
         I *= dx
         kur = (simps(I, x=x) / var**2) - 3.0
         return mu, var, skw, kur
-
-    def interval(self, frac=0.95):
-        """
-        Calculate the highest-density interval(s) which contain a given fraction of total probability.
-
-        :param float frac: Fraction of total probability contained by the desired interval(s).
-        :return: A list of tuples which specify the intervals.
-        """
-        return sample_hdi(self.s, frac, allow_double=True)
 
 
 class KDE2D:
