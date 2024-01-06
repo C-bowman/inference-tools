@@ -1,13 +1,17 @@
 from abc import ABC, abstractmethod
 from matplotlib import pyplot as plt
-from numpy import ndarray, linspace, sqrt
-from scipy.integrate import quad
+from numpy import array, ndarray, linspace, sqrt
+from scipy.optimize import minimize
+from inference.pdf.hdi import sample_hdi
 
 
 class DensityEstimator(ABC):
     """
     Abstract base class for 1D density estimators.
     """
+
+    sample: ndarray
+    mode: float
 
     @abstractmethod
     def __call__(self, x: ndarray) -> ndarray:
@@ -21,21 +25,51 @@ class DensityEstimator(ABC):
     def moments(self) -> tuple:
         pass
 
-    def interval(self, frac=0.95):
-        p_max = self(self.mode)
-        p_conf = self.binary_search(
-            self.interval_prob, frac, [0.0, p_max], uphill=False
+    def interval(self, fraction: float) -> tuple[float, float]:
+        """
+        Calculates the 'highest-density interval', the shortest single interval
+        which contains a chosen fraction of the total probability.
+
+        :param fraction: \
+            Fraction of the total probability contained by the interval. The given
+            value must be between 0 and 1.
+
+        :return: \
+            A tuple of the lower and upper limits of the highest-density interval
+            in the form ``(lower_limit, upper_limit)``.
+        """
+        if not 0.0 < fraction < 1.0:
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> The 'fraction' argument must have a value greater than
+                \r>> zero and less than one, but the value given was {fraction}.
+                """
+            )
+        # use the sample to estimate the HDI
+        lwr, upr = sample_hdi(self.sample, fraction=fraction)
+        # switch variables to the centre and width of the interval
+        c = 0.5 * (lwr + upr)
+        w = upr - lwr
+
+        simplex = array([[c, w], [c, 0.95 * w], [c - 0.05 * w, w]])
+        weight = 0.2 / self(self.mode)
+        result = minimize(
+            fun=self.__hdi_cost,
+            x0=simplex[0, :],
+            method="Nelder-Mead",
+            options={"initial_simplex": simplex},
+            args=(fraction, weight),
         )
-        return self.get_interval(p_conf)
+        c, w = result.x
+        return c - 0.5 * w, c + 0.5 * w
 
-    def get_interval(self, z):
-        lwr = self.binary_search(self, z, [self.lwr_limit, self.mode], uphill=True)
-        upr = self.binary_search(self, z, [self.mode, self.upr_limit], uphill=False)
-        return lwr, upr
-
-    def interval_prob(self, z):
-        lwr, upr = self.get_interval(z)
-        return quad(self, lwr, upr, limit=100)[0]
+    def __hdi_cost(self, theta, fraction, prob_weight):
+        c, w = theta
+        v = array([c - 0.5 * w, c + 0.5 * w])
+        Pa, Pb = self(v)
+        Fa, Fb = self.cdf(v)
+        return (prob_weight * (Pa - Pb)) ** 2 + (Fb - Fa - fraction) ** 2
 
     def plot_summary(self, filename=None, show=True, label=None):
         """
@@ -51,18 +85,11 @@ class DensityEstimator(ABC):
             The label to be used for the x-axis on the plot as a string.
         """
 
-        def ensure_is_nested_list(var):
-            if not isinstance(var[0], (list, tuple)):
-                var = [var]
-            return var
-
-        sigma_1 = ensure_is_nested_list(self.interval(frac=0.68268))
-        sigma_2 = ensure_is_nested_list(self.interval(frac=0.95449))
-        sigma_3 = ensure_is_nested_list(self.interval(frac=0.9973))
+        sigma_1 = self.interval(fraction=0.68268)
+        sigma_2 = self.interval(fraction=0.95449)
+        sigma_3 = self.interval(fraction=0.9973)
         mu, var, skw, kur = self.moments()
-
-        s_min = sigma_3[0][0]
-        s_max = sigma_3[-1][1]
+        s_min, s_max = sigma_3
 
         lwr = s_min - 0.1 * (s_max - s_min)
         upr = s_max + 0.1 * (s_max - s_min)
@@ -108,14 +135,13 @@ class DensityEstimator(ABC):
 
         def write_sigma(height, name, sigma):
             ax[1].text(x1, height, name, horizontalalignment="right")
-            for itvl in sigma:
-                ax[1].text(
-                    x2,
-                    height,
-                    rf"{itvl[0]:.5G} $\rightarrow$ {itvl[1]:.5G}",
-                    horizontalalignment="left",
-                )
-                height -= gap
+            ax[1].text(
+                x2,
+                height,
+                rf"{sigma[0]:.5G} $\rightarrow$ {sigma[1]:.5G}",
+                horizontalalignment="left",
+            )
+            height -= gap
             return height
 
         h = write_sigma(h, "1-sigma:", sigma_1)
@@ -137,33 +163,3 @@ class DensityEstimator(ABC):
             plt.show()
 
         return fig, ax
-
-    @staticmethod
-    def binary_search(func, value, bounds, uphill=True):
-        x_min, x_max = bounds
-        x = (x_min + x_max) * 0.5
-
-        converged = False
-        while not converged:
-            f = func(x)
-            if f > value:
-                if uphill:
-                    x_max = x
-                else:
-                    x_min = x
-            else:
-                if uphill:
-                    x_min = x
-                else:
-                    x_max = x
-
-            x = (x_min + x_max) * 0.5
-            if abs((x_max - x_min) / x) < 1e-3:
-                converged = True
-
-        # now linearly interpolate as a polish step
-        f_max = func(x_max)
-        f_min = func(x_min)
-        df = f_max - f_min
-
-        return x_min * ((f_max - value) / df) + x_max * ((value - f_min) / df)
