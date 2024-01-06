@@ -4,7 +4,9 @@ from time import time
 from numpy import ndarray
 from numpy.random import permutation
 
-from inference.pdf import GaussianKDE, UnimodalPdf, DensityEstimator
+from inference.pdf.base import DensityEstimator
+from inference.pdf.kde import GaussianKDE
+from inference.pdf.unimodal import UnimodalPdf
 from inference.plotting import matrix_plot, trace_plot
 from inference.mcmc.utilities import ChainProgressPrinter
 
