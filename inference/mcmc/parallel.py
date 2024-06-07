@@ -349,7 +349,7 @@ class ParallelTempering:
         fig = plt.figure(figsize=(10, 5))
         ax1 = fig.add_subplot(121)
         transition_matrix_plot(
-            ax=ax1, matrix=rate_matrix, exclude_diagonal=True, upper_triangular=True
+            axis=ax1, matrix=rate_matrix, exclude_diagonal=True, upper_triangular=True
         )
         ax1.set_xlabel("chain number")
         ax1.set_ylabel("chain number")

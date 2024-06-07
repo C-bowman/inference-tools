@@ -4,6 +4,7 @@
 
 from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray, percentile
 from itertools import product, cycle
+from collections.abc import Sequence
 from warnings import warn
 from inference.pdf.hdi import sample_hdi
 from inference.pdf.kde import GaussianKDE, KDE2D
@@ -11,23 +12,23 @@ from inference.pdf.kde import GaussianKDE, KDE2D
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.collections import PatchCollection
-from matplotlib.cm import get_cmap
+from matplotlib import colormaps
 import matplotlib.patheffects as path_effects
 
 
 def matrix_plot(
     samples,
-    labels=None,
-    show=True,
-    reference=None,
-    filename=None,
-    plot_style="contour",
-    colormap="Blues",
-    show_ticks=None,
-    point_colors=None,
+    labels: list[str] = None,
+    show: bool = True,
+    reference: Sequence[float] = None,
+    filename: str = None,
+    plot_style: str = "contour",
+    colormap: str = "Blues",
+    show_ticks: bool = None,
+    point_colors: Sequence[float] = None,
     hdi_fractions=(0.35, 0.65, 0.95),
-    point_size=1,
-    label_size=10,
+    point_size: int = 1,
+    label_size: int = 10,
 ):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
@@ -36,43 +37,47 @@ def matrix_plot(
     :param samples: \
         A list of array-like objects containing the samples for each variable.
 
-    :keyword labels: \
+    :param labels: \
         A list of strings to be used as axis labels for each parameter being plotted.
 
-    :keyword bool show: \
+    :param bool show: \
         Sets whether the plot is displayed.
 
-    :keyword reference: \
+    :param reference: \
         A list of reference values for each parameter which will be over-plotted.
 
-    :keyword str filename: \
+    :param str filename: \
         File path to which the matrix plot will be saved (if specified).
 
-    :keyword str plot_style: \
+    :param str plot_style: \
         Specifies the type of plot used to display the 2D marginal distributions.
         Available styles are 'contour' for filled contour plotting, 'hdi' for
         highest-density interval contouring, 'histogram' for hexagonal-bin histogram,
         and 'scatter' for scatterplot.
 
-    :keyword bool show_ticks: \
+    :param str colormap: \
+        The colormap to be used for plotting. Must be the name of
+        a valid colormap present in ``matplotlib.colormaps``.
+
+    :param bool show_ticks: \
         By default, axis ticks are only shown when plotting less than 6 variables.
         This behaviour can be overridden for any number of parameters by setting
         show_ticks to either True or False.
 
-    :keyword point_colors: \
+    :param point_colors: \
         An array containing data which will be used to set the colors of the points
         if the plot_style argument is set to 'scatter'.
 
-    :keyword point_size: \
+    :param point_size: \
         An array containing data which will be used to set the size of the points
         if the plot_style argument is set to 'scatter'.
 
-    :keyword hdi_fractions: \
+    :param hdi_fractions: \
         The highest-density intervals used for contouring, specified in terms of
         the fraction of the total probability contained in each interval. Should
         be given as an iterable of floats, each in the range [0, 1].
 
-    :keyword int label_size: \
+    :param int label_size: \
         The font-size used for axis labels.
     """
 
@@ -85,20 +90,20 @@ def matrix_plot(
     else:
         if len(labels) != N_par:
             raise ValueError(
-                """
-                [ matrix_plot error ]
-                >> The number of labels given does not match
-                >> the number of plotted parameters.
+                """\n
+                \r[ matrix_plot error ]
+                \r>> The number of labels given does not match
+                \r>> the number of plotted parameters.
                 """
             )
 
     if reference is not None:
         if len(reference) != N_par:
             raise ValueError(
-                """
-                [ matrix_plot error ]
-                >> The number of reference values given does not match
-                >> the number of plotted parameters.
+                """\n
+                \r[ matrix_plot error ]
+                \r>> The number of reference values given does not match
+                \r>> the number of plotted parameters.
                 """
             )
     # check that given plot style is valid, else default to a histogram
@@ -111,10 +116,10 @@ def matrix_plot(
     iterable = hasattr(hdi_fractions, "__iter__")
     if not iterable or not all(0 < f < 1 for f in hdi_fractions):
         raise ValueError(
-            """
-            [ matrix_plot error ]
-            >> The 'hdi_fractions' argument must be given as an
-            >> iterable of floats, each in the range [0, 1].
+            """\n
+            \r[ matrix_plot error ]
+            \r>> The 'hdi_fractions' argument must be given as an
+            \r>> iterable of floats, each in the range [0, 1].
             """
         )
 
@@ -123,7 +128,11 @@ def matrix_plot(
         show_ticks = N_par < 6
 
     L = 200
-    cmap = get_cmap(colormap)
+    if colormap in colormaps:
+        cmap = colormaps[colormap]
+    else:
+        cmap = colormaps["Blues"]
+        warn(f"'{colormap}' is not a valid colormap from matplotlib.colormaps")
     # find the darker of the two ends of the colormap, and use it for the marginal plots
     marginal_color = sorted([cmap(10), cmap(245)], key=lambda x: sum(x[:-1]))[0]
 
@@ -206,6 +215,7 @@ def matrix_plot(
                 prob = array(pdf(X.flatten(), Y.flatten())).reshape([L // 4, L // 4])
                 ax.set_facecolor(cmap(256 // 20))
                 ax.contourf(X, Y, prob, 10, cmap=cmap)
+
             elif plot_style == "hdi":
                 # Filled contour plotting using 2D gaussian KDE
                 pdf = KDE2D(x=x, y=y)
@@ -221,10 +231,12 @@ def matrix_plot(
                 levels = sorted(levels)
                 ax.contourf(X, Y, prob, levels=levels, cmap=cmap)
                 ax.contour(X, Y, prob, levels=levels, alpha=0.2)
+
             elif plot_style == "histogram":
                 # hexagonal-bin histogram
                 ax.set_facecolor(cmap(0))
                 ax.hexbin(x, y, gridsize=35, cmap=cmap)
+
             else:
                 # scatterplot
                 if point_colors is None:
@@ -299,13 +311,13 @@ def trace_plot(samples, labels=None, show=True, filename=None):
     :param samples: \
         A list of array-like objects containing the samples for each variable.
 
-    :keyword labels: \
+    :param labels: \
         A list of strings to be used as axis labels for each parameter being plotted.
 
-    :keyword bool show: \
+    :param bool show: \
         Sets whether the plot is displayed.
 
-    :keyword str filename: \
+    :param str filename: \
         File path to which the matrix plot will be saved (if specified).
     """
     N_par = len(samples)
@@ -358,10 +370,10 @@ def trace_plot(samples, labels=None, show=True, filename=None):
 
 
 def hdi_plot(
-    x,
-    sample,
-    intervals=(0.65, 0.95),
-    colormap="Blues",
+    x: ndarray,
+    sample: ndarray,
+    intervals: Sequence[float] = (0.65, 0.95),
+    colormap: str = "Blues",
     axis=None,
     label_intervals=True,
     color_levels=None,
@@ -370,27 +382,27 @@ def hdi_plot(
     Plot highest-density intervals for a given sample of model realisations.
 
     :param x: \
-        The x-axis locations of the sample data.
+        The x-axis locations of the sample data as a ``numpy.ndarray``.
 
     :param sample: \
-        A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))`` where
-        ``n`` is the number of samples.
+        A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))``
+        where ``n`` is the number of samples.
 
-    :keyword intervals: \
+    :param intervals: \
         A tuple containing the fractions of the total probability for each interval.
 
-    :keyword colormap: \
-        The colormap to be used for plotting the intervals. Must be a vaild argument
-        of the ``matplotlib.cm.get_cmap`` function.
+    :param str colormap: \
+        The colormap to be used for plotting the intervals. Must be the name of
+        a valid colormap present in ``matplotlib.colormaps``.
 
-    :keyword axis: \
+    :param axis: \
         A ``matplotlib.pyplot`` axis object which will be used to plot the intervals.
 
-    :keyword bool label_intervals: \
+    :param bool label_intervals: \
         If ``True``, then labels will be assigned to each interval plot such that they appear
         in the legend when using ``matplotlib.pyplot.legend``.
 
-    :keyword color_levels: \
+    :param color_levels: \
         A list of integers in the range [0,255] which specify the color value within the chosen
         color map to be used for each of the intervals.
     """
@@ -415,7 +427,12 @@ def hdi_plot(
     s.sort(axis=0)
     n = s.shape[0]
 
-    cmap = get_cmap(colormap)
+    if colormap in colormaps:
+        cmap = colormaps[colormap]
+    else:
+        cmap = colormaps["Blues"]
+        warn(f"'{colormap}' is not a valid colormap from matplotlib.colormaps")
+
     if color_levels is None:
         # construct the colors for each interval
         lwr = 0.20
@@ -456,24 +473,27 @@ def hdi_plot(
 
 
 def transition_matrix_plot(
-    ax=None,
-    matrix=None,
-    colormap="viridis",
-    exclude_diagonal=False,
+    axis=None,
+    matrix: ndarray = None,
+    colormap: str = "viridis",
+    exclude_diagonal: bool = False,
     upper_triangular=False,
 ):
     """
     Plot the transition matrix of a Markov chain
+    :param axis: \
+        A ``matplotlib.pyplot`` axis object on which the matrix will be plotted.
+        If not specified, a new axis will be created for the plot.
 
     :param matrix: \
         A 2D ``numpy.ndarray`` containing the transition probabilities, which should be
-        in the range [0,1].
+        in the range [0, 1].
 
-    :keyword colormap: \
-        The colormap to be used for plotting the intervals. Must be a vaild argument
-        of the ``matplotlib.cm.get_cmap`` function.
+    :param colormap: \
+        The colormap to be used for plotting the matrix. Must be the name of
+        a valid colormap present in ``matplotlib.colormaps``.
 
-    :keyword bool exclude_diagonal: \
+    :param bool exclude_diagonal: \
         If ``True`` the diagonal of the matrix will not be plotted.
     """
     if type(matrix) is not ndarray:
@@ -509,19 +529,24 @@ def transition_matrix_plot(
     y_limits = [y_sorted[0] + 0.5, y_sorted[-1] + 1.5]
 
     # get a color for each of the rectangles
-    cmap = get_cmap(colormap)
+    if colormap in colormaps:
+        cmap = colormaps[colormap]
+    else:
+        cmap = colormaps["viridis"]
+        warn(f"'{colormap}' is not a valid colormap from matplotlib.colormaps")
+
     rectangle_colors = [cmap(matrix[i, j] / matrix.max()) for i, j in inds]
 
     pc = PatchCollection(
         rectangles, facecolors=rectangle_colors, edgecolors=["black"] * N
     )
 
-    if ax is None:
-        _, ax = plt.subplots()
+    if axis is None:
+        _, axis = plt.subplots()
 
-    ax.add_collection(pc)
-    ax.set_xlim(x_limits)
-    ax.set_ylim(y_limits)
+    axis.add_collection(pc)
+    axis.set_xlim(x_limits)
+    axis.set_ylim(y_limits)
 
     # only plot the rate values as text if the matrix is of size 10 or less
     if N < 11:
@@ -529,7 +554,7 @@ def transition_matrix_plot(
         for i, j in inds:
             # here we draw a black outline around the white text we've
             # added to improve visibility
-            ax.text(
+            axis.text(
                 i + 1,
                 j + 1,
                 "{}%".format(int(matrix[i, j] * 100)),
@@ -544,4 +569,4 @@ def transition_matrix_plot(
                 ]
             )
 
-    return ax
+    return axis
