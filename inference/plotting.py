@@ -473,7 +473,7 @@ def hdi_plot(
 
 
 def transition_matrix_plot(
-    ax=None,
+    axis=None,
     matrix: ndarray = None,
     colormap: str = "viridis",
     exclude_diagonal: bool = False,
@@ -481,7 +481,7 @@ def transition_matrix_plot(
 ):
     """
     Plot the transition matrix of a Markov chain
-    :param ax: \
+    :param axis: \
         A ``matplotlib.pyplot`` axis object on which the matrix will be plotted.
         If not specified, a new axis will be created for the plot.
 
@@ -541,12 +541,12 @@ def transition_matrix_plot(
         rectangles, facecolors=rectangle_colors, edgecolors=["black"] * N
     )
 
-    if ax is None:
-        _, ax = plt.subplots()
+    if axis is None:
+        _, axis = plt.subplots()
 
-    ax.add_collection(pc)
-    ax.set_xlim(x_limits)
-    ax.set_ylim(y_limits)
+    axis.add_collection(pc)
+    axis.set_xlim(x_limits)
+    axis.set_ylim(y_limits)
 
     # only plot the rate values as text if the matrix is of size 10 or less
     if N < 11:
@@ -554,7 +554,7 @@ def transition_matrix_plot(
         for i, j in inds:
             # here we draw a black outline around the white text we've
             # added to improve visibility
-            ax.text(
+            axis.text(
                 i + 1,
                 j + 1,
                 "{}%".format(int(matrix[i, j] * 100)),
@@ -569,4 +569,4 @@ def transition_matrix_plot(
                 ]
             )
 
-    return ax
+    return axis
