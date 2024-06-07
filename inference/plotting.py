@@ -4,6 +4,7 @@
 
 from numpy import array, meshgrid, linspace, sqrt, ceil, ndarray, percentile
 from itertools import product, cycle
+from collections.abc import Sequence
 from warnings import warn
 from inference.pdf.hdi import sample_hdi
 from inference.pdf.kde import GaussianKDE, KDE2D
@@ -17,17 +18,17 @@ import matplotlib.patheffects as path_effects
 
 def matrix_plot(
     samples,
-    labels=None,
-    show=True,
-    reference=None,
-    filename=None,
-    plot_style="contour",
-    colormap="Blues",
-    show_ticks=None,
-    point_colors=None,
+    labels: list[str] = None,
+    show: bool = True,
+    reference: Sequence[float] = None,
+    filename: str = None,
+    plot_style: str = "contour",
+    colormap: str = "Blues",
+    show_ticks: bool = None,
+    point_colors: Sequence[float] = None,
     hdi_fractions=(0.35, 0.65, 0.95),
-    point_size=1,
-    label_size=10,
+    point_size: int = 1,
+    label_size: int = 10,
 ):
     """
     Construct a 'matrix plot' for a set of variables which shows all possible
@@ -214,6 +215,7 @@ def matrix_plot(
                 prob = array(pdf(X.flatten(), Y.flatten())).reshape([L // 4, L // 4])
                 ax.set_facecolor(cmap(256 // 20))
                 ax.contourf(X, Y, prob, 10, cmap=cmap)
+
             elif plot_style == "hdi":
                 # Filled contour plotting using 2D gaussian KDE
                 pdf = KDE2D(x=x, y=y)
@@ -229,10 +231,12 @@ def matrix_plot(
                 levels = sorted(levels)
                 ax.contourf(X, Y, prob, levels=levels, cmap=cmap)
                 ax.contour(X, Y, prob, levels=levels, alpha=0.2)
+
             elif plot_style == "histogram":
                 # hexagonal-bin histogram
                 ax.set_facecolor(cmap(0))
                 ax.hexbin(x, y, gridsize=35, cmap=cmap)
+
             else:
                 # scatterplot
                 if point_colors is None:
@@ -366,10 +370,10 @@ def trace_plot(samples, labels=None, show=True, filename=None):
 
 
 def hdi_plot(
-    x,
-    sample,
-    intervals=(0.65, 0.95),
-    colormap="Blues",
+    x: ndarray,
+    sample: ndarray,
+    intervals: Sequence[float] = (0.65, 0.95),
+    colormap: str = "Blues",
     axis=None,
     label_intervals=True,
     color_levels=None,
@@ -378,11 +382,11 @@ def hdi_plot(
     Plot highest-density intervals for a given sample of model realisations.
 
     :param x: \
-        The x-axis locations of the sample data.
+        The x-axis locations of the sample data as a ``numpy.ndarray``.
 
     :param sample: \
-        A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))`` where
-        ``n`` is the number of samples.
+        A ``numpy.ndarray`` containing the sample data, which has shape ``(n, len(x))``
+        where ``n`` is the number of samples.
 
     :param intervals: \
         A tuple containing the fractions of the total probability for each interval.
@@ -470,15 +474,16 @@ def hdi_plot(
 
 def transition_matrix_plot(
     ax=None,
-    matrix=None,
-    colormap="viridis",
-    exclude_diagonal=False,
+    matrix: ndarray = None,
+    colormap: str = "viridis",
+    exclude_diagonal: bool = False,
     upper_triangular=False,
 ):
     """
     Plot the transition matrix of a Markov chain
     :param ax: \
         A ``matplotlib.pyplot`` axis object on which the matrix will be plotted.
+        If not specified, a new axis will be created for the plot.
 
     :param matrix: \
         A 2D ``numpy.ndarray`` containing the transition probabilities, which should be
