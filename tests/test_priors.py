@@ -84,9 +84,7 @@ def test_GaussianPrior():
     assert log_probability[:mean] == log_probability[mean - 1 :][::-1]
 
     def analytic_probability(x, mu, sigma):
-        return (1.0 / sqrt(2 * pi * sigma**2)) * exp(
-            -((x - mu) ** 2) / (2 * sigma**2)
-        )
+        return (1.0 / sqrt(2 * pi * sigma**2)) * exp(-((x - mu) ** 2) / (2 * sigma**2))
 
     test_point = mean - 2 * sigma
     assert isclose(

@@ -1,6 +1,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+
 from typing import Union, Iterable
 
 from numpy import array, log, pi, zeros, concatenate, float64, where

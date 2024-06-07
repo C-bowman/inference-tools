@@ -1,6 +1,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+
 from abc import ABC, abstractmethod
 from numpy import array, log, exp, pi, sqrt, ndarray
 
