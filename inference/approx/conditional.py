@@ -1,7 +1,7 @@
 from numpy import exp, sqrt, insert, searchsorted
 from numpy import array, ndarray, linspace, zeros
 from numpy.random import default_rng
-from scipy.integrate import simps
+from scipy.integrate import simpson
 
 rng = default_rng()
 
@@ -120,7 +120,7 @@ def evaluate_conditional(func: callable, points: ndarray, grid_size=64):
     x_cond = linspace(x_lwr, x_upr, grid_size)
     p_cond = array([func(x) for x in x_cond])
     p_cond = exp(p_cond - p_mode)
-    p_cond /= simps(p_cond, x=x_cond)
+    p_cond /= simpson(p_cond, x=x_cond)
     return x_cond, p_cond
 
 

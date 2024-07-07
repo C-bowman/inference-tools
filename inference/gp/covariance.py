@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from inspect import isclass
 from itertools import chain
-from numpy import abs, diag, exp, eye, log, zeros, ndarray
+from numpy import abs, diag, exp, eye, log, zeros, ndarray, ptp
 
 
 class CovarianceFunction(ABC):
@@ -154,7 +154,7 @@ class WhiteNoise(CovarianceFunction):
         used during optimisation.
         """
         # construct sensible bounds on the hyperparameter values
-        s = log(y.ptp())
+        s = log(ptp(y))
         self.bounds = [(s - 8, s + 2)]
 
     def __call__(self, u: ndarray, v: ndarray, theta):
@@ -665,7 +665,7 @@ class HeteroscedasticNoise(CovarianceFunction):
         used during optimisation.
         """
         # construct sensible bounds on the hyperparameter values
-        s = log(y.ptp())
+        s = log(ptp(y))
         self.bounds = [(s - 8, s + 2) for _ in range(self.n_params)]
 
     def __call__(self, u, v, theta):
