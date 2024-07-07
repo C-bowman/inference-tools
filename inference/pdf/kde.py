@@ -3,7 +3,7 @@ from numpy import arange, array, ndarray, atleast_1d, zeros
 from numpy import sort, linspace, searchsorted, argsort, argmax, unique
 from numpy import sqrt, pi, log, exp, std, logaddexp, cov
 from numpy.random import random
-from scipy.integrate import simps
+from scipy.integrate import simpson
 from scipy.optimize import minimize_scalar
 from scipy.special import erf
 from inference.pdf.hdi import sample_hdi
@@ -242,14 +242,14 @@ class GaussianKDE(DensityEstimator):
         x = linspace(self.lwr_limit, self.upr_limit, N)
         p = self(x)
 
-        mu = simps(p * x, x=x)
+        mu = simpson(p * x, x=x)
         dx = x - mu
         I = p * dx**2
-        var = simps(I, x=x)
+        var = simpson(I, x=x)
         I *= dx
-        skw = simps(I, x=x) / var**1.5
+        skw = simpson(I, x=x) / var**1.5
         I *= dx
-        kur = (simps(I, x=x) / var**2) - 3.0
+        kur = (simpson(I, x=x) / var**2) - 3.0
         return mu, var, skw, kur
 
 

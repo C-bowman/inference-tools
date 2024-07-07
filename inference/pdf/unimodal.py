@@ -1,7 +1,7 @@
 from itertools import product
 from numpy import cos, pi, log, exp, mean, sqrt, tanh
 from numpy import array, ndarray, linspace, zeros, atleast_1d
-from scipy.integrate import simps, quad
+from scipy.integrate import simpson, quad
 from scipy.optimize import minimize
 from inference.pdf.base import DensityEstimator
 
@@ -154,8 +154,8 @@ class UnimodalPdf(DensityEstimator):
         x = linspace(lwr, upr, 1000)
         p = self(x)
 
-        mu = simps(p * x, x=x)
-        var = simps(p * (x - mu) ** 2, x=x)
-        skw = simps(p * (x - mu) ** 3, x=x) / var**1.5
-        kur = (simps(p * (x - mu) ** 4, x=x) / var**2) - 3.0
+        mu = simpson(p * x, x=x)
+        var = simpson(p * (x - mu) ** 2, x=x)
+        skw = simpson(p * (x - mu) ** 3, x=x) / var**1.5
+        kur = (simpson(p * (x - mu) ** 4, x=x) / var**2) - 3.0
         return mu, var, skw, kur
