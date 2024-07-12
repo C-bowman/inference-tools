@@ -23,6 +23,8 @@ def linear_search(
 ) -> float:
     x1, x2 = x
     y1, y2 = y
+    assert (y1 < target < y2) or (y2 < target < y1)
+
     for i in range(max_itr):
         x_new = (target - y1) * (x2 - x1) / (y2 - y1) + x1
         y_new = func(x_new)
@@ -34,6 +36,25 @@ def linear_search(
             x1, y1 = x_new, y_new
         else:
             x2, y2 = x_new, y_new
+    return x_new
+
+
+def binary_search(
+    func: callable, target: float, x: ndarray, y: ndarray, tol=0.05, max_itr=20
+) -> float:
+    x1, x2 = x
+    y1, y2 = y
+    assert (y1 < target < y2) or (y2 < target < y1)
+    for i in range(max_itr):
+        x_new = 0.5 * (x1 + x2)
+        y_new = func(x_new)
+        if abs(y_new - target) < tol:
+            break
+
+        if (y1 < target < y_new) or (y_new < target < y1):
+            x2, y2 = x_new, y_new
+        else:
+            x1, y1 = x_new, y_new
     return x_new
 
 
@@ -69,10 +90,42 @@ def trapezium_transform(x: ndarray, dh: ndarray) -> ndarray:
         return trapezium_full(x, dh)
 
 
-def piecewise_linear_sample(x: ndarray, y: ndarray, n_samples: int) -> ndarray:
+def piecewise_linear_sample(
+    x: ndarray, probability_density: ndarray, n_samples: int
+) -> ndarray:
+    """
+    Efficiently generates a sample from a 1D probability distribution evaluated on a
+    grid by approximating the density function as piecewise-linear.
+
+    :param x: \
+        The values of the variable at which the probability density has been evaluated.
+        Should be given as a ``numpy.ndarray`` in ascending order.
+
+    :param probability_density: \
+        The evaluated probability density values as a ``numpy.ndarray``.
+
+    :param n_samples: \
+        The number of samples to draw from the distribution.
+    """
     dx = x[1:] - x[:-1]
-    means = 0.5 * (y[1:] + y[:-1])
-    delta = 0.5 * (y[1:] - y[:-1]) / means
+    if (dx <= 0.0).any():
+        raise ValueError(
+            """\n
+            \r[ piecewise_linear_sample error ]
+            \r>> The 'x' argument must be given in strictly ascending order.
+            """
+        )
+
+    if (probability_density < 0).any():
+        raise ValueError(
+            """\n
+            \r[ piecewise_linear_sample error ]
+            \r>> All values in the given 'probability_density' array must be non-negative.
+            """
+        )
+
+    means = 0.5 * (probability_density[1:] + probability_density[:-1])
+    delta = 0.5 * (probability_density[1:] - probability_density[:-1]) / means
     weights = means / dx
     weights /= weights.sum()
     # first sample indices of the trapeziums based on their total probability
@@ -109,13 +162,13 @@ def evaluate_conditional(func: callable, points: ndarray, grid_size=64):
         x_lwr = x[lwr_ind]
     else:
         slc = slice(lwr_ind, lwr_ind + 2)
-        x_lwr = linear_search(func, p_target, x[slc], p[slc])
+        x_lwr = binary_search(func, p_target, x[slc], p[slc])
 
     if p[upr_ind] >= p_target:
         x_upr = x[upr_ind]
     else:
         slc = slice(upr_ind - 1, upr_ind + 1)
-        x_upr = linear_search(func, p_target, x[slc], p[slc])
+        x_upr = binary_search(func, p_target, x[slc], p[slc])
 
     x_cond = linspace(x_lwr, x_upr, grid_size)
     p_cond = array([func(x) for x in x_cond])
@@ -148,9 +201,10 @@ def get_conditionals(
     :param grid_size: \
         The number of points used to evaluate each of the conditional distributions.
 
-    :return samples: \
-        The samples as a 2D numpy ``ndarray`` which has shape
-        ``(n_samples, n_parameters)``.
+    :return conditionals: \
+        A tuple of two numpy ``ndarray``, the first containing the axes for each
+        variable, and the second containing the conditional probability densities.
+        The arrays have shape ``(grid_size, n_variables)``.
     """
     conditional = Conditional(
         posterior=posterior, theta=conditioning_point, variable_index=0
