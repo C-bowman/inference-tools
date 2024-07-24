@@ -418,7 +418,7 @@ class GpRegressor:
             var_gradients.append(dV_dx)
         return array(mu_gradients).squeeze(), array(var_gradients).squeeze()
 
-    def build_posterior(self, points: ndarray):
+    def build_posterior(self, points: ndarray, mean_only=False):
         """
         Generates the full mean vector and covariance matrix for the Gaussian-process
         posterior distribution at a set of specified points.
@@ -429,6 +429,10 @@ class GpRegressor:
             number of dimensions). Alternatively, a list of array-like objects can be
             given, which will be converted to a ``ndarray`` internally.
 
+        :param mean_only: \
+            If set to ``True``, only the mean vector of the posterior is calculated
+            and returned, instead of both the mean and covariance.
+
         :return: \
             The mean vector as a 1D array, followed by the covariance matrix as a 2D array.
         """
@@ -437,9 +441,12 @@ class GpRegressor:
         K_qq = self.cov(v, v, self.cov_hyperpars)
         mu = (K_qx @ self.alpha) + array([self.mean(p, self.mean_hyperpars) for p in v])
 
-        Q = solve_triangular(self.L, K_qx.T, lower=True)
-        sigma = K_qq - (Q.T @ Q)
-        return mu, sigma
+        if mean_only:
+            return mu
+        else:
+            Q = solve_triangular(self.L, K_qx.T, lower=True)
+            sigma = K_qq - (Q.T @ Q)
+            return mu, sigma
 
     def loo_predictions(self):
         """
