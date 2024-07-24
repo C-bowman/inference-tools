@@ -1,4 +1,4 @@
-from numpy import diagonal, diag, dot, sqrt, log
+from numpy import diagonal, diag, sqrt, log
 from numpy import array, eye, ndarray, zeros
 from numpy.random import random
 from numpy.linalg import cholesky, LinAlgError
@@ -209,7 +209,7 @@ class GpRegressor:
             K_qx = self.cov(q, self.x, self.cov_hyperpars)
             K_qq = self.cov(q, q, self.cov_hyperpars)
 
-            mu_q.append(dot(K_qx, self.alpha)[0] + self.mean(q, self.mean_hyperpars))
+            mu_q.append((K_qx @ self.alpha)[0] + self.mean(q, self.mean_hyperpars))
             v = solve_triangular(self.L, K_qx.T, lower=True)
             errs.append(K_qq[0, 0] - (v**2).sum())
 
@@ -373,12 +373,11 @@ class GpRegressor:
             K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
             A, R = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
 
-            B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L, (A * K_qx).T, lower=True)
 
             # calculate the mean and covariance
-            mean = dot(A, B)
-            covariance = R - Q.T.dot(Q)
+            mean = A @ (K_qx * self.alpha).T
+            covariance = R - (Q.T @ Q)
 
             # store the results for the current point
             mu_q.append(mean)
@@ -408,12 +407,11 @@ class GpRegressor:
         for pnt in p[:, None, :]:
             K_qx = self.cov(pnt, self.x, self.cov_hyperpars)
             A, _ = self.cov.gradient_terms(pnt[0, :], self.x, self.cov_hyperpars)
-            B = (K_qx * self.alpha).T
             Q = solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower=True))
 
             # calculate the mean and covariance
-            dmu_dx = dot(A, B)
-            dV_dx = -2 * (A * K_qx[None, :]).dot(Q)
+            dmu_dx = A @ (K_qx * self.alpha).T
+            dV_dx = -2 * (A * K_qx[None, :]) @ Q
 
             # store the results for the current point
             mu_gradients.append(dmu_dx)
@@ -437,13 +435,10 @@ class GpRegressor:
         v = self.process_points(points)
         K_qx = self.cov(v, self.x, self.cov_hyperpars)
         K_qq = self.cov(v, v, self.cov_hyperpars)
-        mu = dot(K_qx, self.alpha) + array(
-            [self.mean(p, self.mean_hyperpars) for p in v]
-        )
-        sigma = K_qq - dot(
-            K_qx,
-            solve_triangular(self.L.T, solve_triangular(self.L, K_qx.T, lower=True)),
-        )
+        mu = (K_qx @ self.alpha) + array([self.mean(p, self.mean_hyperpars) for p in v])
+
+        Q = solve_triangular(self.L, K_qx.T, lower=True)
+        sigma = K_qq - (Q.T @ Q)
         return mu, sigma
 
     def loo_predictions(self):
@@ -477,7 +472,7 @@ class GpRegressor:
             L = cholesky(K_xx)
             iK = solve_triangular(L, eye(L.shape[0]), lower=True)
             iK = iK.T @ iK
-            alpha = iK.dot(self.y - mu)
+            alpha = iK @ (self.y - mu)
             var = 1.0 / diag(iK)
             return -0.5 * (var * alpha**2 + log(var)).sum()
         except LinAlgError:
@@ -499,7 +494,7 @@ class GpRegressor:
         L = cholesky(K_xx)
         iK = solve_triangular(L, eye(L.shape[0]), lower=True)
         iK = iK.T @ iK
-        alpha = iK.dot(self.y - mu)
+        alpha = iK @ (self.y - mu)
         var = 1.0 / diag(iK)
         LOO = -0.5 * (var * alpha**2 + log(var)).sum()
 
@@ -507,13 +502,13 @@ class GpRegressor:
         c1 = alpha * var
         c2 = 0.5 * var * (1 + var * alpha**2)
         for dK in grad_K:
-            Z = iK.dot(dK)
-            g = (c1 * Z.dot(alpha) - c2 * diag(Z.dot(iK))).sum()
+            Z = iK @ dK
+            g = (c1 * (Z @ alpha) - c2 * diag(Z @ iK)).sum()
             cov_gradients.append(g)
 
         mean_gradients = []
         for dmu in grad_mu:
-            Z = iK.dot(dmu)
+            Z = iK @ dmu
             g = (c1 * Z).sum()
             mean_gradients.append(g)
 
@@ -554,8 +549,8 @@ class GpRegressor:
         iK = solve_triangular(L, eye(L.shape[0]), lower=True)
         iK = iK.T @ iK
         # calculate the log-marginal likelihood
-        alpha = iK.dot(self.y - mu)
-        LML = -0.5 * dot((self.y - mu).T, alpha) - log(diagonal(L)).sum()
+        alpha = iK @ (self.y - mu)
+        LML = -0.5 * ((self.y - mu).T @ alpha) - log(diagonal(L)).sum()
         # calculate the mean parameter gradients
         grad = zeros(self.n_hyperpars)
         grad[self.mean_slice] = array([(alpha * dmu).sum() for dmu in grad_mu])
