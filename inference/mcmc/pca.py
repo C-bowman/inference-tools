@@ -33,13 +33,13 @@ class PcaChain(MetropolisChain):
         and returns the posterior log-probability.
 
     :param start: \
-        Vector of model parameters which correspond to the parameter-space coordinates
-        at which the chain will start.
+        Values of the model parameters as a ``numpy.ndarray`` which correspond to the
+        parameter-space coordinates at which the chain will start.
 
     :param widths: \
-        Vector of standard deviations which serve as initial guesses for the widths of
-        the proposal distribution for each model parameter. If not specified, the starting
-        widths will be approximated as 5% of the values in 'start'.
+        A ``numpy.ndarray`` of standard deviations which serve as initial guesses for
+        the widths of the proposal distribution for each model parameter. If not
+        specified, the starting widths will be approximated as 5% of the values in 'start'.
 
     :param bounds: \
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two

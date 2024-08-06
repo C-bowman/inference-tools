@@ -1,6 +1,7 @@
 """
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
+from numpy import ndarray
 
 
 class Posterior:
@@ -20,7 +21,7 @@ class Posterior:
         self.likelihood = likelihood
         self.prior = prior
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the log-posterior probability for the given set of model parameters.
 
@@ -32,7 +33,7 @@ class Posterior:
         """
         return self.likelihood(theta) + self.prior(theta)
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the log-posterior with respect to model parameters.
 
@@ -44,7 +45,7 @@ class Posterior:
         """
         return self.likelihood.gradient(theta) + self.prior.gradient(theta)
 
-    def cost(self, theta):
+    def cost(self, theta: ndarray) -> float:
         """
         Returns the 'cost', defined as the negative log-posterior probability, for the
         given set of model parameters. Minimising the value of the cost therefore
@@ -58,7 +59,7 @@ class Posterior:
         """
         return -(self.likelihood(theta) + self.prior(theta))
 
-    def cost_gradient(self, theta):
+    def cost_gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the negative log-posterior with respect to model parameters.
 

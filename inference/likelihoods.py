@@ -73,14 +73,16 @@ class Likelihood(ABC):
             )
 
     @abstractmethod
-    def _log_likelihood(self, predictions):
+    def _log_likelihood(self, predictions: ndarray) -> float:
         pass
 
     @abstractmethod
-    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+    def _log_likelihood_gradient(
+        self, predictions: ndarray, predictions_jacobian: ndarray
+    ) -> ndarray:
         pass
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the log-likelihood value for the given set of model parameters.
 
@@ -92,7 +94,7 @@ class Likelihood(ABC):
         """
         return self._log_likelihood(predictions=self.model(theta))
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the log-likelihood with respect to model parameters.
 
@@ -110,10 +112,10 @@ class Likelihood(ABC):
             predictions_jacobian=self.model_jacobian(theta),
         )
 
-    def cost(self, theta):
+    def cost(self, theta: ndarray) -> float:
         return -self.__call__(theta)
 
-    def cost_gradient(self, theta):
+    def cost_gradient(self, theta: ndarray) -> ndarray:
         return -self.gradient(theta)
 
 
@@ -154,11 +156,13 @@ class GaussianLikelihood(Likelihood):
         self.inv_sigma_sqr = self.inv_sigma**2
         self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_data
 
-    def _log_likelihood(self, predictions):
+    def _log_likelihood(self, predictions: ndarray) -> float:
         z = (self.y - predictions) * self.inv_sigma
         return -0.5 * (z**2).sum() + self.normalisation
 
-    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+    def _log_likelihood_gradient(
+        self, predictions: ndarray, predictions_jacobian: ndarray
+    ) -> ndarray:
         dL_dF = (self.y - predictions) * self.inv_sigma_sqr
         return dL_dF @ predictions_jacobian
 
@@ -199,11 +203,13 @@ class CauchyLikelihood(Likelihood):
         self.inv_gamma = 1.0 / self.gamma
         self.normalisation = -log(pi * self.gamma).sum()
 
-    def _log_likelihood(self, predictions):
+    def _log_likelihood(self, predictions: ndarray) -> float:
         z = (self.y - predictions) * self.inv_gamma
         return -log(1 + z**2).sum() + self.normalisation
 
-    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+    def _log_likelihood_gradient(
+        self, predictions: ndarray, predictions_jacobian: ndarray
+    ) -> ndarray:
         z = (self.y - predictions) * self.inv_gamma
         dL_dF = 2 * self.inv_gamma * z / (1 + z**2)
         return dL_dF @ predictions_jacobian
@@ -246,11 +252,13 @@ class LogisticLikelihood(Likelihood):
         self.inv_scale = 1.0 / self.scale
         self.normalisation = -log(self.scale).sum()
 
-    def _log_likelihood(self, predictions):
+    def _log_likelihood(self, predictions: ndarray) -> float:
         z = (self.y - predictions) * self.inv_scale
         return z.sum() - 2 * log(1 + exp(z)).sum() + self.normalisation
 
-    def _log_likelihood_gradient(self, predictions, predictions_jacobian):
+    def _log_likelihood_gradient(
+        self, predictions: ndarray, predictions_jacobian: ndarray
+    ) -> ndarray:
         z = (self.y - predictions) * self.inv_scale
         dL_dF = (2 / (1 + exp(-z)) - 1) * self.inv_scale
         return dL_dF @ predictions_jacobian

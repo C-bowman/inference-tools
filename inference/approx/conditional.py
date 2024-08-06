@@ -12,7 +12,7 @@ class Conditional:
         self.theta = theta
         self.variable_index = variable_index
 
-    def __call__(self, x):
+    def __call__(self, x: ndarray):
         t = self.theta.copy()
         t[self.variable_index] = x
         return self.posterior(t)
@@ -58,12 +58,12 @@ def binary_search(
     return x_new
 
 
-def trapezium_full(x, dh):
+def trapezium_full(x: ndarray, dh: ndarray) -> ndarray:
     b = dh - 1
     return (b + sqrt(b**2 + 4 * x * dh)) / (2 * dh)
 
 
-def trapezium_near_zero(x, dh):
+def trapezium_near_zero(x: ndarray, dh: ndarray) -> ndarray:
     return x + (1 - x) * x * dh
 
 

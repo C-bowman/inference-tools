@@ -103,26 +103,26 @@ class Bounds:
         if self.lower.ndim > 1 or self.upper.ndim > 1:
             raise ValueError(
                 f"""\n
-                [ {error_source} error ]
-                >> Lower and upper bounds must be one-dimensional arrays, but
-                >> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
+                \r[ {error_source} error ]
+                \r>> Lower and upper bounds must be one-dimensional arrays, but
+                \r>> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
                 """
             )
 
         if self.lower.size != self.upper.size:
             raise ValueError(
                 f"""\n
-                [ {error_source} error ]
-                >> Lower and upper bounds must be arrays of equal size, but
-                >> instead have sizes {self.lower.size} and {self.upper.size} respectively.
+                \r[ {error_source} error ]
+                \r>> Lower and upper bounds must be arrays of equal size, but
+                \r>> instead have sizes {self.lower.size} and {self.upper.size} respectively.
                 """
             )
 
         if (self.lower >= self.upper).any():
             raise ValueError(
                 f"""\n
-                [ {error_source} error ]
-                >> All given upper bounds must be larger than the corresponding lower bounds.
+                \r[ {error_source} error ]
+                \r>> All given upper bounds must be larger than the corresponding lower bounds.
                 """
             )
 
@@ -152,7 +152,7 @@ class Bounds:
         n = q % 2
         return self.lower + (1 - 2 * n) * rem + n * self.width
 
-    def reflect_momenta(self, theta: ndarray):
+    def reflect_momenta(self, theta: ndarray) -> tuple[ndarray, ndarray]:
         q, rem = np_divmod(theta - self.lower, self.width)
         n = q % 2
         reflection = 1 - 2 * n

@@ -98,8 +98,8 @@ class GpRegressor:
         if self.y.ndim != 1:
             raise ValueError(
                 f"""\n
-                [ GpRegressor error ]
-                >> 'y' argument must be a 1D array, but instead has shape {self.y.shape}
+                \r[ GpRegressor error ]
+                \r>> 'y' argument must be a 1D array, but instead has shape {self.y.shape}
                 """
             )
 
@@ -113,19 +113,19 @@ class GpRegressor:
         else:
             raise ValueError(
                 f"""\n
-                [ GpRegressor Error ]
-                >> 'x' argument must be a 2D array, but instead has
-                >> {self.x.ndim} dimensions and shape {self.x.shape}.
+                \r[ GpRegressor Error ]
+                \r>> 'x' argument must be a 2D array, but instead has
+                \r>> {self.x.ndim} dimensions and shape {self.x.shape}.
                 """
             )
 
         if self.x.shape[0] != self.n_points:
             raise ValueError(
                 f"""\n
-                [ GpRegressor Error ]
-                >> The first dimension of the 'x' array must be equal in size
-                >> to the 'y' array.
-                >> 'x' has shape {self.x.shape}, but 'y' has size {self.y.size}.
+                \r[ GpRegressor Error ]
+                \r>> The first dimension of the 'x' array must be equal in size
+                \r>> to the 'y' array.
+                \r>> 'x' has shape {self.x.shape}, but 'y' has size {self.y.size}.
                 """
             )
 
@@ -215,7 +215,7 @@ class GpRegressor:
 
         return array(mu_q), sqrt(abs(array(errs)))
 
-    def set_hyperparameters(self, hyperpars):
+    def set_hyperparameters(self, hyperpars: ndarray):
         """
         Update the hyper-parameter values of the model.
 
@@ -243,7 +243,7 @@ class GpRegressor:
             self.L.T, solve_triangular(self.L, self.y - self.mu, lower=True)
         )
 
-    def check_error_data(self, y_err, y_cov):
+    def check_error_data(self, y_err, y_cov) -> ndarray:
         if y_cov is not None:
             # if y_cov is given as a list or tuple, attempt conversion to an array
             if any([type(y_cov) is t for t in [list, tuple]]):
@@ -321,7 +321,7 @@ class GpRegressor:
         else:
             return zeros([self.n_points, self.n_points])
 
-    def process_points(self, points):
+    def process_points(self, points: ndarray) -> ndarray:
         x = points if isinstance(points, ndarray) else array(points)
 
         if x.ndim <= 1 and self.n_dimensions == 1:
@@ -448,7 +448,7 @@ class GpRegressor:
             sigma = K_qq - (Q.T @ Q)
             return mu, sigma
 
-    def loo_predictions(self):
+    def loo_predictions(self) -> tuple[ndarray, ndarray]:
         """
         Calculates the 'leave-one out' (LOO) predictions for the data, where each data
         point is removed from the training set and then has its value predicted using
@@ -465,7 +465,7 @@ class GpRegressor:
         sigma = sqrt(var)
         return mu, sigma
 
-    def loo_likelihood(self, theta: ndarray):
+    def loo_likelihood(self, theta: ndarray) -> float:
         """
         Calculates the 'leave-one out' (LOO) log-likelihood.
 
@@ -525,7 +525,7 @@ class GpRegressor:
 
         return LOO, grad
 
-    def marginal_likelihood(self, theta: ndarray):
+    def marginal_likelihood(self, theta: ndarray) -> float:
         """
         returns the log-marginal likelihood for the supplied hyper-parameter values.
 
@@ -566,7 +566,7 @@ class GpRegressor:
         grad[self.cov_slice] = array([0.5 * (Q * dK.T).sum() for dK in grad_K])
         return LML, grad
 
-    def differential_evo(self):
+    def differential_evo(self) -> ndarray:
         # optimise the hyper-parameters
         opt_result = differential_evolution(
             func=lambda x: -self.model_selector(x), bounds=self.hp_bounds

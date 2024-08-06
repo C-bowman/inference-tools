@@ -120,7 +120,7 @@ class Parameter:
         else:
             return self.upper - d % self.width
 
-    def submit_accept_prob(self, p):
+    def submit_accept_prob(self, p: float):
         self.num += 1
         self.avg += p
         self.var += p * (1 - p)
@@ -375,23 +375,26 @@ class MetropolisChain(MarkovChain):
         ind = argmax(self.probs)
         return array([p.samples[ind] for p in self.params])
 
-    def set_non_negative(self, parameter, flag=True):
+    def set_non_negative(self, parameter: int, flag=True):
         """
         Constrain a particular parameter to have non-negative values.
 
-        :param int parameter: Index of the parameter which is to be set \
-                              as non-negative.
+        :param int parameter: \
+            Index of the parameter which is to be set as non-negative.
         """
         self.params[parameter].non_negative = flag
 
-    def set_boundaries(self, parameter, boundaries, remove=False):
+    def set_boundaries(
+        self, parameter: int, boundaries: tuple[float, float], remove=False
+    ):
         """
         Constrain the value of a particular parameter to specified boundaries.
 
-        :param int parameter: Index of the parameter for which boundaries \
-                              are to be set.
+        :param int parameter: \
+            Index of the parameter for which boundaries are to be set.
 
-        :param boundaries: Tuple of boundaries in the format (lower_limit, upper_limit)
+        :param boundaries: \
+            Tuple of boundaries in the format (lower_limit, upper_limit)
         """
         if remove:
             self.params[parameter].remove_boundaries()
@@ -402,7 +405,7 @@ class MetropolisChain(MarkovChain):
         """
         Plot diagnostic traces that give information on how the chain is progressing.
 
-        Currently this method plots:
+        Currently, this method plots:
 
         - The posterior log-probability as a function of step number, which is useful
           for checking if the chain has reached a maximum. Any early parts of the chain

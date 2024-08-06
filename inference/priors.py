@@ -4,7 +4,7 @@
 
 from typing import Union, Iterable
 
-from numpy import array, log, pi, zeros, concatenate, float64, where
+from numpy import array, log, pi, zeros, concatenate, float64, where, ndarray
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
@@ -22,7 +22,7 @@ class JointPrior:
         The total number of model variables.
     """
 
-    def __init__(self, components, n_variables):
+    def __init__(self, components, n_variables: int):
         if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
                 """
@@ -75,7 +75,7 @@ class JointPrior:
         )
         self.bounds = [v[0] for v in both]
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the joint-prior log-probability value, calculated as the sum
         of the log-probabilities from each prior component for the provided
@@ -89,7 +89,7 @@ class JointPrior:
         """
         return sum(c(theta) for c in self.components)
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the prior log-probability with respect to the model
         parameters.
@@ -105,7 +105,7 @@ class JointPrior:
             grad[c.variables] = c.gradient(theta)
         return grad
 
-    def sample(self):
+    def sample(self) -> ndarray:
         """
         Draws a sample from the prior.
 
@@ -165,7 +165,7 @@ class GaussianPrior(BasePrior):
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, mean, sigma, variable_indices):
+    def __init__(self, mean, sigma, variable_indices: list[int]):
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
 
@@ -196,7 +196,7 @@ class GaussianPrior(BasePrior):
         self.normalisation = -log(self.sigma).sum() - 0.5 * log(2 * pi) * self.n_params
         self.bounds = [(None, None)] * self.n_params
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the prior log-probability value for the provided set of model parameters.
 
@@ -209,7 +209,7 @@ class GaussianPrior(BasePrior):
         z = (self.mean - theta[self.variables]) * self.inv_sigma
         return -0.5 * (z**2).sum() + self.normalisation
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the prior log-probability with respect to the model
         parameters.
@@ -222,7 +222,7 @@ class GaussianPrior(BasePrior):
         """
         return (self.mean - theta[self.variables]) * self.inv_sigma_sqr
 
-    def sample(self):
+    def sample(self) -> ndarray:
         """
         Draws a sample from the prior.
 
@@ -258,7 +258,7 @@ class ExponentialPrior(BasePrior):
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, beta, variable_indices):
+    def __init__(self, beta, variable_indices: list[int]):
         self.beta = array(beta, dtype=float64).squeeze()
         if self.beta.ndim == 0:
             self.beta = self.beta.reshape([1])
@@ -278,7 +278,7 @@ class ExponentialPrior(BasePrior):
         self.zeros = zeros(self.n_params)
         self.bounds = [(0.0, None)] * self.n_params
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the prior log-probability value for the provided set of model parameters.
 
@@ -292,7 +292,7 @@ class ExponentialPrior(BasePrior):
             return -1e100
         return -(self.lam * theta[self.variables]).sum() + self.normalisation
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the prior log-probability with respect to the model
         parameters.
@@ -305,7 +305,7 @@ class ExponentialPrior(BasePrior):
         """
         return where(theta[self.variables] >= 0.0, -self.lam, self.zeros)
 
-    def sample(self):
+    def sample(self) -> ndarray:
         """
         Draws a sample from the prior.
 
@@ -343,7 +343,7 @@ class UniformPrior(BasePrior):
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, lower, upper, variable_indices):
+    def __init__(self, lower, upper, variable_indices: list[int]):
         self.lower = array(lower).squeeze()
         self.upper = array(upper).squeeze()
 
@@ -373,7 +373,7 @@ class UniformPrior(BasePrior):
         self.normalisation = -log(self.upper - self.lower).sum()
         self.bounds = [(lo, up) for lo, up in zip(self.lower, self.upper)]
 
-    def __call__(self, theta):
+    def __call__(self, theta: ndarray) -> float:
         """
         Returns the prior log-probability value for the provided set of model parameters.
 
@@ -389,7 +389,7 @@ class UniformPrior(BasePrior):
             return self.normalisation
         return -1e100
 
-    def gradient(self, theta):
+    def gradient(self, theta: ndarray) -> ndarray:
         """
         Returns the gradient of the prior log-probability with respect to the model
         parameters.
@@ -402,7 +402,7 @@ class UniformPrior(BasePrior):
         """
         return self.grad
 
-    def sample(self):
+    def sample(self) -> ndarray:
         """
         Draws a sample from the prior.
 

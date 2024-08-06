@@ -106,7 +106,9 @@ class MarkovChain(ABC):
         else:
             return GaussianKDE(self.get_parameter(index, burn=burn, thin=thin))
 
-    def get_interval(self, interval=0.95, burn: int = 1, thin: int = 1, samples=None):
+    def get_interval(
+        self, interval: float = 0.95, burn: int = 1, thin: int = 1, samples: int = None
+    ) -> tuple[ndarray, ndarray]:
         """
         Return the samples from the chain which lie inside a chosen highest-density interval.
 
@@ -126,8 +128,8 @@ class MarkovChain(ABC):
             that specifying ``samples`` overrides the value of ``thin``.
 
         :return: \
-            List containing sample points stored as tuples, and a corresponding list of
-            log-probability values.
+            Samples from the chosen interval as a 2D ``numpy.ndarray``, followed by the
+            corresponding log-probability values as a 1D ``numpy.ndarray``.
         """
 
         # get the sorting indices for the probabilities

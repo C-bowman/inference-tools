@@ -42,8 +42,8 @@ class GaussianKDE(DensityEstimator):
     def __init__(
         self,
         sample: ndarray,
-        bandwidth=None,
-        cross_validation=False,
+        bandwidth: float = None,
+        cross_validation: bool = False,
         max_cv_samples=5000,
     ):
         self.sample = sort(array(sample).flatten())  # sorted array of the samples
@@ -136,7 +136,7 @@ class GaussianKDE(DensityEstimator):
         # A simple estimate which assumes the distribution close to a Gaussian
         return 1.06 * std(self.sample) / (self.sample.size**0.2)
 
-    def cross_validation_bandwidth_estimator(self, initial_h):
+    def cross_validation_bandwidth_estimator(self, initial_h: float) -> float:
         """
         Selects the bandwidth by maximising a log-probability derived
         using a 'leave-one-out cross-validation' approach.

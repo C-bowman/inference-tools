@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 from inference.gp.regression import GpRegressor
 from inference.gp.covariance import CovarianceFunction, SquaredExponential
-from inference.gp.acquisition import ExpectedImprovement
+from inference.gp.acquisition import AcquisitionFunction, ExpectedImprovement
 from inference.gp.mean import MeanFunction, ConstantMean
 
 
@@ -92,7 +92,7 @@ class GpOptimiser:
         kernel: CovarianceFunction = SquaredExponential,
         mean: MeanFunction = ConstantMean,
         cross_val: bool = False,
-        acquisition=ExpectedImprovement,
+        acquisition: AcquisitionFunction = ExpectedImprovement,
         optimizer: str = "bfgs",
         n_processes: int = 1,
     ):
@@ -165,7 +165,12 @@ class GpOptimiser:
                 self.y_err = append(self.y_err, new_y_err)
             else:
                 raise ValueError(
-                    "y_err must be specified for new evaluations if y_err was specified during __init__"
+                    """\n
+                    \r[ GpOptimiser error ]
+                    \r>> 'new_y_err' argument of the 'add_evaluation' method must be
+                    \r>> specified if the 'y_err' argument was specified when the
+                    \r>> instance of GpOptimiser was initialised.
+                    """
                 )
 
         # re-train the GP
@@ -243,7 +248,7 @@ class GpOptimiser:
             proposed_ev = proposed_ev[0]
         return proposed_ev
 
-    def plot_results(self, filename=None, show_plot=True):
+    def plot_results(self, filename: str = None, show_plot=True):
         fig = plt.figure(figsize=(10, 4))
         ax1 = fig.add_subplot(121)
         maxvals = maximum.accumulate(self.y)

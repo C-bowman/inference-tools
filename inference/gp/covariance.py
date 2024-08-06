@@ -11,23 +11,23 @@ class CovarianceFunction(ABC):
     """
 
     @abstractmethod
-    def pass_spatial_data(self, x):
+    def pass_spatial_data(self, x: ndarray):
         pass
 
     @abstractmethod
-    def estimate_hyperpar_bounds(self, y):
+    def estimate_hyperpar_bounds(self, y: ndarray):
         pass
 
     @abstractmethod
-    def __call__(self, u, v, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta: ndarray) -> ndarray:
         pass
 
     @abstractmethod
-    def build_covariance(self, theta):
+    def build_covariance(self, theta: ndarray) -> ndarray:
         pass
 
     @abstractmethod
-    def covariance_and_gradients(self, theta):
+    def covariance_and_gradients(self, theta: ndarray):
         pass
 
     def __add__(self, other):
@@ -202,7 +202,7 @@ class SquaredExponential(CovarianceFunction):
         length-2 tuples giving the lower/upper bounds for each parameter.
     """
 
-    def __init__(self, hyperpar_bounds=None):
+    def __init__(self, hyperpar_bounds: list[tuple] = None):
         self.bounds = hyperpar_bounds
         self.n_params: int
         self.dx: ndarray
@@ -237,14 +237,14 @@ class SquaredExponential(CovarianceFunction):
             upr = log(self.dx[:, :, i].max()) + 2
             self.bounds.append((lwr, upr))
 
-    def __call__(self, u, v, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta: ndarray) -> ndarray:
         a = exp(theta[0])
         L = exp(theta[1:])
         D = -0.5 * (u[:, None, :] - v[None, :, :]) ** 2
         C = exp((D / L[None, None, :] ** 2).sum(axis=2))
         return (a**2) * C
 
-    def build_covariance(self, theta):
+    def build_covariance(self, theta: ndarray) -> ndarray:
         """
         Optimized version of self.matrix() specifically for the data
         covariance matrix where the vectors v1 & v2 are both self.x.
@@ -254,7 +254,7 @@ class SquaredExponential(CovarianceFunction):
         C = exp((self.distances / L[None, None, :] ** 2).sum(axis=2)) + self.epsilon
         return (a**2) * C
 
-    def gradient_terms(self, v, x, theta):
+    def gradient_terms(self, v: ndarray, x: ndarray, theta: ndarray):
         """
         Calculates the covariance-function specific parts of
         the expression for the predictive mean and covariance
@@ -265,7 +265,7 @@ class SquaredExponential(CovarianceFunction):
         A = (x - v[None, :]) / L[None, :] ** 2
         return A.T, (a / L) ** 2
 
-    def covariance_and_gradients(self, theta):
+    def covariance_and_gradients(self, theta: ndarray):
         a = exp(theta[0])
         L = exp(theta[1:])
         C = exp((self.distances / L[None, None, :] ** 2).sum(axis=2)) + self.epsilon
@@ -303,7 +303,7 @@ class RationalQuadratic(CovarianceFunction):
         length-2 tuples giving the lower/upper bounds for each parameter.
     """
 
-    def __init__(self, hyperpar_bounds=None):
+    def __init__(self, hyperpar_bounds: list[tuple] = None):
         self.bounds = hyperpar_bounds
 
     def pass_spatial_data(self, x: ndarray):
@@ -332,7 +332,7 @@ class RationalQuadratic(CovarianceFunction):
             upr = log(self.dx[:, :, i].max()) + 2
             self.bounds.append((lwr, upr))
 
-    def __call__(self, u, v, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta: ndarray) -> ndarray:
         a = exp(theta[0])
         k = exp(theta[1])
         L = exp(theta[2:])
@@ -340,14 +340,14 @@ class RationalQuadratic(CovarianceFunction):
         Z = (D / L[None, None, :] ** 2).sum(axis=2)
         return (a**2) * (1 + Z / k) ** (-k)
 
-    def build_covariance(self, theta):
+    def build_covariance(self, theta: ndarray) -> ndarray:
         a = exp(theta[0])
         k = exp(theta[1])
         L = exp(theta[2:])
         Z = (self.distances / L[None, None, :] ** 2).sum(axis=2)
         return (a**2) * ((1 + Z / k) ** (-k) + self.epsilon)
 
-    def covariance_and_gradients(self, theta):
+    def covariance_and_gradients(self, theta: ndarray):
         a = exp(theta[0])
         q = exp(theta[1])
         L = exp(theta[2:])
@@ -437,11 +437,11 @@ class ChangePoint(CovarianceFunction):
         for K in self.cov:
             if not isinstance(K, CovarianceFunction):
                 raise TypeError(
-                    """
-                    [ ChangePoint error ]
-                    >> Each of the specified covariance kernels must be an instance of
-                    >> a class which inherits from the 'CovarianceFunction' abstract
-                    >> base-class.
+                    """\n
+                    \r[ ChangePoint error ]
+                    \r>> Each of the specified covariance kernels must be an instance of
+                    \r>> a class which inherits from the 'CovarianceFunction' abstract
+                    \r>> base-class.
                     """
                 )
 
@@ -450,9 +450,9 @@ class ChangePoint(CovarianceFunction):
         if location_bounds is not None:
             if len(location_bounds) != self.n_kernels - 1:
                 raise ValueError(
-                    """
-                    [ ChangePoint error ]
-                    >> The length of 'location_bounds' must be one less than the number of kernels
+                    """\n
+                    \r[ ChangePoint error ]
+                    \r>> The length of 'location_bounds' must be one less than the number of kernels
                     """
                 )
             self.location_bounds = [check_bounds(lb) for lb in location_bounds]
@@ -462,9 +462,9 @@ class ChangePoint(CovarianceFunction):
         if width_bounds is not None:
             if len(width_bounds) != self.n_kernels - 1:
                 raise ValueError(
-                    """
-                    [ ChangePoint error ]
-                    >> The length of 'width_bounds' must be one less than the number of kernels
+                    """\n
+                    \r[ ChangePoint error ]
+                    \r>> The length of 'width_bounds' must be one less than the number of kernels
                     """
                 )
             self.width_bounds = [check_bounds(wb) for wb in width_bounds]
@@ -526,7 +526,7 @@ class ChangePoint(CovarianceFunction):
         # check for consistency of length of bounds
         assert self.n_params == len(self.bounds)
 
-    def __call__(self, u: ndarray, v: ndarray, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta: ndarray) -> ndarray:
         kernel_coeffs = [1.0]
         for slc in self.cp_slc:
             w_u = self.logistic(u[:, self.axis], theta[slc])
@@ -543,7 +543,7 @@ class ChangePoint(CovarianceFunction):
             for i in range(self.n_kernels)
         )
 
-    def build_covariance(self, theta):
+    def build_covariance(self, theta: ndarray) -> ndarray:
         kernel_coeffs = [1.0]
         for slc in self.cp_slc:
             w = self.logistic(self.x_cp, theta[slc])
@@ -558,7 +558,7 @@ class ChangePoint(CovarianceFunction):
             for i in range(self.n_kernels)
         )
 
-    def covariance_and_gradients(self, theta):
+    def covariance_and_gradients(self, theta: ndarray):
         K_vals = []
         K_grads = []
         for i in range(self.n_kernels):
@@ -593,12 +593,12 @@ class ChangePoint(CovarianceFunction):
         return covar, gradients
 
     @staticmethod
-    def logistic(x, theta):
+    def logistic(x, theta: ndarray):
         z = (x - theta[0]) / theta[1]
         return 1.0 / (1.0 + exp(-z))
 
     @staticmethod
-    def logistic_and_gradient(x, theta):
+    def logistic_and_gradient(x, theta: ndarray):
         z = (x - theta[0]) / theta[1]
         f = 1.0 / (1.0 + exp(-z))
         dfdc = -f * (1 - f) / theta[1]
@@ -643,7 +643,7 @@ class HeteroscedasticNoise(CovarianceFunction):
         sequence of length-2 tuples giving the lower/upper bounds.
     """
 
-    def __init__(self, hyperpar_bounds=None):
+    def __init__(self, hyperpar_bounds: list[tuple] = None):
         self.bounds = hyperpar_bounds
 
     def pass_spatial_data(self, x: ndarray):
@@ -668,10 +668,10 @@ class HeteroscedasticNoise(CovarianceFunction):
         s = log(ptp(y))
         self.bounds = [(s - 8, s + 2) for _ in range(self.n_params)]
 
-    def __call__(self, u, v, theta):
+    def __call__(self, u: ndarray, v: ndarray, theta: ndarray) -> ndarray:
         return zeros([u.size, v.size])
 
-    def build_covariance(self, theta):
+    def build_covariance(self, theta: ndarray) -> ndarray:
         """
         Optimized version of self.matrix() specifically for the data
         covariance matrix where the vectors v1 & v2 are both self.x.
@@ -679,7 +679,7 @@ class HeteroscedasticNoise(CovarianceFunction):
         sigma_sq = exp(2 * theta)
         return diag(sigma_sq)
 
-    def covariance_and_gradients(self, theta):
+    def covariance_and_gradients(self, theta: ndarray):
         sigma_sq = exp(2 * theta)
         K = diag(sigma_sq)
         grads = [s * dk for s, dk in zip(sigma_sq, self.dK)]

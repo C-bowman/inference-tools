@@ -145,8 +145,8 @@ class HamiltonianChain(MarkovChain):
         else:
             raise ValueError(
                 f"""\n
-                [ HamiltonianChain error ]
-                >> Failed to take step within maximum allowed attempts of {self.max_attempts}
+                \r[ HamiltonianChain error ]
+                \r>> Failed to take step within maximum allowed attempts of {self.max_attempts}
                 """
             )
 
@@ -155,7 +155,9 @@ class HamiltonianChain(MarkovChain):
         self.leapfrog_steps.append(steps_taken)
         self.chain_length += 1
 
-    def standard_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+    def standard_leapfrog(
+        self, t: ndarray, r: ndarray, n_steps: int
+    ) -> tuple[ndarray, ndarray]:
         t_step = self.inv_mass * self.ES.epsilon
         r_step = self.inv_temp * self.ES.epsilon
         r += (0.5 * r_step) * self.grad(t)
@@ -166,7 +168,9 @@ class HamiltonianChain(MarkovChain):
         r += (0.5 * r_step) * self.grad(t)
         return t, r
 
-    def bounded_leapfrog(self, t: ndarray, r: ndarray, n_steps: int):
+    def bounded_leapfrog(
+        self, t: ndarray, r: ndarray, n_steps: int
+    ) -> tuple[ndarray, ndarray]:
         t_step = self.inv_mass * self.ES.epsilon
         r_step = self.inv_temp * self.ES.epsilon
         r += (0.5 * r_step) * self.grad(t)

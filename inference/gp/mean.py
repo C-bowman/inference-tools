@@ -8,23 +8,23 @@ class MeanFunction(ABC):
     """
 
     @abstractmethod
-    def pass_spatial_data(self, x):
+    def pass_spatial_data(self, x: ndarray):
         pass
 
     @abstractmethod
-    def estimate_hyperpar_bounds(self, y):
+    def estimate_hyperpar_bounds(self, y: ndarray):
         pass
 
     @abstractmethod
-    def __call__(self, q, theta):
+    def __call__(self, q, theta: ndarray):
         pass
 
     @abstractmethod
-    def build_mean(self, theta):
+    def build_mean(self, theta: ndarray):
         pass
 
     @abstractmethod
-    def mean_and_gradients(self, theta):
+    def mean_and_gradients(self, theta: ndarray):
         pass
 
 
