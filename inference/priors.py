@@ -516,9 +516,9 @@ def attempt_array_conversion(param) -> bool:
     # if input is a zero-dimensional array, we need to convert to 1D
     zero_dim_array = isinstance(param, ndarray) and param.ndim == 0
     # if the input is a float or an int, also convert to a 1D array
-    valid_number = isinstance(param, Union[float, int])
+    valid_number = isinstance(param, (int, float))
     # if the input is a list or tuple containing only floats and ints, also convert
-    valid_sequence = isinstance(param, Union[list, tuple]) and all(
-        isinstance(v, Union[int, float]) for v in param
+    valid_sequence = isinstance(param, (list, tuple)) and all(
+        isinstance(v, (int, float)) for v in param
     )
     return zero_dim_array or valid_sequence or valid_number
