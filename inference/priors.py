@@ -2,14 +2,94 @@
 .. moduleauthor:: Chris Bowman <chris.bowman.physics@gmail.com>
 """
 
+from abc import ABC, abstractmethod
 from typing import Union, Iterable
-
-from numpy import array, log, pi, zeros, concatenate, float64, where, ndarray
+from numpy import array, log, pi, zeros, concatenate, float64, where, ndarray, isfinite
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
 
-class JointPrior:
+class BasePrior(ABC):
+    @staticmethod
+    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
+        if not isinstance(variable_inds, (int, Iterable)):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if isinstance(variable_inds, int):
+            variable_inds = [variable_inds]
+
+        if not all(isinstance(p, int) for p in variable_inds):
+            raise TypeError("'variable_inds' must be an integer or list of integers")
+
+        if n_vars != len(variable_inds):
+            raise ValueError(
+                """
+                The total number of variables specified via the 'variable_indices' argument is
+                inconsistent with the number specified by the other arguments.
+                """
+            )
+
+        if len(variable_inds) != len(set(variable_inds)):
+            raise ValueError(
+                """
+                All integers given via the 'variable_indices' must be unique.
+                Two or more of the given integers are duplicates.
+                """
+            )
+
+        return variable_inds
+
+    @abstractmethod
+    def __call__(self, theta: ndarray) -> float:
+        pass
+
+    @abstractmethod
+    def gradient(self, theta: ndarray) -> ndarray:
+        pass
+
+    def cost(self, theta: ndarray) -> float:
+        """
+        Returns the 'cost', equal to the negative prior log-probability, for the
+        provided set of model parameters.
+
+        :param theta: \
+            The model parameters as a 1D ``numpy.ndarray``.
+
+        :returns: \
+            The negative prior log-probability value.
+        """
+        return -self(theta)
+
+    def cost_gradient(self, theta: ndarray) -> ndarray:
+        """
+        Returns the gradient of the 'cost', equal to the negative prior log-probability,
+        with respect to the model parameters.
+
+        :param theta: \
+            The model parameters as a 1D ``numpy.ndarray``.
+
+        :returns: \
+            The gradient of the negative prior log-probability value.
+        """
+        return -self.gradient(theta)
+
+    def sample(self) -> ndarray:
+        """
+        Draws a sample from the prior.
+
+        :returns: \
+            A single sample from the prior distribution as a 1D ``numpy.ndarray``.
+        """
+        raise NotImplementedError(
+            f"""\n
+            \r[ {self.__class__.__name__} error ]
+            \r>> 'sample' is an optional method for classes inheriting from
+            \r>> 'BasePrior', and has not been implemented for '{self.__class__.__name__}'.
+            """
+        )
+
+
+class JointPrior(BasePrior):
     """
     A class which combines multiple prior distribution objects into a single
     joint-prior distribution object.
@@ -116,37 +196,6 @@ class JointPrior:
         for c in self.components:
             sample[c.variables] = c.sample()
         return sample
-
-
-class BasePrior:
-    @staticmethod
-    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
-        if not isinstance(variable_inds, (int, Iterable)):
-            raise TypeError("'variable_inds' must be an integer or list of integers")
-
-        if isinstance(variable_inds, int):
-            variable_inds = [variable_inds]
-
-        if not all(isinstance(p, int) for p in variable_inds):
-            raise TypeError("'variable_inds' must be an integer or list of integers")
-
-        if n_vars != len(variable_inds):
-            raise ValueError(
-                """
-                The total number of variables specified via the 'variable_indices' argument is
-                inconsistent with the number specified by the other arguments.
-                """
-            )
-
-        if len(variable_inds) != len(set(variable_inds)):
-            raise ValueError(
-                """
-                All integers given via the 'variable_indices' must be unique.
-                Two or more of the given integers are duplicates.
-                """
-            )
-
-        return variable_inds
 
 
 class GaussianPrior(BasePrior):
