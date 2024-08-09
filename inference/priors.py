@@ -10,6 +10,8 @@ from itertools import chain
 
 
 class BasePrior(ABC):
+    variables: list[int]
+
     @staticmethod
     def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
         if not isinstance(variable_inds, (int, Iterable)):
@@ -102,7 +104,7 @@ class JointPrior(BasePrior):
         The total number of model variables.
     """
 
-    def __init__(self, components, n_variables: int):
+    def __init__(self, components: list[BasePrior], n_variables: int):
         if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
                 """
@@ -203,18 +205,18 @@ class GaussianPrior(BasePrior):
     A class for generating a Gaussian prior for one or more of the model variables.
 
     :param mean: \
-        A list specifying the means of the Gaussian priors on each of the variables specified
-        in the ``variable_indices`` argument.
+        The means of the Gaussian priors on each of the variables specified
+        in the ``variable_indices`` argument as a 1D ``numpy.ndarray``.
 
     :param sigma: \
-        A list specifying the standard deviations of the Gaussian priors on each of the
-        variables specified in the ``variable_indices`` argument.
+        The standard deviations of the Gaussian priors on each of the variables
+        specified in the ``variable_indices`` argument as a 1D ``numpy.ndarray``.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, mean, sigma, variable_indices: list[int]):
+    def __init__(self, mean: ndarray, sigma: ndarray, variable_indices: list[int]):
         self.mean = array(mean, dtype=float64).squeeze()
         self.sigma = array(sigma, dtype=float64).squeeze()
 
@@ -300,14 +302,14 @@ class ExponentialPrior(BasePrior):
     A class for generating an exponential prior for one or more of the model variables.
 
     :param beta: \
-        A list specifying the 'beta' parameter value of the exponential priors on each of the
-        variables specified in the ``variable_indices`` argument.
+        The 'beta' parameter values of the exponential priors on each of the variables
+        specified in the ``variable_indices`` argument as a 1D ``numpy.ndarray``.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, beta, variable_indices: list[int]):
+    def __init__(self, beta: ndarray, variable_indices: list[int]):
         self.beta = array(beta, dtype=float64).squeeze()
         if self.beta.ndim == 0:
             self.beta = self.beta.reshape([1])
@@ -364,7 +366,7 @@ class ExponentialPrior(BasePrior):
         return exponential(scale=self.beta)
 
     @classmethod
-    def combine(cls, priors):
+    def combine(cls, priors: list[BasePrior]):
         if not all(isinstance(p, cls) for p in priors):
             raise ValueError(f"All prior objects being combined must be of type {cls}")
 
@@ -381,18 +383,18 @@ class UniformPrior(BasePrior):
     A class for generating a uniform prior for one or more of the model variables.
 
     :param lower: \
-        A list specifying the lower bound of the uniform priors on each of the variables
-        specified in the ``variable_indices`` argument.
+        The lower bound of the uniform priors on each of the variables
+        specified in the ``variable_indices`` argument as a 1D ``numpy.ndarray``.
 
     :param upper: \
-        A list specifying the upper bound of the uniform priors on each of the variables
-        specified in the ``variable_indices`` argument.
+        The upper bound of the uniform priors on each of the variables
+        specified in the ``variable_indices`` argument as a 1D ``numpy.ndarray``.
 
     :param variable_indices: \
         A list of integers specifying the indices of the variables to which the prior will apply.
     """
 
-    def __init__(self, lower, upper, variable_indices: list[int]):
+    def __init__(self, lower: ndarray, upper: ndarray, variable_indices: list[int]):
         self.lower = array(lower).squeeze()
         self.upper = array(upper).squeeze()
 
