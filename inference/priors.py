@@ -4,7 +4,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, Iterable
-from numpy import array, log, pi, zeros, concatenate, float64, where, ndarray, isfinite
+from numpy import atleast_1d, log, pi, zeros, concatenate, where, ndarray, isfinite
 from numpy.random import normal, exponential, uniform
 from itertools import chain
 
@@ -217,28 +217,13 @@ class GaussianPrior(BasePrior):
     """
 
     def __init__(self, mean: ndarray, sigma: ndarray, variable_indices: list[int]):
-        self.mean = array(mean, dtype=float64).squeeze()
-        self.sigma = array(sigma, dtype=float64).squeeze()
-
-        # if parameters were passed as floats, convert from 0D to 1D arrays
-        if self.mean.ndim == 0:
-            self.mean = self.mean.reshape([1])
-        if self.sigma.ndim == 0:
-            self.sigma = self.sigma.reshape([1])
+        self.mean, self.sigma = validate_prior_parameters(
+            class_name="GaussianPrior",
+            params=[("mean", mean), ("sigma", sigma)],
+            require_positive={"sigma"},
+        )
 
         self.n_params = self.mean.size
-
-        if self.mean.size != self.sigma.size:
-            raise ValueError(
-                "mean and sigma arguments must have the same number of elements"
-            )
-
-        if self.mean.ndim > 1 or self.sigma.ndim > 1:
-            raise ValueError("mean and sigma arguments must be 1D arrays")
-
-        if not (self.sigma > 0.0).all():
-            raise ValueError('All values of "sigma" must be greater than zero')
-
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
@@ -310,17 +295,13 @@ class ExponentialPrior(BasePrior):
     """
 
     def __init__(self, beta: ndarray, variable_indices: list[int]):
-        self.beta = array(beta, dtype=float64).squeeze()
-        if self.beta.ndim == 0:
-            self.beta = self.beta.reshape([1])
+        (self.beta,) = validate_prior_parameters(
+            class_name="ExponentialPrior",
+            params=[("beta", beta)],
+            require_positive={"beta"},
+        )
+
         self.n_params = self.beta.size
-
-        if self.beta.ndim > 1:
-            raise ValueError("beta argument must be a 1D array")
-
-        if not (self.beta > 0.0).all():
-            raise ValueError('All values of "beta" must be greater than zero')
-
         self.variables = self.check_variables(variable_indices, self.n_params)
 
         # pre-calculate some quantities as an optimisation
@@ -395,27 +376,19 @@ class UniformPrior(BasePrior):
     """
 
     def __init__(self, lower: ndarray, upper: ndarray, variable_indices: list[int]):
-        self.lower = array(lower).squeeze()
-        self.upper = array(upper).squeeze()
-
-        # if parameters were passed as floats, convert from 0D to 1D arrays
-        self.lower = self.lower.reshape([1]) if self.lower.ndim == 0 else self.lower
-        self.upper = self.upper.reshape([1]) if self.upper.ndim == 0 else self.upper
+        self.lower, self.upper = validate_prior_parameters(
+            class_name="UniformPrior", params=[("lower", lower), ("upper", upper)]
+        )
 
         self.n_params = self.lower.size
         self.grad = zeros(self.n_params)
 
-        if self.lower.size != self.upper.size:
-            raise ValueError(
-                """'lower' and 'upper' arguments must have the same number of elements"""
-            )
-
-        if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError("'lower' and 'upper' arguments must be 1D arrays")
-
         if (self.upper <= self.lower).any():
             raise ValueError(
-                "All values in 'lower' must be less than the corresponding values in 'upper'"
+                """\n
+                \r[ UniformPrior error ]
+                \r>> All values in 'lower' must be less than the corresponding values in 'upper'
+                """
             )
 
         self.variables = self.check_variables(variable_indices, self.n_params)
@@ -475,3 +448,77 @@ class UniformPrior(BasePrior):
         upper = concatenate([p.upper for p in priors])
 
         return cls(lower=lower, upper=upper, variable_indices=variables)
+
+
+def validate_prior_parameters(
+    class_name: str, params: list[tuple], require_positive: set[str] = frozenset()
+) -> list[ndarray]:
+    validated_params = []
+    for param_name, param in params:
+        if attempt_array_conversion(param):
+            param = atleast_1d(param).astype(float)
+
+        if not isinstance(param, ndarray):
+            raise ValueError(
+                f"""\n
+                \r[ {class_name} error ]
+                \r>> Argument '{param_name}' should be an instance of a numpy.ndarray,
+                \r>> but instead has type:
+                \r>> {type(param)}
+                """
+            )
+
+        if param.ndim != 1:
+            raise ValueError(
+                f"""\n
+                \r[ {class_name} error ]
+                \r>> Argument '{param_name}' should be a 1D numpy.ndarray, 
+                \r>> but has {param.ndim} dimensions and shape {param.shape}.
+                """
+            )
+
+        if not isfinite(param).all():
+            raise ValueError(
+                f"""\n
+                \r[ {class_name} error ]
+                \r>> Argument '{param_name}' contains non-finite values.
+                """
+            )
+
+        if param_name in require_positive:
+            if not (param > 0.0).all():
+                raise ValueError(
+                    f"""\n
+                    \r[ {class_name} error ]
+                    \r>> All values given in '{param_name}' must be greater than zero.
+                    """
+                )
+
+        validated_params.append(param)
+
+    # check all inputs are the same size by collecting their sizes in a set
+    if len({param.size for param in validated_params}) != 1:
+        raise ValueError(
+            f"""\n
+            \r[ {class_name} error ]
+            \r>> Arguments
+            \r>> {[param_name for param_name, _ in params]}
+            \r>> must all be arrays of equal size, but instead have sizes
+            \r>> {[param.size for param in validated_params]}
+            \r>> respectively.
+            """
+        )
+
+    return validated_params
+
+
+def attempt_array_conversion(param) -> bool:
+    # if input is a zero-dimensional array, we need to convert to 1D
+    zero_dim_array = isinstance(param, ndarray) and param.ndim == 0
+    # if the input is a float or an int, also convert to a 1D array
+    valid_number = isinstance(param, Union[float, int])
+    # if the input is a list or tuple containing only floats and ints, also convert
+    valid_sequence = isinstance(param, Union[list, tuple]) and all(
+        isinstance(v, Union[int, float]) for v in param
+    )
+    return zero_dim_array or valid_sequence or valid_number
