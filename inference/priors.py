@@ -107,9 +107,10 @@ class JointPrior(BasePrior):
     def __init__(self, components: list[BasePrior], n_variables: int):
         if not all(isinstance(c, BasePrior) for c in components):
             raise TypeError(
-                """
-                All objects contained in the 'components' argument must be instances
-                of a subclass of BasePrior (e.g. GaussianPrior, UniformPrior)
+                """\n
+                \r[ JointPrior error ]
+                \r>> The sequence of prior objects passed to the 'components' argument 
+                \r>> of 'JointPrior' must be instances of a subclass of 'BasePrior'.
                 """
             )
 
@@ -127,24 +128,31 @@ class JointPrior(BasePrior):
         for var in chain(*[c.variables for c in self.components]):
             if var in self.prior_variables:
                 raise ValueError(
-                    f"Variable index '{var}' appears more than once in prior components"
+                    f"""\n
+                    \r[ JointPrior error ]
+                    \r>> Variable index '{var}' appears more than once in the prior
+                    \r>> objects passed to the 'components' argument of 'JointPrior'.
+                    """
                 )
             self.prior_variables.append(var)
 
         if len(self.prior_variables) != n_variables:
             raise ValueError(
-                f"""
-                The total number of variables specified across the various prior
-                components ({len(self.prior_variables)}) does not match the number specified in
-                the 'n_variables' argument ({n_variables}).
+                f"""\n
+                \r[ JointPrior error ]
+                \r>> The total number of variables specified across the various prior
+                \r>> components ({len(self.prior_variables)}) does not match the number
+                \r>> specified in the 'n_variables' argument ({n_variables}).
                 """
             )
 
         if not all(0 <= i < n_variables for i in self.prior_variables):
             raise ValueError(
-                """
-                All variable indices given to the prior components must have values
-                in the range [0, n_variables-1].
+                """\n
+                \r[ JointPrior error ]
+                \r>> All variable indices specified across the various prior
+                \r>> objects passed to the 'components' argument of 'JointPrior'
+                \r>> must have values in the range [0, n_variables - 1].
                 """
             )
 
