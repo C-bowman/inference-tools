@@ -13,29 +13,46 @@ class BasePrior(ABC):
     variables: list[int]
 
     @staticmethod
-    def check_variables(variable_inds: Union[int, Iterable[int]], n_vars: int):
+    def validate_variable_indices(
+        variable_inds: Union[int, Iterable[int]],
+        n_parameters: int,
+        class_name="BasePrior",
+    ) -> list[int]:
+        indices_type_error = TypeError(
+            f"""\n
+            \r[ {class_name} error ]
+            \r>> 'variable_inds' argument of {class_name} must be
+            \r>> given as an integer or list of integers
+            """
+        )
+
         if not isinstance(variable_inds, (int, Iterable)):
-            raise TypeError("'variable_inds' must be an integer or list of integers")
+            raise indices_type_error
 
         if isinstance(variable_inds, int):
             variable_inds = [variable_inds]
 
         if not all(isinstance(p, int) for p in variable_inds):
-            raise TypeError("'variable_inds' must be an integer or list of integers")
+            raise indices_type_error
 
-        if n_vars != len(variable_inds):
+        if not isinstance(variable_inds, list):
+            variable_inds = list(variable_inds)
+
+        if n_parameters != len(variable_inds):
             raise ValueError(
-                """
-                The total number of variables specified via the 'variable_indices' argument is
-                inconsistent with the number specified by the other arguments.
+                f"""\n
+                \r[ {class_name} error ]
+                \r>> The total number of variables specified via the 'variable_indices' argument
+                \r>> is inconsistent with the number specified by the other arguments.
                 """
             )
 
         if len(variable_inds) != len(set(variable_inds)):
             raise ValueError(
-                """
-                All integers given via the 'variable_indices' must be unique.
-                Two or more of the given integers are duplicates.
+                f"""\n
+                \r[ {class_name} error ]
+                \r>> All integers given via the 'variable_indices' must be unique.
+                \r>> Two or more of the given integers are duplicates.
                 """
             )
 
@@ -232,7 +249,11 @@ class GaussianPrior(BasePrior):
         )
 
         self.n_params = self.mean.size
-        self.variables = self.check_variables(variable_indices, self.n_params)
+        self.variables = self.validate_variable_indices(
+            variable_inds=variable_indices,
+            n_parameters=self.n_params,
+            class_name="GaussianPrior",
+        )
 
         # pre-calculate some quantities as an optimisation
         self.inv_sigma = 1.0 / self.sigma
@@ -310,7 +331,11 @@ class ExponentialPrior(BasePrior):
         )
 
         self.n_params = self.beta.size
-        self.variables = self.check_variables(variable_indices, self.n_params)
+        self.variables = self.validate_variable_indices(
+            variable_inds=variable_indices,
+            n_parameters=self.n_params,
+            class_name="ExponentialPrior",
+        )
 
         # pre-calculate some quantities as an optimisation
         self.lam = 1.0 / self.beta
@@ -399,7 +424,11 @@ class UniformPrior(BasePrior):
                 """
             )
 
-        self.variables = self.check_variables(variable_indices, self.n_params)
+        self.variables = self.validate_variable_indices(
+            variable_inds=variable_indices,
+            n_parameters=self.n_params,
+            class_name="UniformPrior",
+        )
 
         # pre-calculate some quantities as an optimisation
         self.normalisation = -log(self.upper - self.lower).sum()
@@ -467,7 +496,7 @@ def validate_prior_parameters(
             param = atleast_1d(param).astype(float)
 
         if not isinstance(param, ndarray):
-            raise ValueError(
+            raise TypeError(
                 f"""\n
                 \r[ {class_name} error ]
                 \r>> Argument '{param_name}' should be an instance of a numpy.ndarray,
