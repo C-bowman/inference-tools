@@ -24,7 +24,7 @@ class UnimodalPdf(DensityEstimator):
         self.sample = array(sample).flatten()
         self.n_samps = self.sample.size
 
-        # chebyshev quadtrature weights and axes
+        # chebyshev quadrature weights and axes
         self.sd = 0.2
         self.n_nodes = 128
         k = linspace(1, self.n_nodes, self.n_nodes)
@@ -79,7 +79,7 @@ class UnimodalPdf(DensityEstimator):
             (lwr, upr),
             (sigma * 0.1, sigma * 10),
             (0.0, 3.0),
-            (None, None),
+            (-3.0, 3.0),
             (1e-2, 20.0),
             (1.0, 6.0),
         ]
@@ -127,7 +127,7 @@ class UnimodalPdf(DensityEstimator):
         return integral if x.size > 1 else integral[0]
 
     def evaluate_model(self, x: ndarray, theta: ndarray) -> ndarray:
-        return self.log_pdf_model(x, theta) / self.norm(theta)
+        return self.pdf_model(x, theta) / self.norm(theta)
 
     def posterior(self, theta: ndarray) -> float:
         normalisation = self.fitted_samples.size * log(self.norm(theta))
