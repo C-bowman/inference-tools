@@ -44,7 +44,7 @@ class UnimodalPdf(DensityEstimator):
         guesses = sorted(guesses, key=minfunc)
 
         # minimise based on the best guess
-        opt_method = "L-BFGS-B"
+        opt_method = "Nelder-Mead"
         self.min_result = minimize(
             fun=minfunc, x0=guesses[0], bounds=self.bounds, method=opt_method
         )
@@ -78,7 +78,7 @@ class UnimodalPdf(DensityEstimator):
         bounds = [
             (lwr, upr),
             (sigma * 0.1, sigma * 10),
-            (0.0, 3.0),
+            (0.0, 5.0),
             (-3.0, 3.0),
             (1e-2, 20.0),
             (1.0, 6.0),
