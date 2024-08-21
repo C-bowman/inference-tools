@@ -39,14 +39,14 @@ class UnimodalPdf(DensityEstimator):
 
         # makes guesses based on sample moments
         guesses, self.bounds = self.generate_guesses_and_bounds()
-        # sort the guesses by the lowest score
-        minfunc = lambda x: -self.posterior(x)
-        guesses = sorted(guesses, key=minfunc)
+        # sort the guesses by the lowest cost
+        cost_func = lambda x: -self.posterior(x)
+        guesses = sorted(guesses, key=cost_func)
 
         # minimise based on the best guess
         opt_method = "Nelder-Mead"
         self.min_result = minimize(
-            fun=minfunc, x0=guesses[0], bounds=self.bounds, method=opt_method
+            fun=cost_func, x0=guesses[0], bounds=self.bounds, method=opt_method
         )
         self.MAP = self.min_result.x
         self.mode = self.MAP[0]
@@ -55,7 +55,7 @@ class UnimodalPdf(DensityEstimator):
         if self.skip > 1:
             self.fitted_samples = self.sample
             self.min_result = minimize(
-                fun=minfunc,
+                fun=cost_func,
                 x0=self.MAP,
                 bounds=self.bounds,
                 method=opt_method,
@@ -145,8 +145,7 @@ class UnimodalPdf(DensityEstimator):
         x0, s0, ln_v, f, k, q = theta
         v = exp(ln_v)
         z0 = (x - x0) / s0
-        ds = exp(f * tanh(z0 / k))
-        z = z0 / ds
+        z = z0 * exp(-f * tanh(z0 / k))
 
         log_prob = -(0.5 * (1 + v)) * log(1 + (abs(z) ** q) / v)
         return log_prob
