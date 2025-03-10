@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from numpy import ndarray, float64
 from numpy import array, savez, savez_compressed, load, zeros
 from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
-from numpy.random import random, normal
+from numpy.random import default_rng
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
 from inference.mcmc.base import MarkovChain
@@ -73,6 +73,7 @@ class HamiltonianChain(MarkovChain):
         display_progress=True,
     ):
         self.posterior = posterior
+        self.rng = default_rng()
         # if no gradient function is supplied, default to finite difference
         self.grad = self.finite_diff if grad is None else grad
 
@@ -124,11 +125,11 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = normal(size=self.n_parameters, scale=self.sqrt_mass)
+            r0 = self.rng.normal(size=self.n_parameters, scale=self.sqrt_mass)
             t0 = self.theta[-1]
             H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
 
-            n_steps = int(self.steps * (1 + (random() - 0.5) * 0.2))
+            n_steps = int(self.steps * (1 + (self.rng.random() - 0.5) * 0.2))
             t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
             steps_taken += n_steps
@@ -140,7 +141,7 @@ class HamiltonianChain(MarkovChain):
                 min(accept_prob, 1) if isfinite(accept_prob) else 0.0
             )
 
-            if (accept_prob >= 1) or (random() <= accept_prob):
+            if (accept_prob >= 1) or (self.rng.random() <= accept_prob):
                 break
         else:
             raise ValueError(

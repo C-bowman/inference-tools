@@ -4,9 +4,11 @@
 
 from abc import ABC, abstractmethod
 from typing import Union, Iterable
-from numpy import atleast_1d, log, pi, zeros, concatenate, where, ndarray, isfinite
-from numpy.random import normal, exponential, uniform
 from itertools import chain
+from numpy import atleast_1d, log, pi, zeros, concatenate, where, ndarray, isfinite
+from numpy.random import default_rng
+
+rng = default_rng()
 
 
 class BasePrior(ABC):
@@ -294,7 +296,7 @@ class GaussianPrior(BasePrior):
         :returns: \
             A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
-        return normal(loc=self.mean, scale=self.sigma)
+        return rng.normal(loc=self.mean, scale=self.sigma)
 
     @classmethod
     def combine(cls, priors):
@@ -377,7 +379,7 @@ class ExponentialPrior(BasePrior):
         :returns: \
             A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
-        return exponential(scale=self.beta)
+        return rng.exponential(scale=self.beta)
 
     @classmethod
     def combine(cls, priors: list[BasePrior]):
@@ -470,7 +472,7 @@ class UniformPrior(BasePrior):
         :returns: \
             A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
-        return uniform(low=self.lower, high=self.upper)
+        return rng.uniform(low=self.lower, high=self.upper)
 
     @classmethod
     def combine(cls, priors):

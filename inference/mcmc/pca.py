@@ -4,7 +4,6 @@ import matplotlib.pyplot as plt
 
 from numpy import array, savez, load, zeros
 from numpy import sqrt, exp, dot, cov
-from numpy.random import random, normal
 from scipy.linalg import eigh
 
 from inference.mcmc.gibbs import MetropolisChain, Parameter
@@ -157,7 +156,7 @@ class PcaChain(MetropolisChain):
         # loop over each eigenvector and take a step along each
         for v, p in zip(self.directions, self.params):
             while True:
-                prop = theta0 + v * p.sigma * normal()
+                prop = theta0 + v * p.sigma * self.rng.normal()
                 prop = self.process_proposal(prop)
                 p_new = self.posterior(prop) * self.inv_temp
 
@@ -165,10 +164,9 @@ class PcaChain(MetropolisChain):
                     p.submit_accept_prob(1.0)
                     break
                 else:
-                    test = random()
                     acceptance_prob = exp(p_new - p_old)
                     p.submit_accept_prob(acceptance_prob)
-                    if test < acceptance_prob:
+                    if self.rng.random() < acceptance_prob:
                         break
 
             theta0 = copy(prop)

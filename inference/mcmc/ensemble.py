@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 from numpy import array, ndarray, linspace, concatenate, savez, load
 from numpy import sqrt, var, cov, diag, isfinite, triu, exp, log, median
-from numpy.random import random, randint
+from numpy.random import default_rng
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter
 from inference.mcmc.base import MarkovChain
@@ -52,6 +52,7 @@ class EnsembleSampler(MarkovChain):
         display_progress=True,
     ):
         self.posterior = posterior
+        self.rng = default_rng()
 
         if starting_positions is not None:
             # store core data
@@ -180,9 +181,9 @@ class EnsembleSampler(MarkovChain):
 
     def __proposal(self, i: int):
         # randomly select walker that isn't 'i'
-        j = (randint(low=1, high=self.n_walkers) + i) % self.n_walkers
+        j = (self.rng.integers(low=1, high=self.n_walkers) + i) % self.n_walkers
         # sample the stretch distance
-        z = 0.5 * (self.x_lwr + self.x_width * random()) ** 2
+        z = 0.5 * (self.x_lwr + self.x_width * self.rng.random()) ** 2
         prop = self.process_proposal(
             self.walker_positions[i, :]
             + z * (self.walker_positions[j, :] - self.walker_positions[i, :])
@@ -194,7 +195,7 @@ class EnsembleSampler(MarkovChain):
             Y, z = self.__proposal(i)
             p = self.posterior(Y)
             q = exp((self.n_parameters - 1) * log(z) + p - self.walker_probs[i])
-            if random() <= q:
+            if self.rng.random() <= q:
                 self.walker_positions[i, :] = Y
                 self.walker_probs[i] = p
                 self.total_proposals[i].append(attempts)
