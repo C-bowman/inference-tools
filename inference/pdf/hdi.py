@@ -47,7 +47,6 @@ def sample_hdi(sample: ndarray, fraction: float) -> ndarray:
             """
         )
 
-
     if s.ndim > 2 or s.ndim == 0:
         raise ValueError(
             f"""\n

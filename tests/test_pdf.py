@@ -144,10 +144,16 @@ def test_sample_hdi_gaussian():
     sample = rng.normal(expected_mu, expected_sigma, size=[N, 3])
     intervals = sample_hdi(sample, fraction=0.9545)
     assert allclose(
-        intervals[0, :], expected_mu - 2 * expected_sigma, rtol=tolerance, atol=tolerance
+        intervals[0, :],
+        expected_mu - 2 * expected_sigma,
+        rtol=tolerance,
+        atol=tolerance,
     )
     assert allclose(
-        intervals[1, :], expected_mu + 2 * expected_sigma, rtol=tolerance, atol=tolerance
+        intervals[1, :],
+        expected_mu + 2 * expected_sigma,
+        rtol=tolerance,
+        atol=tolerance,
     )
 
 
@@ -184,7 +190,7 @@ def test_sample_hdi_invalid_shapes():
     with pytest.raises(ValueError):
         sample_hdi(sample_3D, fraction=0.65)
 
-    sample_0D = array(0.)
+    sample_0D = array(0.0)
     with pytest.raises(ValueError):
         sample_hdi(sample_0D, fraction=0.65)
 
