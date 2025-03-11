@@ -182,7 +182,7 @@ class PcaChain(MetropolisChain):
         if self.chain_length == self.next_update:
             self.update_directions()
 
-    def save(self, filename):
+    def save(self, filename: str):
         """
         Save the entire state of the chain object as an .npz file.
 
@@ -219,7 +219,7 @@ class PcaChain(MetropolisChain):
         savez(filename, **items)
 
     @classmethod
-    def load(cls, filename, posterior=None):
+    def load(cls, filename: str, posterior=None):
         """
         Load a chain object which has been previously saved using the save() method.
 

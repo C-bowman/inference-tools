@@ -30,9 +30,7 @@ class ChainPool:
         return chain
 
 
-def tempering_process(
-    chain: MarkovChain, connection: Connection, end: Event
-):
+def tempering_process(chain: MarkovChain, connection: Connection, end: Event):
     # main loop
     while not end.is_set():
         # poll the pipe until there is something to read

@@ -470,7 +470,7 @@ class EpsilonSelector:
         self.chk_int = 15  # interval of steps at which proposal widths are adjusted
         self.growth_factor = 1.4  # growth factor for self.chk_int
 
-    def add_probability(self, p):
+    def add_probability(self, p: float):
         self.num += 1
         self.avg += p
         self.var += max(p * (1 - p), 0.03)
