@@ -4,7 +4,8 @@ from inference.pdf.kde import GaussianKDE, BinaryTree, unique_index_groups
 
 from dataclasses import dataclass
 from numpy.random import default_rng
-from numpy import array, ndarray, arange, isclose, linspace, concatenate, zeros
+from numpy import array, ndarray, arange, linspace, concatenate, zeros
+from numpy import isclose, allclose
 
 import pytest
 from hypothesis import given, strategies as st
@@ -121,20 +122,38 @@ def test_gaussian_kde_plotting():
     assert top >= pdf(expected_mu)
 
 
-def test_sample_hdi_95():
+def test_sample_hdi_gaussian():
     N = 20000
     expected_mu = 5.0
-    expected_sigma = 2.0
-    sample = default_rng(1324).normal(expected_mu, expected_sigma, size=N)
+    expected_sigma = 3.0
+    rng = default_rng(1324)
 
-    left, right = sample_hdi(sample, fraction=0.95)
+    # test for a single sample
+    sample = rng.normal(expected_mu, expected_sigma, size=N)
+    left, right = sample_hdi(sample, fraction=0.9545)
 
     tolerance = 0.2
     assert isclose(
-        left, expected_mu - (expected_sigma**2), rtol=tolerance, atol=tolerance
+        left, expected_mu - 2 * expected_sigma, rtol=tolerance, atol=tolerance
     )
     assert isclose(
-        right, expected_mu + (expected_sigma**2), rtol=tolerance, atol=tolerance
+        right, expected_mu + 2 * expected_sigma, rtol=tolerance, atol=tolerance
+    )
+
+    # test for a multiple samples
+    sample = rng.normal(expected_mu, expected_sigma, size=[N, 3])
+    intervals = sample_hdi(sample, fraction=0.9545)
+    assert allclose(
+        intervals[0, :],
+        expected_mu - 2 * expected_sigma,
+        rtol=tolerance,
+        atol=tolerance,
+    )
+    assert allclose(
+        intervals[1, :],
+        expected_mu + 2 * expected_sigma,
+        rtol=tolerance,
+        atol=tolerance,
     )
 
 
@@ -156,21 +175,6 @@ def test_sample_hdi_linear(fraction):
     assert isclose(right - left, fraction, rtol=1e-2, atol=1e-2)
 
 
-def test_sample_hdi_double():
-    N = 20000
-    half = linspace(0, 1, N)
-    sample = concatenate((half, 1 - half))
-    fraction = 1e-4
-
-    (left_a, right_a), (left_b, right_b) = sample_hdi(
-        sample, fraction=fraction, allow_double=True
-    )
-    assert left_a <= right_a
-    assert left_b <= right_b
-    assert isclose(right_a - left_a, fraction, rtol=1e-2, atol=1e-2)
-    assert isclose(right_b - left_b, fraction, rtol=1e-2, atol=1e-2)
-
-
 def test_sample_hdi_invalid_fractions():
     # Create some samples from the exponentially-modified Gaussian distribution
     sample = default_rng(1324).normal(size=3000)
@@ -178,10 +182,21 @@ def test_sample_hdi_invalid_fractions():
         sample_hdi(sample, fraction=2.0)
     with pytest.raises(ValueError):
         sample_hdi(sample, fraction=-0.1)
+
+
+def test_sample_hdi_invalid_shapes():
+    rng = default_rng(1324)
+    sample_3D = rng.normal(size=[1000, 2, 2])
     with pytest.raises(ValueError):
-        sample_hdi([1], fraction=0.95)
+        sample_hdi(sample_3D, fraction=0.65)
+
+    sample_0D = array(0.0)
     with pytest.raises(ValueError):
-        sample_hdi(1, fraction=0.95)
+        sample_hdi(sample_0D, fraction=0.65)
+
+    sample_len1 = rng.normal(size=[1, 5])
+    with pytest.raises(ValueError):
+        sample_hdi(sample_len1, fraction=0.65)
 
 
 def test_binary_tree():

@@ -1,11 +1,9 @@
 from _warnings import warn
 from typing import Sequence
-
-from numpy import ndarray, array, sort
-from scipy.optimize import differential_evolution
+from numpy import ndarray, array, sort, zeros, take_along_axis, expand_dims
 
 
-def sample_hdi(sample: ndarray, fraction: float, allow_double=False):
+def sample_hdi(sample: ndarray, fraction: float) -> ndarray:
     """
     Estimate the highest-density interval(s) for a given sample.
 
@@ -13,26 +11,25 @@ def sample_hdi(sample: ndarray, fraction: float, allow_double=False):
     fraction of the elements in the given sample.
 
     :param sample: \
-        A sample for which the interval will be determined.
+        A sample for which the interval will be determined. If the sample is given
+        as a 2D numpy array, the interval calculation will be distributed over the
+        second dimension of the array, i.e. given a sample array of shape ``(m, n)``
+        the highest-density intervals are returned as an array of shape ``(2, n)``.
 
     :param float fraction: \
         The fraction of the total probability to be contained by the interval.
 
-    :param bool allow_double: \
-        When set to True, a double-interval is returned instead if one exists whose
-        total length is meaningfully shorter than the optimal single interval.
-
     :return: \
-        Tuple(s) specifying the lower and upper bounds of the highest-density interval(s).
+        The lower and upper bounds of the highest-density interval(s) as a numpy array.
     """
 
     # verify inputs are valid
     if not 0.0 < fraction < 1.0:
         raise ValueError(
             f"""\n
-            [ sample_hdi error ]
-            >> The 'fraction' argument must be a float between 0 and 1,
-            >> but the value given was {fraction}.
+            \r[ sample_hdi error ]
+            \r>> The 'fraction' argument must be a float between 0 and 1,
+            \r>> but the value given was {fraction}.
             """
         )
 
@@ -43,66 +40,72 @@ def sample_hdi(sample: ndarray, fraction: float, allow_double=False):
     else:
         raise ValueError(
             f"""\n
-            [ sample_hdi error ]
-            >> The 'sample' argument should be a numpy.ndarray or a
-            >> Sequence which can be converted to an array, but
-            >> instead has type {type(sample)}.
+            \r[ sample_hdi error ]
+            \r>> The 'sample' argument should be a numpy.ndarray or a
+            \r>> Sequence which can be converted to an array, but
+            \r>> instead has type {type(sample)}.
             """
         )
 
-    if s.size < 2:
+    if s.ndim > 2 or s.ndim == 0:
         raise ValueError(
             f"""\n
-            [ sample_hdi error ]
-            >> The given 'sample' array must contain at least 2 values.
+            \r[ sample_hdi error ]
+            \r>> The 'sample' argument should be a numpy.ndarray
+            \r>> with either one or two dimensions, but the given
+            \r>> array has dimensionality {s.ndim}.
             """
         )
 
-    if s.ndim > 1:
-        s = s.flatten()
-    s.sort()
-    n = s.size
-    L = int(fraction * n)
+    if s.ndim == 1:
+        s.resize([s.size, 1])
+
+    n_samples, n_intervals = s.shape
+    L = int(fraction * n_samples)
+
+    if n_samples < 2:
+        raise ValueError(
+            f"""\n
+            \r[ sample_hdi error ]
+            \r>> The first dimension of the given 'sample' array must 
+            \r>> have have a length of at least 2.
+            """
+        )
 
     # check that we have enough samples to estimate the HDI for the chosen fraction
-    if n <= L:
+    if n_samples <= L:
         warn(
             f"""\n
-            [ sample_hdi warning ]
-            >> The given number of samples is insufficient to estimate the interval
-            >> for the given fraction.
-            """
-        )
-        return s[0], s[-1]
-    elif n - L < 20:
-        warn(
-            f"""\n
-            [ sample_hdi warning ]
-            >> len(sample)*(1 - fraction) is small - calculated interval may be inaccurate.
+            \r[ sample_hdi warning ]
+            \r>> The given number of samples is insufficient to estimate the interval
+            \r>> for the given fraction.
             """
         )
 
-    # find the optimal single HDI
-    widths = s[L:] - s[: n - L]
-    i = widths.argmin()
-    r1, w1 = (s[i], s[i + L]), s[i + L] - s[i]
+    elif n_samples - L < 20:
+        warn(
+            f"""\n
+            \r[ sample_hdi warning ]
+            \r>> n_samples * (1 - fraction) is small - calculated interval may be inaccurate.
+            """
+        )
 
-    if allow_double:
-        # now get the best 2-interval solution
-        minfunc = dbl_interval_length(sample, fraction)
-        bounds = minfunc.get_bounds()
-        de_result = differential_evolution(minfunc, bounds)
-        I1, I2 = minfunc.return_intervals(de_result.x)
-        w2 = (I2[1] - I2[0]) + (I1[1] - I1[0])
-
-    # return the split interval if the width reduction is non-trivial:
-    if allow_double and w2 < w1 * 0.99:
-        return I1, I2
+    # check that we have enough samples to estimate the HDI for the chosen fraction
+    s.sort(axis=0)
+    hdi = zeros([2, n_intervals])
+    if n_samples > L:
+        # find the optimal single HDI
+        widths = s[L:, :] - s[: n_samples - L, :]
+        i = expand_dims(widths.argmin(axis=0), axis=0)
+        hdi[0, :] = take_along_axis(s, i, 0).squeeze()
+        hdi[1, :] = take_along_axis(s, i + L, 0).squeeze()
     else:
-        return r1
+        hdi[0, :] = s[0, :]
+        hdi[1, :] = s[-1, :]
+    return hdi.squeeze()
 
 
-class dbl_interval_length:
+class DoubleIntervalLength:
     def __init__(self, sample, fraction):
         self.sample = sort(sample)
         self.f = fraction
