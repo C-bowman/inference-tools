@@ -7,7 +7,7 @@ from random import choice
 
 import matplotlib.pyplot as plt
 from numpy import arange, exp, identity, zeros
-from numpy.random import random, shuffle, seed, randint
+from numpy.random import default_rng
 from inference.plotting import transition_matrix_plot
 from inference.mcmc.base import MarkovChain
 
@@ -18,23 +18,19 @@ class ChainPool:
         self.pool_size = len(self.chains)
         self.pool = Pool(self.pool_size)
 
-    def advance(self, n):
+    def advance(self, n: int):
         self.chains = self.pool.map(
             self.adv_func, [(n, chain) for chain in self.chains]
         )
 
     @staticmethod
-    def adv_func(arg):
+    def adv_func(arg: tuple[int, MarkovChain]) -> MarkovChain:
         n, chain = arg
         chain.advance(n)
         return chain
 
 
-def tempering_process(
-    chain: MarkovChain, connection: Connection, end: Event, proc_seed: int
-):
-    # used to ensure each process has a different random seed
-    seed(proc_seed)
+def tempering_process(chain: MarkovChain, connection: Connection, end: Event):
     # main loop
     while not end.is_set():
         # poll the pipe until there is something to read
@@ -108,6 +104,7 @@ class ParallelTempering:
     """
 
     def __init__(self, chains: list[MarkovChain]):
+        self.rng = default_rng()
         self.shutdown_evt = Event()
         self.connections = []
         self.processes = []
@@ -132,7 +129,7 @@ class ParallelTempering:
             self.connections.append(parent_ctn)
             p = Process(
                 target=tempering_process,
-                args=(chn, child_ctn, self.shutdown_evt, randint(30000)),
+                args=(chn, child_ctn, self.shutdown_evt),
             )
             self.processes.append(p)
 
@@ -159,7 +156,7 @@ class ParallelTempering:
         Randomly pair up each chain, with uniform sampling across all possible pairings
         """
         proposed_swaps = arange(self.N_chains)
-        shuffle(proposed_swaps)
+        self.rng.shuffle(proposed_swaps)
         return [p for p in zip(proposed_swaps[::2], proposed_swaps[1::2])]
 
     def tight_pairs(self):
@@ -181,7 +178,7 @@ class ParallelTempering:
             leftovers = [
                 i for i in range(self.N_chains) if not any(i in p for p in sample)
             ]
-            shuffle(leftovers)
+            self.rng.shuffle(leftovers)
             sample.extend(
                 [
                     p if p[0] < p[1] else (p[1], p[0])
@@ -216,7 +213,7 @@ class ParallelTempering:
             pj = probabilities[j] / self.inv_temps[j]
             dp = pi - pj
 
-            if random() <= exp(-dt * dp):  # check if the swap is successful
+            if self.rng.random() <= exp(-dt * dp):  # check if the swap is successful
                 Di = {
                     "task": "update_position",
                     "position": positions[i],
@@ -233,7 +230,7 @@ class ParallelTempering:
                 self.connections[j].send(Di)
                 self.successful_swaps[i, j] += 1
 
-    def advance(self, n, swap_interval=10):
+    def advance(self, n: int, swap_interval=10):
         """
         Advances each chain by a total of *n* steps, performing swap attempts
         at intervals set by the *swap_interval* keyword.

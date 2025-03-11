@@ -8,7 +8,7 @@ from numpy import exp, log, mean, sqrt, argmax, diff
 from numpy import percentile
 from numpy import isfinite, savez, load
 
-from numpy.random import normal, random
+from numpy.random import default_rng
 from inference.mcmc.utilities import ChainProgressPrinter, effective_sample_size
 from inference.mcmc.base import MarkovChain
 
@@ -27,6 +27,7 @@ class Parameter:
     def __init__(self, value: float, sigma: float):
         self.samples = [value]  # list to store all samples for the parameter
         self.sigma = sigma  # the width parameter for the proposal distribution
+        self.rng = default_rng()
 
         # storage for proposal width adjustment algorithm
         self.avg = 0
@@ -91,7 +92,7 @@ class Parameter:
         if self.try_count > self.max_tries:
             self.adjust_sigma(0.25)
         # return the proposed value
-        return self.samples[-1] + self.sigma * normal()
+        return self.rng.normal(loc=self.samples[-1], scale=self.sigma)
 
     def abs_proposal(self):
         # increment the try count
@@ -100,7 +101,7 @@ class Parameter:
         if self.try_count > self.max_tries:
             self.adjust_sigma(0.25)
         # return the proposed value
-        return abs(self.samples[-1] + self.sigma * normal())
+        return abs(self.rng.normal(loc=self.samples[-1], scale=self.sigma))
 
     def boundary_proposal(self):
         # increment the try count
@@ -109,7 +110,7 @@ class Parameter:
         if self.try_count > self.max_tries:
             self.adjust_sigma(0.25)
         # generate the proposed value
-        prop = self.samples[-1] + self.sigma * normal()
+        prop = self.rng.normal(loc=self.samples[-1], scale=self.sigma)
 
         # we now pass the proposal through a 'reflecting' function where
         # proposals falling outside the boundary are reflected inside
@@ -248,6 +249,7 @@ class MetropolisChain(MarkovChain):
         display_progress: bool = True,
     ):
         self.inv_temp = 1.0 / temperature
+        self.rng = default_rng()
 
         if posterior is not None:
             self.posterior = posterior
@@ -295,9 +297,8 @@ class MetropolisChain(MarkovChain):
             if pval > self.probs[-1]:
                 break
             else:
-                test = random()
                 acceptance_prob = exp(pval - self.probs[-1])
-                if test < acceptance_prob:
+                if self.rng.random() < acceptance_prob:
                     break
 
         for p, v in zip(self.params, proposal):
@@ -643,7 +644,7 @@ class GibbsChain(MetropolisChain):
                     # else calculate the acceptance probability and perform the test
                     acceptance_prob = exp(p_new - p_old)
                     p.submit_accept_prob(acceptance_prob)
-                    if random() < acceptance_prob:
+                    if self.rng.random() < acceptance_prob:
                         break
 
             p_old = deepcopy(p_new)  # NOTE - is deepcopy needed?
