@@ -18,13 +18,13 @@ class ChainPool:
         self.pool_size = len(self.chains)
         self.pool = Pool(self.pool_size)
 
-    def advance(self, n):
+    def advance(self, n: int):
         self.chains = self.pool.map(
             self.adv_func, [(n, chain) for chain in self.chains]
         )
 
     @staticmethod
-    def adv_func(arg):
+    def adv_func(arg: tuple[int, MarkovChain]) -> MarkovChain:
         n, chain = arg
         chain.advance(n)
         return chain
@@ -232,7 +232,7 @@ class ParallelTempering:
                 self.connections[j].send(Di)
                 self.successful_swaps[i, j] += 1
 
-    def advance(self, n, swap_interval=10):
+    def advance(self, n: int, swap_interval=10):
         """
         Advances each chain by a total of *n* steps, performing swap attempts
         at intervals set by the *swap_interval* keyword.
