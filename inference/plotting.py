@@ -445,29 +445,11 @@ def hdi_plot(
     if axis is None:
         _, axis = plt.subplots()
 
-    from numpy import take_along_axis, expand_dims
-
     # iterate over the intervals and plot each
     for frac, col in zip(intervals, colors):
-        L = int(frac * n)
-
-        # check that we have enough samples to estimate the HDI for the chosen fraction
-        if n > L:
-            # find the optimal single HDI
-            widths = s[L:, :] - s[: n - L, :]
-            i = expand_dims(widths.argmin(axis=0), axis=0)
-            lwr = take_along_axis(s, i, 0).squeeze()
-            upr = take_along_axis(s, i + L, 0).squeeze()
-        else:
-            lwr = s[0, :]
-            upr = s[-1, :]
-
-        if label_intervals:
-            axis.fill_between(
-                x, lwr, upr, color=col, label="{}% HDI".format(int(100 * frac))
-            )
-        else:
-            axis.fill_between(x, lwr, upr, color=col)
+        lwr, upr = sample_hdi(s, fraction=frac)
+        lab = f"{int(100 * frac)}% HDI" if label_intervals else None
+        axis.fill_between(x, lwr, upr, color=col, label=lab)
 
     return axis
 
