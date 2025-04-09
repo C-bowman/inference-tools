@@ -3,7 +3,7 @@
 """
 
 from abc import ABC, abstractmethod
-from numpy import array, log, exp, pi, sqrt, ndarray
+from numpy import array, log, exp, pi, sqrt, ndarray, logaddexp
 
 
 class Likelihood(ABC):
@@ -254,7 +254,7 @@ class LogisticLikelihood(Likelihood):
 
     def _log_likelihood(self, predictions: ndarray) -> float:
         z = (self.y - predictions) * self.inv_scale
-        return z.sum() - 2 * log(1 + exp(z)).sum() + self.normalisation
+        return z.sum() - 2 * logaddexp(0.0, z).sum() + self.normalisation
 
     def _log_likelihood_gradient(
         self, predictions: ndarray, predictions_jacobian: ndarray
