@@ -1,13 +1,14 @@
-from copy import copy
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
 from numpy import array, savez, savez_compressed, load, zeros
-from numpy import sqrt, var, isfinite, exp, log, dot, mean, argmax, percentile
+from numpy import var, isfinite, exp, mean, argmax, percentile, cov
 from numpy.random import default_rng
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
 from inference.mcmc.base import MarkovChain
+from inference.mcmc.hmc.epsilon import EpsilonSelector
+from inference.mcmc.hmc.mass import get_particle_mass
 
 
 class HamiltonianChain(MarkovChain):
@@ -51,10 +52,12 @@ class HamiltonianChain(MarkovChain):
         in the form ``(lower_bounds, upper_bounds)``.
 
     :param inverse_mass: \
-        A vector specifying the inverse-mass value to be used for each parameter. The
-        inverse-mass is used to transform the momentum distribution in order to make
-        the problem more isotropic. Ideally, the inverse-mass for each parameter should
-        be set to the variance of the marginal distribution of that parameter.
+        The inverse-mass can be given as either a vector or matrix, and is used to
+        transform the momentum distribution so the chain can explore the posterior
+        efficiently. If given as a vector, the inverse mass should have values which
+        approximate the variance of the marginal distributions of each parameter.
+        If given as a matrix, the inverse mass should be a valid covariance matrix
+        for a multivariate normal distribution which approximates the posterior.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
@@ -77,9 +80,6 @@ class HamiltonianChain(MarkovChain):
         # if no gradient function is supplied, default to finite difference
         self.grad = self.finite_diff if grad is None else grad
 
-        # set the inverse mass to 1 if none supplied
-        self.inv_mass = 1.0 if inverse_mass is None else inverse_mass
-        self.sqrt_mass = 1.0 / sqrt(self.inv_mass)
         self.temperature = temperature
         self.inv_temp = 1.0 / temperature
 
@@ -91,7 +91,12 @@ class HamiltonianChain(MarkovChain):
             self.theta = [start]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
-            self.n_parameters = len(start)
+            self.n_parameters = start.size
+            self.mass = get_particle_mass(
+                inverse_mass=inverse_mass if inverse_mass is not None else 1.0,
+                n_parameters=self.n_parameters,
+            )
+
         self.chain_length = 1
 
         # set either the bounded or unbounded leapfrog update
@@ -125,16 +130,16 @@ class HamiltonianChain(MarkovChain):
         """
         steps_taken = 0
         for attempt in range(self.max_attempts):
-            r0 = self.rng.normal(size=self.n_parameters, scale=self.sqrt_mass)
+            r0 = self.mass.sample_momentum(self.rng)
             t0 = self.theta[-1]
-            H0 = 0.5 * dot(r0, r0 * self.inv_mass) - self.probs[-1]
+            H0 = self.kinetic_energy(r0) - self.probs[-1]
 
             n_steps = int(self.steps * (1 + (self.rng.random() - 0.5) * 0.2))
             t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
             steps_taken += n_steps
             p = self.posterior(t) * self.inv_temp
-            H = 0.5 * dot(r, r * self.inv_mass) - p
+            H = self.kinetic_energy(r) - p
             accept_prob = exp(H0 - H)
 
             self.ES.add_probability(
@@ -159,38 +164,49 @@ class HamiltonianChain(MarkovChain):
     def standard_leapfrog(
         self, t: ndarray, r: ndarray, n_steps: int
     ) -> tuple[ndarray, ndarray]:
-        t_step = self.inv_mass * self.ES.epsilon
         r_step = self.inv_temp * self.ES.epsilon
         r += (0.5 * r_step) * self.grad(t)
+
         for _ in range(n_steps - 1):
-            t += t_step * r
+            t += self.ES.epsilon * self.mass.get_velocity(r)
             r += r_step * self.grad(t)
-        t += t_step * r
+
+        t += self.ES.epsilon * self.mass.get_velocity(r)
         r += (0.5 * r_step) * self.grad(t)
         return t, r
 
     def bounded_leapfrog(
         self, t: ndarray, r: ndarray, n_steps: int
     ) -> tuple[ndarray, ndarray]:
-        t_step = self.inv_mass * self.ES.epsilon
         r_step = self.inv_temp * self.ES.epsilon
         r += (0.5 * r_step) * self.grad(t)
+
         for _ in range(n_steps - 1):
-            t += t_step * r
+            t += self.ES.epsilon * self.mass.get_velocity(r)
             t, reflections = self.bounds.reflect_momenta(t)
             r *= reflections
             r += r_step * self.grad(t)
-        t += t_step * r
+
+        t += self.ES.epsilon * self.mass.get_velocity(r)
         t, reflections = self.bounds.reflect_momenta(t)
         r *= reflections
         r += (0.5 * r_step) * self.grad(t)
         return t, r
 
     def hamiltonian(self, t: ndarray, r: ndarray) -> float:
-        return 0.5 * dot(r, r * self.inv_mass) - self.posterior(t) * self.inv_temp
+        return 0.5 * (r @ self.mass.get_velocity(r)) - self.posterior(t) * self.inv_temp
 
-    def estimate_mass(self, burn=1, thin=1):
-        self.inv_mass = var(array(self.theta[burn::thin]), axis=0)
+    def kinetic_energy(self, r: ndarray) -> float:
+        return 0.5 * (r @ self.mass.get_velocity(r))
+
+    def estimate_mass(self, burn=1, thin=1, diagonal=True):
+        if diagonal:
+            inverse_mass = var(array(self.theta[burn::thin]), axis=0)
+        else:
+            inverse_mass = cov(array(self.theta[burn::thin]).T)
+        self.mass = get_particle_mass(
+            inverse_mass=inverse_mass, n_parameters=self.n_parameters
+        )
 
     def finite_diff(self, t: ndarray) -> ndarray:
         p = self.posterior(t) * self.inv_temp
@@ -393,7 +409,7 @@ class HamiltonianChain(MarkovChain):
 
     def save(self, filename, compressed=False):
         items = {
-            "inv_mass": self.inv_mass,
+            "inv_mass": self.mass.inv_mass,
             "inv_temp": self.inv_temp,
             "theta": self.theta,
             "probs": self.probs,
@@ -451,69 +467,3 @@ class HamiltonianChain(MarkovChain):
         # build the epsilon selector
         chain.ES.load_items(D)
         return chain
-
-
-class EpsilonSelector:
-    def __init__(self, epsilon: float):
-        # storage
-        self.epsilon = epsilon
-        self.epsilon_values = [copy(epsilon)]  # sigma values after each assessment
-        self.epsilon_checks = [0.0]  # chain locations at which sigma was assessed
-
-        # tracking variables
-        self.avg = 0
-        self.var = 0
-        self.num = 0
-
-        # settings for epsilon adjustment algorithm
-        self.accept_rate = 0.65
-        self.chk_int = 15  # interval of steps at which proposal widths are adjusted
-        self.growth_factor = 1.4  # growth factor for self.chk_int
-
-    def add_probability(self, p: float):
-        self.num += 1
-        self.avg += p
-        self.var += max(p * (1 - p), 0.03)
-
-        if self.num >= self.chk_int:
-            self.update_epsilon()
-
-    def update_epsilon(self):
-        """
-        looks at average tries over recent steps, and adjusts proposal
-        widths self.sigma to bring the average towards self.target_tries.
-        """
-        # normal approximation of poisson binomial distribution
-        mu = self.avg / self.num
-        std = sqrt(self.var) / self.num
-
-        # now check if the desired success rate is within 2-sigma
-        if ~(mu - 2 * std < self.accept_rate < mu + 2 * std):
-            adj = (log(self.accept_rate) / log(mu)) ** 0.15
-            adj = min(adj, 2.0)
-            adj = max(adj, 0.5)
-            self.adjust_epsilon(adj)
-        else:  # increase the check interval
-            self.chk_int = int((self.growth_factor * self.chk_int) * 0.1) * 10
-
-    def adjust_epsilon(self, ratio: float):
-        self.epsilon *= ratio
-        self.epsilon_values.append(copy(self.epsilon))
-        self.epsilon_checks.append(self.epsilon_checks[-1] + self.num)
-        self.avg = 0
-        self.var = 0
-        self.num = 0
-
-    def get_items(self):
-        return self.__dict__
-
-    def load_items(self, dictionary: dict):
-        self.epsilon = float(dictionary["epsilon"])
-        self.epsilon_values = list(dictionary["epsilon_values"])
-        self.epsilon_checks = list(dictionary["epsilon_checks"])
-        self.avg = float(dictionary["avg"])
-        self.var = float(dictionary["var"])
-        self.num = float(dictionary["num"])
-        self.accept_rate = float(dictionary["accept_rate"])
-        self.chk_int = int(dictionary["chk_int"])
-        self.growth_factor = float(dictionary["growth_factor"])
