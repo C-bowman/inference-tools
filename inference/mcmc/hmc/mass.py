@@ -3,7 +3,7 @@ from typing import Union
 from numpy import ndarray, sqrt, eye, isscalar
 from numpy.random import Generator
 from numpy.linalg import cholesky
-from scipy.linalg import solve_triangular
+from scipy.linalg import solve_triangular, issymmetric
 
 
 class ParticleMass(ABC):
@@ -37,12 +37,49 @@ class VectorMass(ScalarMass):
         assert inv_mass.ndim == 1
         assert inv_mass.size == n_parameters
 
+        valid_variances = (
+            inv_mass.ndim == 1
+            and inv_mass.size == n_parameters
+            and (inv_mass > 0.0).all()
+        )
+
+        if not valid_variances:
+            raise ValueError(
+                f"""\n
+                \r[ VectorMass error ]
+                \r>> The inverse-mass vector must be a 1D array and have size
+                \r>> equal to the given number of model parameters ({n_parameters})
+                \r>> and contain only positive values.
+                """
+            )
+
 
 class MatrixMass(ParticleMass):
     def __init__(self, inv_mass: ndarray, n_parameters: int):
-        assert inv_mass.ndim == 2
-        assert inv_mass.shape[0] == inv_mass.shape[1] == n_parameters
-        assert (inv_mass == inv_mass.T).all()
+
+        valid_covariance = (
+            inv_mass.ndim == 2
+            and inv_mass.shape[0] == inv_mass.shape[1]
+            and issymmetric(inv_mass)
+        )
+
+        if not valid_covariance:
+            raise ValueError(
+                """\n
+                \r[ MatrixMass error ]
+                \r>> The given inverse-mass matrix must be a valid covariance matrix,
+                \r>> i.e. 2 dimensional, square and symmetric.
+                """
+            )
+
+        if inv_mass.shape[0] != n_parameters:
+            raise ValueError(
+                f"""\n
+                \r[ MatrixMass error ]
+                \r>> The dimensions of the given inverse-mass matrix {inv_mass.shape}
+                \r>> do not match the given number of model parameters ({n_parameters}).
+                """
+            )
 
         self.inv_mass = inv_mass
         self.n_parameters = n_parameters
