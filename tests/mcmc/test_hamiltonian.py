@@ -1,7 +1,7 @@
 import pytest
 from numpy import array
 from itertools import product
-from tests.mcmc.mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
+from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
 
 
