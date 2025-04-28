@@ -1,8 +1,10 @@
 import sys
 from time import time
-from numpy import array, ndarray, mean, argmax
+from numpy import array, exp, sqrt, pi, log, ndarray, mean, argmax
 from numpy.fft import rfft, irfft
 from numpy import divmod as np_divmod
+from scipy.special import ndtr as normal_cdf
+from scipy.special import ndtri as inv_normal_cdf
 
 
 class ChainProgressPrinter:
@@ -160,3 +162,108 @@ class Bounds:
 
     def inside(self, theta: ndarray) -> bool:
         return ((theta >= self.lower) & (theta <= self.upper)).all()
+
+
+class BoundingTransform:
+    """
+    Construct a transformed version of a given posterior distribution which, when
+    sampled from without bounds, is equivalent to sampling from a bounded version
+    of the posterior.
+
+    :param callable posterior: \
+        A function which takes the vector of model parameters as a ``numpy.ndarray``,
+        and returns the posterior log-probability.
+
+    :param bounds: \
+        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
+        in the form ``(lower_bounds, upper_bounds)``.
+
+    :keyword callable gradient: \
+        A function which returns the gradient of the log-posterior probability density
+        with respect to the model parameters.
+    """
+
+    def __init__(
+        self,
+        posterior: callable,
+        bounds: Bounds,
+        gradient: callable = None,
+    ):
+
+        if not isinstance(bounds, Bounds):
+            bounds = Bounds(
+                lower=bounds[0], upper=bounds[1], error_source="BoundingTransform"
+            )
+
+        self.func = posterior
+        self.grad_func = gradient
+        self.width = bounds.upper - bounds.lower
+        self.lwr = bounds.lower
+        self.grad_norm = self.width / sqrt(2 * pi)
+        self.norm = log(self.grad_norm).sum()
+
+    def __call__(self, theta: ndarray) -> float:
+        """
+        Calculate the log-probability of the transformed distribution.
+
+        :param theta: \
+            Parameter values for the unbounded, transformed distribution as a
+            ``numpy.ndarray``.
+
+        :return: \
+            log-probability of the transformed distribution for the given parameters.
+
+        """
+        scale_factor = 0.5 * (theta**2).sum() + self.norm
+        params = self.lwr + self.width * normal_cdf(theta)
+        return self.func(params) - scale_factor
+
+    def gradient(self, theta: ndarray) -> ndarray:
+        """
+        Calculate the gradient of the log-probability of the transformed distribution
+        with respect to its parameters.
+
+        :param theta: \
+            Parameter values for the unbounded, transformed distribution as a
+            ``numpy.ndarray``.
+
+        :return: \
+            The gradient of the log-probability of the transformed distribution
+            for the given parameters.
+
+        """
+        grad_scale = self.grad_norm * exp(-0.5 * theta**2)
+        params = self.lwr + self.width * normal_cdf(theta)
+        return self.grad_func(params) * grad_scale - theta
+
+    def transform_to_posterior(self, unbounded_parameters: ndarray) -> ndarray:
+        """
+        Converts unbounded parameter values for the transformed distribution
+        to bounded parameter values for the original posterior distribution.
+
+        :param unbounded_parameters: \
+            Unbounded parameter values for the transformed distribution as a
+            ``numpy.ndarray``. To convert many samples at once, parameters
+             can be passed as a 2D array of shape ``(n_samples, n_parameters)``.
+
+        :return: \
+            Corresponding bounded parameter values for the posterior distribution.
+        """
+        return self.lwr + self.width * normal_cdf(unbounded_parameters)
+
+    def transform_to_unbounded(self, posterior_parameters: ndarray) -> ndarray:
+        """
+        Converts bounded parameter values for the original posterior distribution
+        to unbounded parameter values for the transformed distribution.
+
+        :param posterior_parameters: \
+            Bounded parameter values for the posterior distribution as a
+            ``numpy.ndarray``. To convert many samples at once, parameters
+             can be passed as a 2D array of shape ``(n_samples, n_parameters)``.
+
+        :return: \
+            Corresponding unbounded parameter values for the transformed distribution.
+        """
+        z = (posterior_parameters - self.lwr) / self.width
+        return inv_normal_cdf(z.clip(min=1e-5, max=1 - 1e-5))
