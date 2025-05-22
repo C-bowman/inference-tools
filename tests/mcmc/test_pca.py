@@ -1,6 +1,7 @@
-from numpy import array
+from numpy import array, NaN
 from mcmc_utils import line_posterior
 from inference.mcmc import PcaChain, Bounds
+import pytest
 
 
 def test_pca_chain_take_step(line_posterior):
@@ -56,3 +57,20 @@ def test_pca_chain_restore(line_posterior, tmp_path):
     assert (new_chain.get_last() == chain.get_last()).all()
     assert (new_chain.bounds.lower == chain.bounds.lower).all()
     assert (new_chain.bounds.upper == chain.bounds.upper).all()
+
+
+def test_pca_posterior_validation():
+    with pytest.raises(ValueError):
+        chain = PcaChain(
+            posterior="posterior", start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = PcaChain(
+            posterior=lambda x: 1, start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = PcaChain(
+            posterior=lambda x: NaN, start=array([1, 0.1])
+        )

@@ -87,7 +87,7 @@ class HamiltonianChain(MarkovChain):
             start = start if isinstance(start, ndarray) else array(start)
             start = start if start.dtype is float64 else start.astype(float64)
             assert start.ndim == 1
-
+            self._validate_posterior(posterior=posterior, start=start)
             self.theta = [start]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]

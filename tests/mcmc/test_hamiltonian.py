@@ -1,5 +1,5 @@
 import pytest
-from numpy import array
+from numpy import array, NaN
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
@@ -148,3 +148,20 @@ def test_hamiltonian_chain_burn_thin_error():
         chain.thin = 5
     with pytest.raises(AttributeError):
         thin = chain.thin
+
+
+def test_hamiltonian_posterior_validation():
+    with pytest.raises(ValueError):
+        chain = HamiltonianChain(
+            posterior="posterior", start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = HamiltonianChain(
+            posterior=lambda x: 1, start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = HamiltonianChain(
+            posterior=lambda x: NaN, start=array([1, 0.1])
+        )

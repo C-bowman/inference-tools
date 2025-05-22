@@ -1,7 +1,7 @@
 import datetime
 import warnings
 
-from numpy import array
+from numpy import array, NaN
 from inference.mcmc import GibbsChain
 from mcmc_utils import line_posterior, rosenbrock, sliced_length
 from itertools import product
@@ -233,3 +233,20 @@ def test_gibbs_chain_run_for_day_hour_minute(line_posterior):
     assert end_time - start_time <= expected_delta + extra_delta
     # Probably get less due to multiple calls to `time()` per step
     assert chain.chain_length <= expected_delta.total_seconds() // auto_tick
+
+
+def test_gibbs_posterior_validation():
+    with pytest.raises(ValueError):
+        chain = GibbsChain(
+            posterior="posterior", start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = GibbsChain(
+            posterior=lambda x: 1, start=array([1, 0.1])
+        )
+
+    with pytest.raises(ValueError):
+        chain = GibbsChain(
+            posterior=lambda x: NaN, start=array([1, 0.1])
+        )
