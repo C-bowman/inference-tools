@@ -272,3 +272,42 @@ def conditional_sample(
     for i in range(n_params):
         samples[:, i] = piecewise_linear_sample(axes[:, i], probs[:, i], n_samples)
     return samples
+
+
+def conditional_moments(
+    posterior: callable, bounds: list, conditioning_point: ndarray
+) -> tuple[ndarray, ndarray]:
+    """
+    Calculate the mean and variance of the 1D conditional distributions of the posterior
+    around a given point in the parameter space.
+
+    :param posterior: \
+        A function which returns the posterior log-probability when given a
+        numpy ``ndarray`` of the model parameters.
+
+    :param bounds: \
+        A list of length-2 tuples specifying the lower and upper bounds on
+        each parameter, in the form ``(lower, upper)``.
+
+    :param conditioning_point: \
+        The point in the parameter space around which the conditional distributions are
+        evaluated.
+
+    :return means, variances: \
+        The means and variances of the conditional distributions as a pair of
+        1D numpy ``ndarray``.
+    """
+    axes, probs = get_conditionals(
+        posterior=posterior, bounds=bounds, conditioning_point=conditioning_point
+    )
+
+    grid_size, n_params = probs.shape
+    means = zeros(n_params)
+    variances = zeros(n_params)
+    # integrate to calculate the means and variances
+    for i in range(n_params):
+        means[i] = simpson(y=axes[:, i] * probs[:, i], x=axes[:, i])
+        variances[i] = simpson(
+            y=(axes[:, i] - means[i]) ** 2 * probs[:, i], x=axes[:, i]
+        )
+    return means, variances
