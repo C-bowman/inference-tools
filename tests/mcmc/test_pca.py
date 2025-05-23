@@ -1,4 +1,4 @@
-from numpy import array, NaN
+from numpy import array, nan
 from mcmc_utils import line_posterior
 from inference.mcmc import PcaChain, Bounds
 import pytest
@@ -67,4 +67,4 @@ def test_pca_posterior_validation():
         chain = PcaChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = PcaChain(posterior=lambda x: NaN, start=array([1, 0.1]))
+        chain = PcaChain(posterior=lambda x: nan, start=array([1, 0.1]))

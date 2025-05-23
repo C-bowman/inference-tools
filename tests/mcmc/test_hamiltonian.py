@@ -1,5 +1,5 @@
 import pytest
-from numpy import array, NaN
+from numpy import array, nan
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
@@ -158,4 +158,4 @@ def test_hamiltonian_posterior_validation():
         chain = HamiltonianChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = HamiltonianChain(posterior=lambda x: NaN, start=array([1, 0.1]))
+        chain = HamiltonianChain(posterior=lambda x: nan, start=array([1, 0.1]))

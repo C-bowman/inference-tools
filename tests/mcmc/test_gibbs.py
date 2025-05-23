@@ -1,7 +1,7 @@
 import datetime
 import warnings
 
-from numpy import array, NaN
+from numpy import array, nan
 from inference.mcmc import GibbsChain
 from mcmc_utils import line_posterior, rosenbrock, sliced_length
 from itertools import product
@@ -243,4 +243,4 @@ def test_gibbs_posterior_validation():
         chain = GibbsChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = GibbsChain(posterior=lambda x: NaN, start=array([1, 0.1]))
+        chain = GibbsChain(posterior=lambda x: nan, start=array([1, 0.1]))
