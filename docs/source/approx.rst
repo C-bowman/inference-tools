@@ -13,3 +13,9 @@ get_conditionals
 ----------------
 
 .. autofunction:: inference.approx.get_conditionals
+
+
+conditional_moments
+----------------
+
+.. autofunction:: inference.approx.conditional_moments
