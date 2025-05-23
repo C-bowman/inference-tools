@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from copy import copy
 from time import time
-from numpy import ndarray
+from numpy import ndarray, isfinite
 from numpy.random import permutation
 
 from inference.pdf.base import DensityEstimator
@@ -262,3 +262,35 @@ class MarkovChain(ABC):
             \r>> 'burn' and 'thin' keyword arguments.
             """
         )
+
+    def _validate_posterior(self, posterior: callable, start: ndarray):
+        if not callable(posterior):
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> The given 'posterior' is not a callable object.
+                """
+            )
+
+        prob = posterior(start)
+
+        if not isinstance(prob, float):
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> The given 'posterior' must return a float or a type which
+                \r>> derives from float (e.g. numpy.float64), however the returned
+                \r>> value has type:
+                \r>> {type(prob)}
+                """
+            )
+
+        if not isfinite(prob):
+            raise ValueError(
+                f"""\n
+                \r[ {self.__class__.__name__} error ]
+                \r>> The given 'posterior' must return a finite value for the given
+                \r>> 'start' parameter values, but instead returns a value of:
+                \r>> {prob}
+                """
+            )

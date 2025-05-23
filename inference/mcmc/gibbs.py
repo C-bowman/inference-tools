@@ -253,7 +253,7 @@ class MetropolisChain(MarkovChain):
 
         if posterior is not None:
             self.posterior = posterior
-
+            self._validate_posterior(posterior=posterior, start=start)
             # if widths are not specified, take 5% of the starting values (unless they're zero)
             if widths is None:
                 widths = [v * 0.05 if v != 0 else 1.0 for v in start]
