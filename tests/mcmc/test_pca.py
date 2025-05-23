@@ -61,16 +61,10 @@ def test_pca_chain_restore(line_posterior, tmp_path):
 
 def test_pca_posterior_validation():
     with pytest.raises(ValueError):
-        chain = PcaChain(
-            posterior="posterior", start=array([1, 0.1])
-        )
+        chain = PcaChain(posterior="posterior", start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = PcaChain(
-            posterior=lambda x: 1, start=array([1, 0.1])
-        )
+        chain = PcaChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = PcaChain(
-            posterior=lambda x: NaN, start=array([1, 0.1])
-        )
+        chain = PcaChain(posterior=lambda x: NaN, start=array([1, 0.1]))

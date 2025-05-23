@@ -152,16 +152,10 @@ def test_hamiltonian_chain_burn_thin_error():
 
 def test_hamiltonian_posterior_validation():
     with pytest.raises(ValueError):
-        chain = HamiltonianChain(
-            posterior="posterior", start=array([1, 0.1])
-        )
+        chain = HamiltonianChain(posterior="posterior", start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = HamiltonianChain(
-            posterior=lambda x: 1, start=array([1, 0.1])
-        )
+        chain = HamiltonianChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = HamiltonianChain(
-            posterior=lambda x: NaN, start=array([1, 0.1])
-        )
+        chain = HamiltonianChain(posterior=lambda x: NaN, start=array([1, 0.1]))

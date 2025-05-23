@@ -237,16 +237,10 @@ def test_gibbs_chain_run_for_day_hour_minute(line_posterior):
 
 def test_gibbs_posterior_validation():
     with pytest.raises(ValueError):
-        chain = GibbsChain(
-            posterior="posterior", start=array([1, 0.1])
-        )
+        chain = GibbsChain(posterior="posterior", start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = GibbsChain(
-            posterior=lambda x: 1, start=array([1, 0.1])
-        )
+        chain = GibbsChain(posterior=lambda x: 1, start=array([1, 0.1]))
 
     with pytest.raises(ValueError):
-        chain = GibbsChain(
-            posterior=lambda x: NaN, start=array([1, 0.1])
-        )
+        chain = GibbsChain(posterior=lambda x: NaN, start=array([1, 0.1]))
