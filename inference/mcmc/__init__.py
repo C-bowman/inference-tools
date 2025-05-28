@@ -3,7 +3,7 @@ from inference.mcmc.pca import PcaChain
 from inference.mcmc.ensemble import EnsembleSampler
 from inference.mcmc.hmc import HamiltonianChain
 from inference.mcmc.parallel import ParallelTempering, ChainPool
-from inference.mcmc.utilities import Bounds
+from inference.mcmc.utilities import Bounds, BoundingTransform
 
 __all__ = [
     "GibbsChain",
@@ -13,4 +13,5 @@ __all__ = [
     "ParallelTempering",
     "ChainPool",
     "Bounds",
+    "BoundingTransform",
 ]
