@@ -1,7 +1,6 @@
 from numpy import linspace, zeros, subtract, exp, array
 from numpy.random import default_rng
 from inference.plotting import matrix_plot, trace_plot, hdi_plot, transition_matrix_plot
-from matplotlib.collections import PolyCollection
 import matplotlib.pyplot as plt
 
 import pytest
@@ -70,16 +69,6 @@ def test_hdi_plot():
 
     ax = hdi_plot(x_fits, curves, intervals)
 
-    # Not much to check here, so check the viewing portion is sensible
-    # and we've plotted the same number of PolyCollections as
-    # requested intervals -- this could fail if the implementation
-    # changes!
-    number_of_plotted_intervals = len(
-        [child for child in ax.get_children() if isinstance(child, PolyCollection)]
-    )
-
-    assert len(intervals) == number_of_plotted_intervals
-
     left, right, bottom, top = ax.axis()
     assert left <= start
     assert right >= end
@@ -91,7 +80,10 @@ def test_hdi_plot_bad_intervals():
     intervals = [0.5, 0.65, 1.2, 0.95]
 
     with pytest.raises(ValueError):
-        hdi_plot(zeros(5), zeros(5), intervals)
+        hdi_plot(x=zeros(5), sample=zeros([5, 10]), intervals=intervals)
+
+    with pytest.raises(ValueError):
+        hdi_plot(x=zeros(5), sample=zeros([5, 10]), interval_alpha=[0.1, 1.3])
 
 
 def test_hdi_plot_bad_dimensions():
