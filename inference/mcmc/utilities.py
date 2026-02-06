@@ -101,51 +101,41 @@ class Bounds:
         self.upper = upper if isinstance(upper, ndarray) else array(upper).squeeze()
 
         if self.lower.ndim > 1 or self.upper.ndim > 1:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {error_source} error ]
                 \r>> Lower and upper bounds must be one-dimensional arrays, but
                 \r>> instead have dimensions {self.lower.ndim} and {self.upper.ndim} respectively.
-                """
-            )
+                """)
 
         if self.lower.size != self.upper.size:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {error_source} error ]
                 \r>> Lower and upper bounds must be arrays of equal size, but
                 \r>> instead have sizes {self.lower.size} and {self.upper.size} respectively.
-                """
-            )
+                """)
 
         if (self.lower >= self.upper).any():
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {error_source} error ]
                 \r>> All given upper bounds must be larger than the corresponding lower bounds.
-                """
-            )
+                """)
 
         self.width = self.upper - self.lower
         self.n_bounds = self.width.size
 
     def validate_start_point(self, start: ndarray, error_source="Bounds"):
         if self.n_bounds != start.size:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {error_source} error ]
                 \r>> The number of parameters ({start.size}) does not
                 \r>> match the given number of bounds ({self.n_bounds}).
-                """
-            )
+                """)
 
         if not self.inside(start):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {error_source} error ]
                 \r>> Starting location for the chain is outside specified bounds.
-                """
-            )
+                """)
 
     def reflect(self, theta: ndarray) -> ndarray:
         q, rem = np_divmod(theta - self.lower, self.width)

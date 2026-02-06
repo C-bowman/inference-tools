@@ -217,24 +217,20 @@ class MarkovChain(ABC):
 
     def __plot_checks(self, burn: int, thin: int, plot_type: str):
         if self.chain_length < 2:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> Cannot generate the {plot_type} plot as no samples have
                 \r>> been produced - current chain length is {self.chain_length}.
-                """
-            )
+                """)
 
         reduced_length = max(self.chain_length - burn - 1, 0) // thin + 1
         if reduced_length < 2:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> The given values of 'burn' and 'thin' leave insufficient
                 \r>> samples to generate the {plot_type} plot.
                 \r>> Number of samples after burn / thin is {reduced_length}.
-                """
-            )
+                """)
 
     @property
     def burn(self):
@@ -253,44 +249,36 @@ class MarkovChain(ABC):
         self.__burn_thin_error()
 
     def __burn_thin_error(self):
-        raise AttributeError(
-            f"""\n
+        raise AttributeError(f"""\n
             \r[ {self.__class__.__name__} error ]
             \r>> The 'burn' and 'thin' instance attributes of inference-tools
             \r>> mcmc samplers were removed in version 0.13.0. Burn and thin
             \r>> values should now be passed explicitly to any methods with
             \r>> 'burn' and 'thin' keyword arguments.
-            """
-        )
+            """)
 
     def _validate_posterior(self, posterior: callable, start: ndarray):
         if not callable(posterior):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> The given 'posterior' is not a callable object.
-                """
-            )
+                """)
 
         prob = posterior(start)
 
         if not isinstance(prob, float):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> The given 'posterior' must return a float or a type which
                 \r>> derives from float (e.g. numpy.float64), however the returned
                 \r>> value has type:
                 \r>> {type(prob)}
-                """
-            )
+                """)
 
         if not isfinite(prob):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> The given 'posterior' must return a finite value for the given
                 \r>> 'start' parameter values, but instead returns a value of:
                 \r>> {prob}
-                """
-            )
+                """)

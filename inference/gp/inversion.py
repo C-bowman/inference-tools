@@ -61,55 +61,45 @@ class GpLinearInverter:
         prior_mean_function: MeanFunction = ConstantMean,
     ):
         if model_matrix.ndim != 2:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 [ GpLinearInverter error ]
                 >> 'model_matrix' argument must be a 2D numpy.ndarray
-                """
-            )
+                """)
 
         if y.ndim != y_err.ndim != 1 or y.size != y_err.size:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 [ GpLinearInverter error ]
                 >> 'y' and 'y_err' arguments must be 1D numpy.ndarray
                 >> of equal size.
-                """
-            )
+                """)
 
         if model_matrix.shape[0] != y.size:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpLinearInverter error ]
                 >> The size of the first dimension of 'model_matrix' must
                 >> equal the size of 'y', however they have shapes
                 >> {model_matrix.shape}, {y.shape}
                 >> respectively.
-                """
-            )
+                """)
 
         if parameter_spatial_positions.ndim != 2:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 [ GpLinearInverter error ]
                 >> 'parameter_spatial_positions' must be a 2D numpy.ndarray, with the
                 >> size of first dimension being equal to the number of model parameters
                 >> and the size of the second dimension being equal to the number of
                 >> spatial dimensions.
-                """
-            )
+                """)
 
         if model_matrix.shape[1] != parameter_spatial_positions.shape[0]:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpLinearInverter error ]
                 >> The size of the second dimension of 'model_matrix' must be equal
                 >> to the size of the first dimension of 'parameter_spatial_positions',
                 >> however they have shapes
                 >> {model_matrix.shape}, {parameter_spatial_positions.shape}
                 >> respectively.
-                """
-            )
+                """)
 
         self.A = model_matrix
         self.y = y
@@ -230,13 +220,11 @@ class GpLinearInverter:
             as a 1D ``numpy.ndarray``.
         """
         if initial_guess.size != self.n_hyperpars:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpLinearInverter error ]
                 >> There are a total of {self.n_hyperpars} hyper-parameters,
                 >> but {initial_guess.size} values were given in 'initial_guess'.
-                """
-            )
+                """)
 
         hp_bounds = [*self.mean.bounds, *self.cov.bounds]
 

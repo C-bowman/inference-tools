@@ -36,12 +36,10 @@ class CovarianceFunction(ABC):
         return CompositeCovariance([*K1, *K2])
 
     def gradient_terms(self, v, x, theta):
-        raise NotImplementedError(
-            f"""
+        raise NotImplementedError(f"""
             Gradient calculations are not yet available for the
             {type(self)} covariance function.
-            """
-        )
+            """)
 
 
 class CompositeCovariance(CovarianceFunction):
@@ -436,37 +434,31 @@ class ChangePoint(CovarianceFunction):
         ]
         for K in self.cov:
             if not isinstance(K, CovarianceFunction):
-                raise TypeError(
-                    """\n
+                raise TypeError("""\n
                     \r[ ChangePoint error ]
                     \r>> Each of the specified covariance kernels must be an instance of
                     \r>> a class which inherits from the 'CovarianceFunction' abstract
                     \r>> base-class.
-                    """
-                )
+                    """)
 
         self.n_kernels = len(kernels)
 
         if location_bounds is not None:
             if len(location_bounds) != self.n_kernels - 1:
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ ChangePoint error ]
                     \r>> The length of 'location_bounds' must be one less than the number of kernels
-                    """
-                )
+                    """)
             self.location_bounds = [check_bounds(lb) for lb in location_bounds]
         else:
             self.location_bounds = None
 
         if width_bounds is not None:
             if len(width_bounds) != self.n_kernels - 1:
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ ChangePoint error ]
                     \r>> The length of 'width_bounds' must be one less than the number of kernels
-                    """
-                )
+                    """)
             self.width_bounds = [check_bounds(wb) for wb in width_bounds]
         else:
             self.width_bounds = None

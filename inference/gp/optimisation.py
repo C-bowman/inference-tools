@@ -164,14 +164,12 @@ class GpOptimiser:
             if new_y_err is not None:
                 self.y_err = append(self.y_err, new_y_err)
             else:
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ GpOptimiser error ]
                     \r>> 'new_y_err' argument of the 'add_evaluation' method must be
                     \r>> specified if the 'y_err' argument was specified when the
                     \r>> instance of GpOptimiser was initialised.
-                    """
-                )
+                    """)
 
         # re-train the GP
         self.gp = GpRegressor(

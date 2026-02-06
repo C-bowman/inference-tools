@@ -265,10 +265,8 @@ class LogisticLikelihood(Likelihood):
 
 
 def jacobian_not_given(*args):
-    raise ValueError(
-        """
+    raise ValueError("""
         The gradient() method of a likelihood class instance was called, however
         the forward_model_jacobian keyword argument was not specified when instance 
         was created.
-        """
-    )
+        """)

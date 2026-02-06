@@ -89,23 +89,19 @@ def matrix_plot(
             labels = [f"param {i}" for i in range(N_par)]
     else:
         if len(labels) != N_par:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ matrix_plot error ]
                 \r>> The number of labels given does not match
                 \r>> the number of plotted parameters.
-                """
-            )
+                """)
 
     if reference is not None:
         if len(reference) != N_par:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ matrix_plot error ]
                 \r>> The number of reference values given does not match
                 \r>> the number of plotted parameters.
-                """
-            )
+                """)
     # check that given plot style is valid, else default to a histogram
     if plot_style not in ["contour", "hdi", "histogram", "scatter"]:
         plot_style = "contour"
@@ -115,13 +111,11 @@ def matrix_plot(
 
     iterable = hasattr(hdi_fractions, "__iter__")
     if not iterable or not all(0 < f < 1 for f in hdi_fractions):
-        raise ValueError(
-            """\n
+        raise ValueError("""\n
             \r[ matrix_plot error ]
             \r>> The 'hdi_fractions' argument must be given as an
             \r>> iterable of floats, each in the range [0, 1].
-            """
-        )
+            """)
 
     # by default, we suppress axis ticks if there are 6 parameters or more to keep things tidy
     if show_ticks is None:

@@ -91,12 +91,10 @@ class EnsembleSampler(MarkovChain):
 
         # proposal settings
         if not alpha > 1.0:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ EnsembleSampler error ]
                 \r>> The given value of the 'alpha' parameter must be greater than 1.
-                """
-            )
+                """)
         self.alpha = alpha
         # uniform sampling in 'x' where z = 0.5*x**2 yields the correct PDF for z
         self.x_lwr = sqrt(2.0 / self.alpha)
@@ -113,70 +111,58 @@ class EnsembleSampler(MarkovChain):
     @staticmethod
     def __validate_starting_positions(positions: ndarray):
         if not isinstance(positions, ndarray):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ EnsembleSampler error ]
                 \r>> 'starting_positions' should be a numpy.ndarray, but instead has type:
                 \r>> {type(positions)}
-                """
-            )
+                """)
 
         theta = (
             positions.reshape([positions.size, 1]) if positions.ndim == 1 else positions
         )
 
         if theta.ndim != 2 or theta.shape[0] < (theta.shape[1] + 1):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ EnsembleSampler error ]
                 \r>> 'starting_positions' should be a numpy.ndarray with shape
                 \r>> (n_walkers, n_parameters), where n_walkers >= n_parameters + 1.
                 \r>> Instead, the given array has shape {positions.shape}.
-                """
-            )
+                """)
 
         if not isfinite(theta).all():
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ EnsembleSampler error ]
                 \r>> The given 'starting_positions' array contains at least one
                 \r>> value which is non-finite.
-                """
-            )
+                """)
 
         if theta.shape[1] == 1:
             # only need to check the variance for the one-parameter case
             if var(theta) == 0:
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ EnsembleSampler error ]
                     \r>> The values given in 'starting_positions' have zero variance,
                     \r>> and therefore the walkers are unable to move.
-                    """
-                )
+                    """)
         else:
             covar = cov(theta.T)
             std_dev = sqrt(diag(covar))  # get the standard devs
             if (std_dev == 0).any():
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ EnsembleSampler error ]
                     \r>> For one or more variables, The values given in 'starting_positions' 
                     \r>> have zero variance, and therefore the walkers are unable to move
                     \r>> in those variables.
-                    """
-                )
+                    """)
             # now check if any pairs of variables are approximately co-linear
             correlation = covar / (std_dev[:, None] * std_dev[None, :])
             if (abs(triu(correlation, k=1)) > 0.999).any():
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     \r[ EnsembleSampler error ]
                     \r>> The values given in 'starting_positions' are approximately
                     \r>> co-linear for one or more pair of variables. This will
                     \r>> prevent the walkers from moving properly in those variables.
-                    """
-                )
+                    """)
         return theta
 
     def __proposal(self, i: int):

@@ -278,22 +278,18 @@ class PcaChain(MetropolisChain):
         return chain
 
     def set_non_negative(self, *args, **kwargs):
-        warn(
-            """
+        warn("""
              The set_non_negative method is not available for PcaChain:
              Limits on parameters should instead be set using
              the parameter_boundaries keyword argument.
-             """
-        )
+             """)
 
     def set_boundaries(self, *args, **kwargs):
-        warn(
-            """
+        warn("""
              The set_boundaries method is not available for PcaChain:
              Limits on parameters should instead be set using
              the parameter_boundaries keyword argument.
-             """
-        )
+             """)
 
     def pass_through(self, prop):
         return prop

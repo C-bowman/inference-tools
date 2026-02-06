@@ -51,13 +51,11 @@ class GaussianKDE(DensityEstimator):
         self.max_cvs = max_cv_samples
 
         if self.sample.size < 3:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ GaussianKDE error ]
                 \r>> Not enough samples were given to estimate the PDF.
                 \r>> At least 3 samples are required.
-                """
-            )
+                """)
 
         if bandwidth is None:
             self.h = self.simple_bandwidth_estimator()  # very simple bandwidth estimate
