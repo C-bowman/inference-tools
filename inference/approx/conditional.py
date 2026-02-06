@@ -109,20 +109,16 @@ def piecewise_linear_sample(
     """
     dx = x[1:] - x[:-1]
     if (dx <= 0.0).any():
-        raise ValueError(
-            """\n
+        raise ValueError("""\n
             \r[ piecewise_linear_sample error ]
             \r>> The 'x' argument must be given in strictly ascending order.
-            """
-        )
+            """)
 
     if (probability_density < 0).any():
-        raise ValueError(
-            """\n
+        raise ValueError("""\n
             \r[ piecewise_linear_sample error ]
             \r>> All values in the given 'probability_density' array must be non-negative.
-            """
-        )
+            """)
 
     means = 0.5 * (probability_density[1:] + probability_density[:-1])
     delta = 0.5 * (probability_density[1:] - probability_density[:-1]) / means

@@ -272,13 +272,11 @@ class MetropolisChain(MarkovChain):
 
                 # check posterior value of chain starting point is finite
                 if not isfinite(self.probs[0]):
-                    ValueError(
-                        """\n
+                    ValueError("""\n
                         \r[ MetropolisChain error ]
                         \r>> 'posterior' argument callable returns a non-finite value
                         \r>> for the starting position given to the 'start' argument.
-                        """
-                    )
+                        """)
 
             self.display_progress = display_progress
             self.ProgressPrinter = ChainProgressPrinter(

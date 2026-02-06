@@ -25,37 +25,31 @@ def sample_hdi(sample: ndarray, fraction: float) -> ndarray:
 
     # verify inputs are valid
     if not 0.0 < fraction < 1.0:
-        raise ValueError(
-            f"""\n
+        raise ValueError(f"""\n
             \r[ sample_hdi error ]
             \r>> The 'fraction' argument must be a float between 0 and 1,
             \r>> but the value given was {fraction}.
-            """
-        )
+            """)
 
     if isinstance(sample, ndarray):
         s = sample.copy()
     elif isinstance(sample, Sequence):
         s = array(sample)
     else:
-        raise ValueError(
-            f"""\n
+        raise ValueError(f"""\n
             \r[ sample_hdi error ]
             \r>> The 'sample' argument should be a numpy.ndarray or a
             \r>> Sequence which can be converted to an array, but
             \r>> instead has type {type(sample)}.
-            """
-        )
+            """)
 
     if s.ndim > 2 or s.ndim == 0:
-        raise ValueError(
-            f"""\n
+        raise ValueError(f"""\n
             \r[ sample_hdi error ]
             \r>> The 'sample' argument should be a numpy.ndarray
             \r>> with either one or two dimensions, but the given
             \r>> array has dimensionality {s.ndim}.
-            """
-        )
+            """)
 
     if s.ndim == 1:
         s.resize([s.size, 1])
@@ -64,31 +58,25 @@ def sample_hdi(sample: ndarray, fraction: float) -> ndarray:
     L = int(fraction * n_samples)
 
     if n_samples < 2:
-        raise ValueError(
-            f"""\n
+        raise ValueError(f"""\n
             \r[ sample_hdi error ]
             \r>> The first dimension of the given 'sample' array must 
             \r>> have have a length of at least 2.
-            """
-        )
+            """)
 
     # check that we have enough samples to estimate the HDI for the chosen fraction
     if n_samples <= L:
-        warn(
-            f"""\n
+        warn(f"""\n
             \r[ sample_hdi warning ]
             \r>> The given number of samples is insufficient to estimate the interval
             \r>> for the given fraction.
-            """
-        )
+            """)
 
     elif n_samples - L < 20:
-        warn(
-            f"""\n
+        warn(f"""\n
             \r[ sample_hdi warning ]
             \r>> n_samples * (1 - fraction) is small - calculated interval may be inaccurate.
-            """
-        )
+            """)
 
     # check that we have enough samples to estimate the HDI for the chosen fraction
     s.sort(axis=0)

@@ -96,12 +96,10 @@ class GpRegressor:
         self.y = self.y.squeeze()
 
         if self.y.ndim != 1:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ GpRegressor error ]
                 \r>> 'y' argument must be a 1D array, but instead has shape {self.y.shape}
-                """
-            )
+                """)
 
         # determine the number of data points and spatial dimensions
         self.n_points = self.y.size
@@ -111,23 +109,19 @@ class GpRegressor:
             self.n_dimensions = 1
             self.x = self.x.reshape([self.x.size, self.n_dimensions])
         else:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ GpRegressor Error ]
                 \r>> 'x' argument must be a 2D array, but instead has
                 \r>> {self.x.ndim} dimensions and shape {self.x.shape}.
-                """
-            )
+                """)
 
         if self.x.shape[0] != self.n_points:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ GpRegressor Error ]
                 \r>> The first dimension of the 'x' array must be equal in size
                 \r>> to the 'y' array.
                 \r>> 'x' has shape {self.x.shape}, but 'y' has size {self.y.size}.
-                """
-            )
+                """)
 
         # build data errors covariance matrix
         self.sig = self.check_error_data(y_err, y_cov)
@@ -167,13 +161,11 @@ class GpRegressor:
         if hyperpars is None:
             if optimizer not in ["bfgs", "diffev"]:
                 optimizer = "bfgs"
-                warn(
-                    """
+                warn("""
                     An invalid option was passed to the 'optimizer' keyword argument.
                     The default option 'bfgs' was used instead.
                     Valid options are 'bfgs' and 'diffev'.
-                    """
-                )
+                    """)
 
             if optimizer == "diffev":
                 hyperpars = self.differential_evo()
@@ -224,14 +216,12 @@ class GpRegressor:
         """
         # check to make sure the right number of hyper-parameters were given
         if len(hyperpars) != self.n_hyperpars:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpRegressor error ]
                 >> An incorrect number of hyper-parameter values were passed via the 
                 >> 'hyperpars' keyword argument:
                 >> There are {self.n_hyperpars} hyper-parameters but {len(hyperpars)} values were given.
-                """
-            )
+                """)
 
         self.hyperpars = hyperpars
         self.mean_hyperpars = self.hyperpars[self.mean_slice]
@@ -250,45 +240,37 @@ class GpRegressor:
                 y_err = array(y_cov).squeeze()
             elif type(y_cov) is not ndarray:
                 # else if it isn't already an array raise an error
-                raise TypeError(
-                    f"""\n
+                raise TypeError(f"""\n
                     [ GpRegressor error ]
                     >> The 'y_cov' keyword argument should be given as a numpy array:
                     >> Expected type {ndarray} but type {type(y_cov)} was given.
-                    """
-                )
+                    """)
 
             # now check to make sure the given error array is a valid size
             if y_cov.shape != (self.n_points, self.n_points):
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     [ GpRegressor error ]
                     >> The 'y_cov' keyword argument was passed an array with an incorrect
                     >> shape. 'y_cov' must be a 2D array of shape (N,N), where 'N' is the
                     >> number of given y-data values.
-                    """
-                )
+                    """)
 
             # check to make sure the given matrix is symmetric
             if not (y_cov == y_cov.T).all():
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     [ GpRegressor error ]
                     >> The covariance matrix passed to the 'y_cov' keyword argument
                     >> is not symmetric.
-                    """
-                )
+                    """)
 
             # raise a warning if both keywords have been specified
             if y_err is not None:
-                warn(
-                    """\n
+                warn("""\n
                     [ GpRegressor warning ]
                     >> Only one of the 'y_err' and 'y_cov' keyword arguments should 
                     >> be specified. Only the input to 'y_cov' will be used - the
                     >> input to 'y_err' will be ignored.
-                    """
-                )
+                    """)
 
             return y_cov
 
@@ -298,24 +280,20 @@ class GpRegressor:
                 y_err = array(y_err).squeeze()
             elif type(y_err) is not ndarray:
                 # else if it isn't already an array raise an error
-                raise TypeError(
-                    f"""\n
+                raise TypeError(f"""\n
                     [ GpRegressor error ]
                     >> The 'y_err' keyword argument should be given as a numpy array:
                     >> Expected type {ndarray} but type {type(y_err)} was given.
-                    """
-                )
+                    """)
 
             # now check to make sure the given error array is a valid size
             if y_err.shape != (self.n_points,):
-                raise ValueError(
-                    """\n
+                raise ValueError("""\n
                     [ GpRegressor error ]
                     >> The 'y_err' keyword argument was passed an array with an
                     >> incorrect shape. 'y_err' must be a 1D array of length 'N',
                     >> where 'N' is the number of given y-data values.
-                    """
-                )
+                    """)
 
             return diag(y_err**2)
         else:
@@ -329,23 +307,19 @@ class GpRegressor:
         elif x.ndim == 1 and x.size == self.n_dimensions:
             x = x.reshape([1, x.size])
         elif x.ndim > 2:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpRegressor error ]
                 >> 'points' argument must be a 2D array, but given array
                 >> has {x.ndim} dimensions and shape {x.shape}.
-                """
-            )
+                """)
 
         if x.shape[1] != self.n_dimensions:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 [ GpRegressor error ]
                 >> The second dimension of the 'points' array must have size
                 >> equal to the number of dimensions of the input data.
                 >> The input data have {self.n_dimensions} dimensions but 'points' has shape {x.shape}.
-                """
-            )
+                """)
         return x
 
     def gradient(self, points: ndarray):

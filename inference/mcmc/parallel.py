@@ -116,12 +116,10 @@ class ParallelTempering:
         self.successful_swaps = zeros([self.N_chains, self.N_chains])
 
         if sorted(self.temperatures) != self.temperatures:
-            warn(
-                """
+            warn("""
                 The list of Markov-chain objects passed to ParallelTempering
                 should be sorted in order of increasing chain temperature.
-                """
-            )
+                """)
 
         # Spawn a separate process for each chain object
         for chn in chains:

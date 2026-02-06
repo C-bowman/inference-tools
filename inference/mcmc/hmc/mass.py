@@ -44,14 +44,12 @@ class VectorMass(ScalarMass):
         )
 
         if not valid_variances:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ VectorMass error ]
                 \r>> The inverse-mass vector must be a 1D array and have size
                 \r>> equal to the given number of model parameters ({n_parameters})
                 \r>> and contain only positive values.
-                """
-            )
+                """)
 
 
 class MatrixMass(ParticleMass):
@@ -64,22 +62,18 @@ class MatrixMass(ParticleMass):
         )
 
         if not valid_covariance:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ MatrixMass error ]
                 \r>> The given inverse-mass matrix must be a valid covariance matrix,
                 \r>> i.e. 2 dimensional, square and symmetric.
-                """
-            )
+                """)
 
         if inv_mass.shape[0] != n_parameters:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ MatrixMass error ]
                 \r>> The dimensions of the given inverse-mass matrix {inv_mass.shape}
                 \r>> do not match the given number of model parameters ({n_parameters}).
-                """
-            )
+                """)
 
         self.inv_mass = inv_mass
         self.n_parameters = n_parameters
@@ -101,15 +95,13 @@ def get_particle_mass(
         return ScalarMass(inverse_mass, n_parameters)
 
     if not isinstance(inverse_mass, ndarray):
-        raise TypeError(
-            f"""\n
+        raise TypeError(f"""\n
             \r[ HamiltonianChain error ]
             \r>> The value given to the 'inverse_mass' keyword argument must be either
             \r>> a scalar type (e.g. int or float), or a numpy.ndarray.
             \r>> Instead, the given value has type:
             \r>> {type(inverse_mass)}
-            """
-        )
+            """)
 
     if inverse_mass.ndim == 1:
         return VectorMass(inverse_mass, n_parameters)

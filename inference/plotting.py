@@ -89,23 +89,19 @@ def matrix_plot(
             labels = [f"param {i}" for i in range(N_par)]
     else:
         if len(labels) != N_par:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ matrix_plot error ]
                 \r>> The number of labels given does not match
                 \r>> the number of plotted parameters.
-                """
-            )
+                """)
 
     if reference is not None:
         if len(reference) != N_par:
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ matrix_plot error ]
                 \r>> The number of reference values given does not match
                 \r>> the number of plotted parameters.
-                """
-            )
+                """)
     # check that given plot style is valid, else default to a histogram
     if plot_style not in ["contour", "hdi", "histogram", "scatter"]:
         plot_style = "contour"
@@ -115,13 +111,11 @@ def matrix_plot(
 
     iterable = hasattr(hdi_fractions, "__iter__")
     if not iterable or not all(0 < f < 1 for f in hdi_fractions):
-        raise ValueError(
-            """\n
+        raise ValueError("""\n
             \r[ matrix_plot error ]
             \r>> The 'hdi_fractions' argument must be given as an
             \r>> iterable of floats, each in the range [0, 1].
-            """
-        )
+            """)
 
     # by default, we suppress axis ticks if there are 6 parameters or more to keep things tidy
     if show_ticks is None:
@@ -373,10 +367,11 @@ def hdi_plot(
     x: ndarray,
     sample: ndarray,
     intervals: Sequence[float] = (0.65, 0.95),
-    colormap: str = "Blues",
+    color: str = "C0",
     axis=None,
-    label_intervals=True,
-    color_levels=None,
+    plot_mean=True,
+    labels=True,
+    interval_alpha: Sequence[float] = None,
 ):
     """
     Plot highest-density intervals for a given sample of model realisations.
@@ -389,27 +384,33 @@ def hdi_plot(
         where ``n`` is the number of samples.
 
     :param intervals: \
-        A tuple containing the fractions of the total probability for each interval.
+        The fractions of the total probability contained in each interval which is to be
+        plotted as a Sequence of floats. All given values must be in the range [0, 1].
 
-    :param str colormap: \
-        The colormap to be used for plotting the intervals. Must be the name of
-        a valid colormap present in ``matplotlib.colormaps``.
+    :param str color: \
+        The color to be used for plotting the intervals. Must be the name of
+        a valid ``matplotlib`` color.
 
     :param axis: \
         A ``matplotlib.pyplot`` axis object which will be used to plot the intervals.
 
-    :param bool label_intervals: \
-        If ``True``, then labels will be assigned to each interval plot such that they appear
-        in the legend when using ``matplotlib.pyplot.legend``.
+    :param bool plot_mean: \
+        If ``True``, the mean of the samples is also plotted on top of the
+        highest-density intervals.
 
-    :param color_levels: \
-        A list of integers in the range [0,255] which specify the color value within the chosen
-        color map to be used for each of the intervals.
+    :param bool labels: \
+        If ``True``, then labels will be assigned to each plot element such that they
+        appear in the legend when using ``matplotlib.pyplot.legend``.
+
+    :param interval_alpha: \
+        A sequence of floats in the range [0, 1] specifying the 'alpha' value (which sets
+        the color transparency) which is used when coloring the intervals for each given
+        probability fraction.
     """
     # order the intervals from highest to lowest
     intervals = array(intervals)
-    intervals.sort()
-    intervals = intervals[::-1]
+    sorter = intervals.argsort()
+    intervals = intervals[sorter]
 
     # check that all the intervals are valid:
     if not all((intervals > 0.0) & (intervals < 1.0)):
@@ -425,32 +426,56 @@ def hdi_plot(
 
     # sort the sample data
     s.sort(axis=0)
-    n = s.shape[0]
 
-    if colormap in colormaps:
-        cmap = colormaps[colormap]
-    else:
-        cmap = colormaps["Blues"]
-        warn(f"'{colormap}' is not a valid colormap from matplotlib.colormaps")
-
-    if color_levels is None:
+    if interval_alpha is None:
         # construct the colors for each interval
-        lwr = 0.20
-        upr = 1.0
-        color_levels = 255 * ((upr - lwr) * (1 - intervals) + lwr)
+        lwr = 0.15
+        upr = 0.9
+        interval_alpha = (upr - lwr) * (1 - intervals) + lwr
+    else:
+        interval_alpha = array(interval_alpha)
+        assert interval_alpha.ndim == 1
+        assert interval_alpha.size == interval_alpha.size
+        interval_alpha = interval_alpha[sorter]
 
-    colors = [cmap(int(c)) for c in color_levels]
+        valid_alpha = (interval_alpha >= 0.0) & (interval_alpha <= 1.0)
+        if not valid_alpha:
+            raise ValueError("Given 'alpha' values must be in the range [0, 1]")
 
     # if not plotting axis is given, then use default pyplot
     if axis is None:
         _, axis = plt.subplots()
 
-    # iterate over the intervals and plot each
-    for frac, col in zip(intervals, colors):
-        lwr, upr = sample_hdi(s, fraction=frac)
-        lab = f"{int(100 * frac)}% HDI" if label_intervals else None
-        axis.fill_between(x, lwr, upr, color=col, label=lab)
+    if plot_mean:
+        lab = "mean" if labels else None
+        axis.plot(x, s.mean(axis=0), color=color, lw=2, label=lab)
 
+    # Calculate HDI for each interval fraction
+    lower = []
+    upper = []
+    for frac in intervals:
+        lwr, upr = sample_hdi(s, fraction=frac)
+        lower.append(lwr)
+        upper.append(upr)
+
+    lab = f"{int(100 * intervals[0])}% HDI" if labels else None
+    axis.fill_between(
+        x, lower[0], upper[0], color=color, label=lab, alpha=interval_alpha[0]
+    )
+
+    for i in range(len(intervals) - 1):
+        lab = f"{int(100 * intervals[i + 1])}% HDI" if labels else None
+        axis.fill_between(
+            x,
+            lower[i + 1],
+            lower[i],
+            color=color,
+            label=lab,
+            alpha=interval_alpha[i + 1],
+        )
+        axis.fill_between(
+            x, upper[i], upper[i + 1], color=color, alpha=interval_alpha[i + 1]
+        )
     return axis
 
 

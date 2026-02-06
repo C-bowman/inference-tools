@@ -149,12 +149,10 @@ class HamiltonianChain(MarkovChain):
             if (accept_prob >= 1) or (self.rng.random() <= accept_prob):
                 break
         else:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ HamiltonianChain error ]
                 \r>> Failed to take step within maximum allowed attempts of {self.max_attempts}
-                """
-            )
+                """)
 
         self.theta.append(t)
         self.probs.append(p)

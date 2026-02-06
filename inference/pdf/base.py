@@ -39,13 +39,11 @@ class DensityEstimator(ABC):
             in the form ``(lower_limit, upper_limit)``.
         """
         if not 0.0 < fraction < 1.0:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {self.__class__.__name__} error ]
                 \r>> The 'fraction' argument must have a value greater than
                 \r>> zero and less than one, but the value given was {fraction}.
-                """
-            )
+                """)
         # use the sample to estimate the HDI
         lwr, upr = sample_hdi(self.sample, fraction=fraction)
         # switch variables to the centre and width of the interval

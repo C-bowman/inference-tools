@@ -20,13 +20,11 @@ class BasePrior(ABC):
         n_parameters: int,
         class_name="BasePrior",
     ) -> list[int]:
-        indices_type_error = TypeError(
-            f"""\n
+        indices_type_error = TypeError(f"""\n
             \r[ {class_name} error ]
             \r>> 'variable_inds' argument of {class_name} must be
             \r>> given as an integer or list of integers
-            """
-        )
+            """)
 
         if not isinstance(variable_inds, (int, Iterable)):
             raise indices_type_error
@@ -41,22 +39,18 @@ class BasePrior(ABC):
             variable_inds = list(variable_inds)
 
         if n_parameters != len(variable_inds):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {class_name} error ]
                 \r>> The total number of variables specified via the 'variable_indices' argument
                 \r>> is inconsistent with the number specified by the other arguments.
-                """
-            )
+                """)
 
         if len(variable_inds) != len(set(variable_inds)):
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {class_name} error ]
                 \r>> All integers given via the 'variable_indices' must be unique.
                 \r>> Two or more of the given integers are duplicates.
-                """
-            )
+                """)
 
         return variable_inds
 
@@ -101,13 +95,11 @@ class BasePrior(ABC):
         :returns: \
             A single sample from the prior distribution as a 1D ``numpy.ndarray``.
         """
-        raise NotImplementedError(
-            f"""\n
+        raise NotImplementedError(f"""\n
             \r[ {self.__class__.__name__} error ]
             \r>> 'sample' is an optional method for classes inheriting from
             \r>> 'BasePrior', and has not been implemented for '{self.__class__.__name__}'.
-            """
-        )
+            """)
 
 
 class JointPrior(BasePrior):
@@ -125,13 +117,11 @@ class JointPrior(BasePrior):
 
     def __init__(self, components: list[BasePrior], n_variables: int):
         if not all(isinstance(c, BasePrior) for c in components):
-            raise TypeError(
-                """\n
+            raise TypeError("""\n
                 \r[ JointPrior error ]
                 \r>> The sequence of prior objects passed to the 'components' argument 
                 \r>> of 'JointPrior' must be instances of a subclass of 'BasePrior'.
-                """
-            )
+                """)
 
         # Combine any prior components which are of the same type
         self.components = []
@@ -146,34 +136,28 @@ class JointPrior(BasePrior):
         self.prior_variables = []
         for var in chain(*[c.variables for c in self.components]):
             if var in self.prior_variables:
-                raise ValueError(
-                    f"""\n
+                raise ValueError(f"""\n
                     \r[ JointPrior error ]
                     \r>> Variable index '{var}' appears more than once in the prior
                     \r>> objects passed to the 'components' argument of 'JointPrior'.
-                    """
-                )
+                    """)
             self.prior_variables.append(var)
 
         if len(self.prior_variables) != n_variables:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ JointPrior error ]
                 \r>> The total number of variables specified across the various prior
                 \r>> components ({len(self.prior_variables)}) does not match the number
                 \r>> specified in the 'n_variables' argument ({n_variables}).
-                """
-            )
+                """)
 
         if not all(0 <= i < n_variables for i in self.prior_variables):
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ JointPrior error ]
                 \r>> All variable indices specified across the various prior
                 \r>> objects passed to the 'components' argument of 'JointPrior'
                 \r>> must have values in the range [0, n_variables - 1].
-                """
-            )
+                """)
 
         self.n_variables = n_variables
 
@@ -419,12 +403,10 @@ class UniformPrior(BasePrior):
         self.grad = zeros(self.n_params)
 
         if (self.upper <= self.lower).any():
-            raise ValueError(
-                """\n
+            raise ValueError("""\n
                 \r[ UniformPrior error ]
                 \r>> All values in 'lower' must be less than the corresponding values in 'upper'
-                """
-            )
+                """)
 
         self.variables = self.validate_variable_indices(
             variable_inds=variable_indices,
@@ -498,55 +480,45 @@ def validate_prior_parameters(
             param = atleast_1d(param).astype(float)
 
         if not isinstance(param, ndarray):
-            raise TypeError(
-                f"""\n
+            raise TypeError(f"""\n
                 \r[ {class_name} error ]
                 \r>> Argument '{param_name}' should be an instance of a numpy.ndarray,
                 \r>> but instead has type:
                 \r>> {type(param)}
-                """
-            )
+                """)
 
         if param.ndim != 1:
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {class_name} error ]
                 \r>> Argument '{param_name}' should be a 1D numpy.ndarray, 
                 \r>> but has {param.ndim} dimensions and shape {param.shape}.
-                """
-            )
+                """)
 
         if not isfinite(param).all():
-            raise ValueError(
-                f"""\n
+            raise ValueError(f"""\n
                 \r[ {class_name} error ]
                 \r>> Argument '{param_name}' contains non-finite values.
-                """
-            )
+                """)
 
         if param_name in require_positive:
             if not (param > 0.0).all():
-                raise ValueError(
-                    f"""\n
+                raise ValueError(f"""\n
                     \r[ {class_name} error ]
                     \r>> All values given in '{param_name}' must be greater than zero.
-                    """
-                )
+                    """)
 
         validated_params.append(param)
 
     # check all inputs are the same size by collecting their sizes in a set
     if len({param.size for param in validated_params}) != 1:
-        raise ValueError(
-            f"""\n
+        raise ValueError(f"""\n
             \r[ {class_name} error ]
             \r>> Arguments
             \r>> {[param_name for param_name, _ in params]}
             \r>> must all be arrays of equal size, but instead have sizes
             \r>> {[param.size for param in validated_params]}
             \r>> respectively.
-            """
-        )
+            """)
 
     return validated_params
 
