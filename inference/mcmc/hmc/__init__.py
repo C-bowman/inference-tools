@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
 from numpy import array, savez, savez_compressed, load, zeros
-from numpy import var, isfinite, exp, mean, argmax, percentile, cov
+from numpy import var, isfinite, exp, mean, argmax, percentile, cov, sqrt
 from numpy.random import default_rng
 
 from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sample_size
@@ -273,7 +273,7 @@ class HamiltonianChain(MarkovChain):
         fig = plt.figure(figsize=(12, 9))
 
         # probability history plot
-        ax1 = fig.add_subplot(221)
+        ax1 = fig.add_subplot(2, 2, 1)
         # TODO - avoid making this axis but preserve figure form
         step_ax = [i * 1e-3 for i in range(len(self.probs))]
         ax1.plot(step_ax, self.probs, marker=".", ls="none", markersize=3)
@@ -289,15 +289,22 @@ class HamiltonianChain(MarkovChain):
         ax1.grid()
 
         # epsilon plot
-        ax2 = fig.add_subplot(222)
-        ax2.plot(array(self.ES.epsilon_checks) * 1e-3, self.ES.epsilon_values, ".-")
-        ax2.set_xlabel("chain step number ($10^3$)", fontsize=12)
+        ax2 = fig.add_subplot(2, 2, 2)
+        ax2.plot(array(self.ES.epsilon_updates), self.ES.epsilon_values, ".-")
+        ax2.plot(
+            (self.ES.epsilon_updates[-1], self.ES.total_proposals),
+            (self.ES.epsilon_values[-1], self.ES.epsilon_values[-1]),
+            color="C0",
+            ls="solid",
+            marker=".",
+        )
+        ax2.set_xlabel("total proposed updates", fontsize=12)
         ax2.set_ylabel("Leapfrog step-size", fontsize=12)
         ax2.set_title("Simulation time-step adjustment summary")
         ax2.set_yscale("log")
         ax2.grid()
 
-        ax3 = fig.add_subplot(223)
+        ax3 = fig.add_subplot(2, 2, 3)
         if self.n_parameters < 50:
             ax3.bar(
                 range(self.n_parameters),
@@ -314,7 +321,7 @@ class HamiltonianChain(MarkovChain):
             ax3.set_ylabel("frequency", fontsize=12)
             ax3.set_title("Parameter effective sample size estimates")
 
-        ax4 = fig.add_subplot(224)
+        ax4 = fig.add_subplot(2, 2, 4)
         gap = 0.1
         h = 0.85
         x1 = 0.5
@@ -355,6 +362,42 @@ class HamiltonianChain(MarkovChain):
         else:
             fig.clear()
             plt.close(fig)
+
+    def epsilon_diagnostics(self):
+        """
+        Plots the estimated mean of the observed acceptance rate against
+        the simulation step-size epsilon
+        """
+        epsilon = array([exp(b * self.ES.ln_eps_spacing) for b in self.ES.stats.keys()])
+        mean = array([s.mean for s in self.ES.stats.values()])
+        error = array([sqrt(s.variance / s.count) for s in self.ES.stats.values()])
+        sorter = epsilon.argsort()
+
+        plt.plot(epsilon[sorter], mean[sorter], c="red")
+        plt.plot(
+            epsilon[sorter],
+            zeros(epsilon.size) + self.ES.accept_rate,
+            c="blue",
+            ls="dashed",
+            label="target rate",
+        )
+        plt.errorbar(
+            epsilon[sorter],
+            mean[sorter],
+            yerr=error[sorter],
+            marker="o",
+            ls="none",
+            markersize=3,
+            color="black",
+            label="observed acceptance rate",
+        )
+        plt.xlabel("epsilon value", fontsize=12)
+        plt.ylabel("average acceptance rate", fontsize=12)
+        plt.xscale("log")
+        plt.ylim([0, 1])
+        plt.grid()
+        plt.legend()
+        plt.show()
 
     def get_probabilities(self, burn: int = 1, thin: int = 1) -> ndarray:
         """
@@ -401,7 +444,7 @@ class HamiltonianChain(MarkovChain):
         # now we find the point at which the proposal width for each parameter
         # starts to deviate significantly from the current value
         epsl = abs((array(self.ES.epsilon_values)[::-1] / self.ES.epsilon) - 1.0)
-        chks = array(self.ES.epsilon_checks)[::-1]
+        chks = array(self.ES.epsilon_updates)[::-1]
         epsl_estimate = chks[argmax(epsl > 0.15)] * self.ES.accept_rate
         return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.chain_length))
 
