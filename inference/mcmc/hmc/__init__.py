@@ -1,3 +1,4 @@
+from collections.abc import Callable
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
@@ -42,6 +43,9 @@ class HamiltonianChain(MarkovChain):
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
 
+    :param int simulation_steps: \
+        The number of steps used in the Hamiltonian dynamics simulation.
+
     :param float temperature: \
         The temperature of the markov chain. This parameter is used for parallel
         tempering and should be otherwise left unspecified.
@@ -66,10 +70,11 @@ class HamiltonianChain(MarkovChain):
 
     def __init__(
         self,
-        posterior: callable,
+        posterior: Callable[[ndarray], float],
         start: ndarray,
-        grad: callable = None,
+        grad: Callable[[ndarray], ndarray] = None,
         epsilon: float = 0.1,
+        simulation_steps: int = 30,
         temperature: float = 1.0,
         bounds: Bounds = None,
         inverse_mass: ndarray = None,
@@ -115,9 +120,12 @@ class HamiltonianChain(MarkovChain):
             if start is not None:
                 self.bounds.validate_start_point(start, error_source="HamiltonianChain")
 
+        assert epsilon > 0.0
+        assert simulation_steps >= 1
+
         self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
-        self.steps = 50
+        self.steps = simulation_steps
 
         self.display_progress = display_progress
         self.ProgressPrinter = ChainProgressPrinter(
@@ -134,7 +142,7 @@ class HamiltonianChain(MarkovChain):
             t0 = self.theta[-1]
             H0 = self.kinetic_energy(r0) - self.probs[-1]
 
-            n_steps = int(self.steps * (1 + (self.rng.random() - 0.5) * 0.2))
+            n_steps = int(self.steps * self.rng.uniform(0.9, 1.1))
             t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
             steps_taken += n_steps
@@ -417,7 +425,7 @@ class HamiltonianChain(MarkovChain):
         """
         return array(self.probs[burn::thin])
 
-    def get_sample(self, burn: int = 1, thin: int = 1):
+    def get_sample(self, burn: int = 1, thin: int = 1) -> ndarray:
         """
         Return the sample as a 2D ``numpy.ndarray``.
 
@@ -473,7 +481,12 @@ class HamiltonianChain(MarkovChain):
             savez(filename, **items)
 
     @classmethod
-    def load(cls, filename: str, posterior=None, grad=None):
+    def load(
+        cls,
+        filename: str,
+        posterior: Callable[[ndarray], float] = None,
+        grad: Callable[[ndarray], ndarray] = None,
+    ):
         D = load(filename)
 
         if all(k in D for k in ["lower_bounds", "upper_bounds"]):
