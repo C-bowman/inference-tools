@@ -66,3 +66,5 @@ def test_optimizer_2d(acq_func, opt_method):
 
     assert GpOpt.y.size == x.shape[0] + 3
     assert ((GpOpt.x >= -8) & (GpOpt.x <= 8)).all()
+
+    GpOpt.plot_results(show_plot=False)
