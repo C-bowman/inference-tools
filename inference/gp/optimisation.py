@@ -1,4 +1,4 @@
-from numpy import array, arange, ndarray, append, maximum
+from numpy import array, arange, ndarray, append, maximum, ptp
 from scipy.optimize import differential_evolution, fmin_l_bfgs_b
 from multiprocessing import Pool
 from inspect import isclass
@@ -246,11 +246,21 @@ class GpOptimiser:
             proposed_ev = proposed_ev[0]
         return proposed_ev
 
-    def plot_results(self, filename: str = None, show_plot=True):
+    def plot_results(self, filename: str = None, show_plot: bool = True):
+        """
+        Plots the history of the objective function evaluations and the convergence
+        metric calculate from the acquisition function.
+
+        :param str filename: \
+            Name of the file to which the plot is saved.
+
+        :param bool show_plot: \
+            A boolean to select whether the plot is shown.
+        """
         fig = plt.figure(figsize=(10, 4))
-        ax1 = fig.add_subplot(121)
+        ax1 = fig.add_subplot(1, 2, 1)
         maxvals = maximum.accumulate(self.y)
-        pad = maxvals.ptp() * 0.1
+        pad = ptp(maxvals) * 0.1
         iterations = arange(len(self.y)) + 1
         ax1.plot(iterations, maxvals, c="red", alpha=0.6, label="max observed value")
         ax1.plot(iterations, self.y, ".", label="function evaluations", markersize=10)
@@ -260,7 +270,7 @@ class GpOptimiser:
         ax1.legend(loc=4)
         ax1.grid()
 
-        ax2 = fig.add_subplot(122)
+        ax2 = fig.add_subplot(1, 2, 2)
         ax2.plot(
             self.iteration_history, self.convergence_metric_history, c="C0", alpha=0.35
         )
