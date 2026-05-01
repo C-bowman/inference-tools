@@ -1,11 +1,15 @@
+from inference.pdf.diffusion import DiffusionKDE
 from inference.pdf.hdi import sample_hdi
 from inference.pdf.unimodal import UnimodalPdf
 from inference.pdf.kde import GaussianKDE, BinaryTree, unique_index_groups
+from inference.pdf import DensityEstimator
 
 from dataclasses import dataclass
 from numpy.random import default_rng
 from numpy import array, ndarray, arange, linspace, concatenate, zeros
 from numpy import isclose, allclose
+from scipy.stats import norm, exponnorm
+from scipy.integrate import simpson
 
 import pytest
 from hypothesis import given, strategies as st
@@ -20,12 +24,15 @@ class DensityTestCase:
     variance: float
     skewness: float
     kurtosis: float
+    x_axis: ndarray
+    pdf_values: ndarray
 
     @classmethod
     def normal(cls, n_samples=20000):
         rng = default_rng(13)
         mu, sigma = 5.0, 2.0
         samples = rng.normal(loc=mu, scale=sigma, size=n_samples)
+        x_axis = linspace(mu - 5 * sigma, mu + 5 * sigma, 1000)
         return cls(
             samples=samples,
             fraction=0.68269,
@@ -34,6 +41,8 @@ class DensityTestCase:
             variance=sigma**2,
             skewness=0.0,
             kurtosis=0.0,
+            x_axis=x_axis,
+            pdf_values=norm.pdf(x_axis, loc=mu, scale=sigma),
         )
 
     @classmethod
@@ -44,6 +53,8 @@ class DensityTestCase:
             scale=1.0 / lmbda, size=n_samples
         )
         v = 1 / (sigma * lmbda) ** 2
+        K = 1.0 / (sigma * lmbda)
+        x_axis = linspace(mu - 5 * sigma, mu + 3.0 / lmbda + 5 * sigma, 1000)
         return cls(
             samples=samples,
             fraction=0.68269,
@@ -52,30 +63,39 @@ class DensityTestCase:
             variance=sigma**2 + lmbda**-2,
             skewness=2.0 * (1 + 1 / v) ** -1.5,
             kurtosis=3 * (1 + 2 * v + 3 * v**2) / (1 + v) ** 2 - 3,
+            x_axis=x_axis,
+            pdf_values=exponnorm.pdf(x_axis, K, loc=mu, scale=sigma),
         )
 
 
-def test_gaussian_kde_moments():
+@pytest.mark.parametrize("estimator_cls", [GaussianKDE, DiffusionKDE, UnimodalPdf])
+def test_estimator_density(estimator_cls: DensityEstimator):
     testcase = DensityTestCase.expgauss()
-    pdf = GaussianKDE(testcase.samples)
+    pdf = estimator_cls(testcase.samples)
+    density_estimate = pdf(testcase.x_axis)
+    abs_err = simpson(abs(testcase.pdf_values - density_estimate), x=testcase.x_axis)
+    assert abs_err < 0.03
+
+
+@pytest.mark.parametrize(
+    "estimator_cls, n_samples, rtol, atol",
+    [
+        (GaussianKDE, 20000, 0.1, 0.0),
+        (DiffusionKDE, 20000, 0.1, 0.0),
+        (UnimodalPdf, 5000, 0.2, 0.0),
+    ],
+)
+def test_estimator_moments(
+    estimator_cls: DensityEstimator, n_samples: int, rtol: float, atol: float
+):
+    testcase = DensityTestCase.expgauss(n_samples=n_samples)
+    pdf = estimator_cls(testcase.samples)
     mu, variance, skew, kurt = pdf.moments()
 
-    tolerance = 0.1
-    assert isclose(mu, testcase.mean, rtol=tolerance, atol=0.0)
-    assert isclose(variance, testcase.variance, rtol=tolerance, atol=0.0)
-    assert isclose(skew, testcase.skewness, rtol=tolerance, atol=0.0)
-    assert isclose(kurt, testcase.kurtosis, rtol=tolerance, atol=0.0)
-
-
-def test_unimodal_pdf_moments():
-    testcase = DensityTestCase.expgauss(n_samples=5000)
-    pdf = UnimodalPdf(testcase.samples)
-    mu, variance, skew, kurt = pdf.moments()
-
-    assert isclose(mu, testcase.mean, rtol=0.1, atol=0.0)
-    assert isclose(variance, testcase.variance, rtol=0.1, atol=0.0)
-    assert isclose(skew, testcase.skewness, rtol=0.1, atol=0.0)
-    assert isclose(kurt, testcase.kurtosis, rtol=0.2, atol=0.0)
+    assert isclose(mu, testcase.mean, rtol=rtol, atol=atol)
+    assert isclose(variance, testcase.variance, rtol=rtol, atol=atol)
+    assert isclose(skew, testcase.skewness, rtol=rtol, atol=atol)
+    assert isclose(kurt, testcase.kurtosis, rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize(
