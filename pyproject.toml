@@ -1,9 +1,9 @@
 [build-system]
 requires = [
-    "setuptools >= 42",
+    "setuptools >= 80",
     "setuptools_scm[toml] >= 6.2",
     "setuptools_scm_git_archive",
-    "wheel >= 0.29.0",
+    "wheel >= 0.45.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -30,10 +30,10 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
-    "numpy >= 1.20",
-    "scipy >= 1.6.3",
+    "numpy >= 1.26.4",
+    "scipy >= 1.12",
     "matplotlib >= 3.4.2",
 ]
 
