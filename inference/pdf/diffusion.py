@@ -1,4 +1,4 @@
-from numpy import asarray, arange, append, concatenate, ndarray
+from numpy import asarray, arange, append, ndarray
 from numpy import cumsum, finfo, histogram, maximum, unique
 from numpy import pi, prod, sqrt, exp, log2, ceil
 from scipy.fft import dct, idct
@@ -140,7 +140,7 @@ class DiffusionKDE(DensityEstimator):
         R = upr_limit - lwr_limit
         dx = R / (n - 1)
         xmesh = lwr_limit + arange(0, R + dx, dx)[:n]
-        N = len(unique(data))
+        n_unique = len(unique(data))
 
         # bin the data uniformly using the grid
         initial_data, _ = histogram(data, bins=append(xmesh, xmesh[-1] + dx))
@@ -156,7 +156,7 @@ class DiffusionKDE(DensityEstimator):
 
         # use root finding to solve the equation t = zeta * gamma^[5](t)
         t_star = DiffusionKDE._find_root(
-            f=lambda t: DiffusionKDE._fixed_point(t, N, I, a2), N=N
+            f=lambda t: DiffusionKDE._fixed_point(t, n_unique, I, a2), n_unique=n_unique
         )
 
         # smooth the discrete cosine transform of initial data using t_star
@@ -173,26 +173,26 @@ class DiffusionKDE(DensityEstimator):
 
         # cdf estimation
         f = 2 * pi**2 * (I * a2 * exp(-I * pi**2 * t_star)).sum()
-        t_cdf = (sqrt(pi) * f * N) ** (-2.0 / 3.0)
+        t_cdf = (sqrt(pi) * f * n_unique) ** (-2.0 / 3.0)
         a_cdf = a * exp(-arange(n, dtype=float) ** 2 * pi**2 * t_cdf / 2.0)
         cdf = cumsum(n * idct(a_cdf, type=2)) * (dx / R)
 
         return bandwidth, density, xmesh, cdf
 
     @staticmethod
-    def _fixed_point(t, N, I, a2):
+    def _fixed_point(t, N, I, a2) -> float:
         """Implements the function t - zeta * gamma^[l](t)."""
         l = 7
         f = 2 * pi ** (2 * l) * (I**l * a2 * exp(-I * pi**2 * t)).sum()
         for s in range(l - 1, 1, -1):
             K0 = prod(arange(1, 2 * s, 2)) / sqrt(2 * pi)
-            const = (1 + (0.5) ** (s + 0.5)) / 3.0
+            const = (1 + 0.5 ** (s + 0.5)) / 3.0
             time = (2 * const * K0 / N / f) ** (2.0 / (3 + 2 * s))
             f = 2 * pi ** (2 * s) * (I**s * a2 * exp(-I * pi**2 * time)).sum()
         return t - (2 * N * sqrt(pi) * f) ** (-2.0 / 5.0)
 
     @staticmethod
-    def _find_root(f: callable, N: int) -> float:
+    def _find_root(f: callable, n_unique: int) -> float:
         """
         Find the smallest root of the function *f* on the interval ``[0, 0.1]``.
 
@@ -202,20 +202,20 @@ class DiffusionKDE(DensityEstimator):
         :param f: \
             Scalar function whose root is sought. Must accept a single float.
 
-        :param int N: \
+        :param int n_unique: \
             Number of unique data points. Used to set the initial search
             interval — larger datasets permit a tighter initial bracket.
 
         :return: \
             The smallest root of *f*, or the point closest to a root.
         """
-        # Clamp N to [50, 1050] so the initial bracket stays in a reasonable range
-        N = max(50, min(1050, N))
+        # Clamp n_unique to [50, 1050] so the initial bracket stays in a reasonable range
+        n_unique = max(50, min(1050, n_unique))
 
         # Initial upper bracket: for N=50 this is ~1e-12 (very tight),
         # for N=1050 it grows to ~0.01, reflecting that larger datasets
         # push the optimal bandwidth closer to zero.
-        tol = 1e-12 + 1e-5 * (N - 50)
+        tol = 1e-12 + 1e-5 * (n_unique - 50)
 
         f_zero = f(0)
         while True:
