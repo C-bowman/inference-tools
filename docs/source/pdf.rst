@@ -10,7 +10,15 @@ GaussianKDE
 ~~~~~~~~~~~
 
 .. autoclass:: inference.pdf.GaussianKDE
-   :members: __call__, interval, plot_summary, mode
+   :members: __call__, cdf, interval, plot_summary, mode
+
+.. _DiffusionKDE:
+
+DiffusionKDE
+~~~~~~~~~~~~
+
+.. autoclass:: inference.pdf.DiffusionKDE
+   :members: __call__, cdf, interval, plot_summary, mode
 
 .. _UnimodalPdf:
 
@@ -18,7 +26,7 @@ UnimodalPdf
 ~~~~~~~~~~~
 
 .. autoclass:: inference.pdf.UnimodalPdf
-   :members: __call__, interval, plot_summary, mode
+   :members: __call__, cdf, interval, plot_summary, mode
 
 .. _sample_hdi:
 
