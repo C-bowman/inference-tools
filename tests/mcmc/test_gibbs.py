@@ -3,10 +3,44 @@ import warnings
 
 from numpy import array, nan
 from inference.mcmc import GibbsChain
+from inference.mcmc.gibbs import MetropolisChain
 from mcmc_utils import line_posterior, rosenbrock, sliced_length
 from itertools import product
 from freezegun import freeze_time
 import pytest
+
+
+class RejectingRng:
+    def random(self):
+        return 1.0
+
+
+def one_shot_proposal(value):
+    calls = 0
+
+    def proposal():
+        nonlocal calls
+        calls += 1
+        if calls > 1:
+            raise RuntimeError("proposal was retried")
+        return value
+
+    return proposal
+
+
+def test_metropolis_chain_records_rejected_proposal():
+    chain = MetropolisChain(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        start=array([0.0]),
+        widths=array([1.0]),
+    )
+    chain.params[0].proposal = one_shot_proposal(10.0)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
 
 
 def test_gibbs_chain_get_replace_last():
@@ -32,6 +66,21 @@ def test_gibbs_chain_take_step():
     assert chain.chain_length == first_n + 1
     assert len(chain.params[0].samples) == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_gibbs_chain_records_rejected_proposal():
+    chain = GibbsChain(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        start=array([0.0]),
+        widths=array([1.0]),
+    )
+    chain.params[0].proposal = one_shot_proposal(10.0)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
 
 
 def test_gibbs_chain_advance():
@@ -82,7 +131,7 @@ def test_gibbs_chain_burn_in():
 
     burn = chain.estimate_burn_in()
 
-    assert 0 < burn <= steps
+    assert 0 <= burn <= steps
 
 
 def test_gibbs_chain_restore(tmp_path):

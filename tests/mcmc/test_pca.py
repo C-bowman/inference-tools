@@ -4,6 +4,20 @@ from inference.mcmc import PcaChain, Bounds
 import pytest
 
 
+class OneShotRejectingRng:
+    def __init__(self):
+        self.normal_calls = 0
+
+    def normal(self):
+        self.normal_calls += 1
+        if self.normal_calls > 1:
+            raise RuntimeError("proposal was retried")
+        return 10.0
+
+    def random(self):
+        return 1.0
+
+
 def test_pca_chain_take_step(line_posterior):
     chain = PcaChain(posterior=line_posterior, start=[0.5, 0.1])
     first_n = chain.chain_length
@@ -13,6 +27,20 @@ def test_pca_chain_take_step(line_posterior):
     assert chain.chain_length == first_n + 1
     assert len(chain.params[0].samples) == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_pca_chain_records_rejected_proposal():
+    chain = PcaChain(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        start=array([0.0]),
+        widths=array([1.0]),
+    )
+    chain.rng = OneShotRejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
 
 
 def test_pca_chain_advance(line_posterior):

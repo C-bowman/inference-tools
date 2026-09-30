@@ -123,7 +123,6 @@ class HamiltonianChain(MarkovChain):
         assert epsilon > 0.0
         assert simulation_steps >= 1
 
-        self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
         self.steps = simulation_steps
 
@@ -136,35 +135,31 @@ class HamiltonianChain(MarkovChain):
         """
         Takes the next step in the HMC-chain
         """
-        steps_taken = 0
-        for attempt in range(self.max_attempts):
-            r0 = self.mass.sample_momentum(self.rng)
-            t0 = self.theta[-1]
-            H0 = self.kinetic_energy(r0) - self.probs[-1]
+        r0 = self.mass.sample_momentum(self.rng)
+        t0 = self.theta[-1]
+        H0 = self.kinetic_energy(r0) - self.probs[-1]
 
-            n_steps = int(self.steps * self.rng.uniform(0.9, 1.1))
-            t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
+        n_steps = int(self.steps * self.rng.uniform(0.9, 1.1))
+        t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
-            steps_taken += n_steps
-            p = self.posterior(t) * self.inv_temp
-            H = self.kinetic_energy(r) - p
-            accept_prob = exp(H0 - H)
-
-            self.ES.add_probability(
-                min(accept_prob, 1) if isfinite(accept_prob) else 0.0
-            )
-
-            if (accept_prob >= 1) or (self.rng.random() <= accept_prob):
-                break
+        p = self.posterior(t) * self.inv_temp
+        H = self.kinetic_energy(r) - p
+        log_accept_prob = H0 - H
+        if log_accept_prob >= 0:
+            accept_prob = 1.0
+        elif isfinite(log_accept_prob):
+            accept_prob = exp(log_accept_prob)
         else:
-            raise ValueError(f"""\n
-                \r[ HamiltonianChain error ]
-                \r>> Failed to take step within maximum allowed attempts of {self.max_attempts}
-                """)
+            accept_prob = 0.0
+        self.ES.add_probability(accept_prob)
+
+        if self.rng.random() > accept_prob:
+            t = t0.copy()
+            p = self.probs[-1]
 
         self.theta.append(t)
         self.probs.append(p)
-        self.leapfrog_steps.append(steps_taken)
+        self.leapfrog_steps.append(n_steps)
         self.chain_length += 1
 
     def standard_leapfrog(

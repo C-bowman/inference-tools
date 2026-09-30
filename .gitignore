@@ -11,6 +11,8 @@ inference/_version.py
 auto-save-list
 tramp
 .\#*
+dev/
+.idea
 
 # Org-mode
 .org-id-locations

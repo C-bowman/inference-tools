@@ -5,6 +5,14 @@ from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
 
 
+class RejectingRng:
+    def uniform(self, low, high):
+        return 1.0
+
+    def random(self):
+        return 1.0
+
+
 def test_hamiltonian_chain_take_step():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
@@ -18,6 +26,48 @@ def test_hamiltonian_chain_take_step():
     for i in range(3):
         assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_hamiltonian_chain_records_rejected_proposal():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    leapfrog_calls = 0
+
+    def one_shot_leapfrog(theta, momentum, steps):
+        nonlocal leapfrog_calls
+        leapfrog_calls += 1
+        if leapfrog_calls > 1:
+            raise RuntimeError("proposal was retried")
+        return array([10.0]), momentum
+
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = one_shot_leapfrog
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert leapfrog_calls == 1
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
+
+
+def test_hamiltonian_chain_accepts_highly_favorable_proposal():
+    chain = HamiltonianChain(
+        posterior=lambda theta: 1000.0 if theta[0] else 0.0,
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = lambda theta, momentum, steps: (array([1.0]), momentum)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 1.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 1000.0]
 
 
 def test_hamiltonian_chain_advance():

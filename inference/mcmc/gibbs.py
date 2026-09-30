@@ -1,5 +1,5 @@
 from warnings import warn
-from copy import copy, deepcopy
+from copy import copy
 
 import matplotlib.pyplot as plt
 from numpy import float64, ndarray
@@ -35,12 +35,10 @@ class Parameter:
         self.num = 0
         self.sigma_values = [copy(self.sigma)]  # sigma values after each assessment
         self.sigma_checks = [0.0]  # chain locations at which sigma was assessed
-        self.try_count = 0  # counter variable tracking number of proposals
         self.last_update = 0  # chain location where sigma was last updated
 
         # settings for proposal width adjustment algorithm
         self.target_rate = 0.25  # default of 0.25 is optimal for MH sampling
-        self.max_tries = 50  # maximum allowed tries before width is cut in half
         self.chk_int = 100  # interval of steps at which proposal widths are adjusted
         self.growth_factor = 1.75  # factor chk_int grows when width is adjusted
         self.adjust_rate = 0.25
@@ -86,29 +84,12 @@ class Parameter:
             warn("non_negative must have a boolean value")
 
     def standard_proposal(self):
-        # increment the try count
-        self.try_count += 1
-        # if tries climb too high, then cut sigma in half
-        if self.try_count > self.max_tries:
-            self.adjust_sigma(0.25)
-        # return the proposed value
         return self.rng.normal(loc=self.samples[-1], scale=self.sigma)
 
     def abs_proposal(self):
-        # increment the try count
-        self.try_count += 1
-        # if tries climb too high, then cut sigma in half
-        if self.try_count > self.max_tries:
-            self.adjust_sigma(0.25)
-        # return the proposed value
         return abs(self.rng.normal(loc=self.samples[-1], scale=self.sigma))
 
     def boundary_proposal(self):
-        # increment the try count
-        self.try_count += 1
-        # if tries climb too high, then cut sigma in half
-        if self.try_count > self.max_tries:
-            self.adjust_sigma(0.25)
         # generate the proposed value
         prop = self.rng.normal(loc=self.samples[-1], scale=self.sigma)
 
@@ -157,7 +138,6 @@ class Parameter:
 
     def add_sample(self, s):
         self.samples.append(s)
-        self.try_count = 0
 
     def get_items(self, param_id: int) -> dict:
         i = f"param_{param_id}"
@@ -169,10 +149,8 @@ class Parameter:
             f"{i}num": self.num,
             f"{i}sigma_values": self.sigma_values,
             f"{i}sigma_checks": self.sigma_checks,
-            f"{i}try_count": self.try_count,
             f"{i}last_update": self.last_update,
             f"{i}target_rate": self.target_rate,
-            f"{i}max_tries": self.max_tries,
             f"{i}chk_int": self.chk_int,
             f"{i}growth_factor": self.growth_factor,
             f"{i}adjust_rate": self.adjust_rate,
@@ -195,10 +173,8 @@ class Parameter:
         param.num = float(dictionary[i + "num"])
         param.sigma_values = list(dictionary[i + "sigma_values"])
         param.sigma_checks = list(dictionary[i + "sigma_checks"])
-        param.try_count = int(dictionary[i + "try_count"])
         param.last_update = int(dictionary[i + "last_update"])
         param.target_rate = float(dictionary[i + "target_rate"])
-        param.max_tries = int(dictionary[i + "max_tries"])
         param.chk_int = int(dictionary[i + "chk_int"])
         param.growth_factor = float(dictionary[i + "growth_factor"])
         param.adjust_rate = float(dictionary[i + "adjust_rate"])
@@ -285,23 +261,28 @@ class MetropolisChain(MarkovChain):
 
     def take_step(self):
         """
-        Draws samples from the proposal distribution until one is
-        found which satisfies the metropolis-hastings criteria.
+        Draw a proposal and record either it or the current state.
         """
-        while True:
-            proposal = array([p.proposal() for p in self.params])
-            pval = self.posterior(proposal) * self.inv_temp
+        proposal = array([p.proposal() for p in self.params])
+        pval = self.posterior(proposal) * self.inv_temp
+        if pval >= self.probs[-1]:
+            acceptance_prob = 1.0
+        elif isfinite(pval):
+            acceptance_prob = exp(pval - self.probs[-1])
+        else:
+            acceptance_prob = 0.0
 
-            if pval > self.probs[-1]:
-                break
-            else:
-                acceptance_prob = exp(pval - self.probs[-1])
-                if self.rng.random() < acceptance_prob:
-                    break
+        for p in self.params:
+            p.submit_accept_prob(acceptance_prob)
+
+        if self.rng.random() >= acceptance_prob:
+            proposal = self.get_last()
+            pval = self.probs[-1]
 
         for p, v in zip(self.params, proposal):
             p.add_sample(v)
 
+        self.probs.append(pval)
         self.chain_length += 1
 
     def get_last(self):
@@ -630,25 +611,25 @@ class GibbsChain(MetropolisChain):
         prop = self.get_last()
 
         for i, p in enumerate(self.params):
-            while True:
-                prop[i] = p.proposal()
-                p_new = self.posterior(prop) * self.inv_temp
+            current = prop[i]
+            prop[i] = p.proposal()
+            p_new = self.posterior(prop) * self.inv_temp
 
-                if p_new > p_old:
-                    # automatically accept step if the probability goes up
-                    p.submit_accept_prob(1.0)
-                    break
-                else:
-                    # else calculate the acceptance probability and perform the test
-                    acceptance_prob = exp(p_new - p_old)
-                    p.submit_accept_prob(acceptance_prob)
-                    if self.rng.random() < acceptance_prob:
-                        break
+            if p_new >= p_old:
+                acceptance_prob = 1.0
+            elif isfinite(p_new):
+                acceptance_prob = exp(p_new - p_old)
+            else:
+                acceptance_prob = 0.0
+            p.submit_accept_prob(acceptance_prob)
 
-            p_old = deepcopy(p_new)  # NOTE - is deepcopy needed?
+            if self.rng.random() < acceptance_prob:
+                p_old = p_new
+            else:
+                prop[i] = current
 
         for v, p in zip(prop, self.params):
             p.add_sample(v)
 
-        self.probs.append(p_new)
+        self.probs.append(p_old)
         self.chain_length += 1
