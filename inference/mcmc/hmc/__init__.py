@@ -210,12 +210,14 @@ class HamiltonianChain(MarkovChain):
         )
 
     def finite_diff(self, t: ndarray) -> ndarray:
-        p = self.posterior(t) * self.inv_temp
         G = zeros(self.n_parameters)
         for i in range(self.n_parameters):
-            delta = zeros(self.n_parameters) + 1
-            delta[i] += 1e-5
-            G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
+            step = 1e-5 * max(1.0, abs(t[i]))
+            upper = t.astype(float, copy=True)
+            lower = t.astype(float, copy=True)
+            upper[i] += step
+            lower[i] -= step
+            G[i] = (self.posterior(upper) - self.posterior(lower)) / (2 * step)
         return G
 
     def get_last(self) -> ndarray:

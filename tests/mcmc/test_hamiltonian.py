@@ -1,5 +1,5 @@
 import pytest
-from numpy import array, nan
+from numpy import allclose, array, isfinite, nan
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
@@ -106,6 +106,54 @@ def test_hamiltonian_chain_advance_no_gradient():
     for i in range(3):
         assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_hamiltonian_finite_diff_is_untempered():
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    theta = array([1.0, -2.0])
+    expected = -theta
+
+    cold_chain = HamiltonianChain(
+        posterior=posterior, start=theta, temperature=0.5
+    )
+    hot_chain = HamiltonianChain(
+        posterior=posterior, start=theta, temperature=2.0
+    )
+
+    assert allclose(cold_chain.finite_diff(theta), expected, atol=1e-8)
+    assert allclose(hot_chain.finite_diff(theta), expected, atol=1e-8)
+
+
+def test_hamiltonian_finite_diff_at_zero():
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    theta = array([0.0, 1.0])
+    chain = HamiltonianChain(posterior=posterior, start=theta)
+
+    gradient = chain.finite_diff(theta)
+
+    assert isfinite(gradient).all()
+    assert allclose(gradient, -theta, atol=1e-8)
+
+
+@pytest.mark.parametrize("temperature", [0.5, 2.0])
+def test_hamiltonian_finite_diff_conserves_energy(temperature):
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    chain = HamiltonianChain(
+        posterior=posterior,
+        start=array([1.0, -0.5]),
+        temperature=temperature,
+        epsilon=0.01,
+    )
+    theta = array([1.0, -0.5])
+    momentum = array([0.3, -0.2])
+    initial_energy = chain.hamiltonian(theta, momentum)
+
+    next_theta, next_momentum = chain.run_leapfrog(
+        theta.copy(), momentum.copy(), n_steps=100
+    )
+    final_energy = chain.hamiltonian(next_theta, next_momentum)
+
+    assert abs(final_energy - initial_energy) < 1e-3
 
 
 def test_hamiltonian_chain_burn_in():
