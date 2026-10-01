@@ -24,30 +24,45 @@ class IntervalTransform:
         self.lower = lower
         self.upper = upper
         self.width = upper - lower
-        self.log_width = log(self.width)
+        self.midpoint = 0.5 * (lower + upper)
+        self.scale = 0.25 * self.width
+        self.inv_scale = 4.0 / self.width
+        self.ln_4 = log(4.0)
 
     def forward(self, value: ndarray) -> ndarray:
         if ((value <= self.lower) | (value >= self.upper)).any():
             raise ValueError("IntervalTransform values must lie strictly inside the bounds")
-        return log(value - self.lower) - log(self.upper - value)
+        logit = log(value - self.lower) - log(self.upper - value)
+        return self.midpoint + self.scale * logit
 
     def inverse(self, value: ndarray) -> ndarray:
-        return self.lower + self.width * expit(value)
+        normalized = (value - self.midpoint) * self.inv_scale
+        return self.lower + self.width * expit(normalized)
 
     def log_prob_inputs(self, value: ndarray) -> tuple[ndarray, float]:
-        sigmoid = expit(value)
+        normalized = (value - self.midpoint) * self.inv_scale
+        sigmoid = expit(normalized)
         constrained = self.lower + self.width * sigmoid
-        return constrained, self.log_jacobian(value)
+        elementwise = (
+            self.ln_4
+            - logaddexp(0.0, -normalized)
+            - logaddexp(0.0, normalized)
+        )
+        return constrained, float(elementwise.sum())
 
     def log_jacobian(self, value: ndarray) -> float:
+        normalized = (value - self.midpoint) * self.inv_scale
         elementwise = (
-            self.log_width - logaddexp(0.0, -value) - logaddexp(0.0, value)
+            self.ln_4
+            - logaddexp(0.0, -normalized)
+            - logaddexp(0.0, normalized)
         )
         return float(elementwise.sum())
 
     def gradient_inputs(self, value: ndarray) -> tuple[ndarray, ndarray, ndarray]:
-        sigmoid = expit(value)
+        normalized = (value - self.midpoint) * self.inv_scale
+        sigmoid = expit(normalized)
         constrained = self.lower + self.width * sigmoid
-        jacobian = self.width * sigmoid * (1.0 - sigmoid)
-        log_jacobian_gradient = 1.0 - 2.0 * sigmoid
+        jacobian = 4.0 * sigmoid * (1.0 - sigmoid)
+        log_jacobian_gradient = self.inv_scale * (1.0 - 2.0 * sigmoid)
         return constrained, jacobian, log_jacobian_gradient
