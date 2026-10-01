@@ -267,7 +267,7 @@ def test_hamiltonian_jacobian_is_not_tempered():
     )
 
 
-def test_hamiltonian_bounds_use_unconstrained_internal_coordinates():
+def test_hamiltonian_bounds_preserve_public_coordinates():
     chain = HamiltonianChain(
         posterior=lambda theta: -float(theta @ theta),
         start=array([0.25, 0.75]),
@@ -276,11 +276,17 @@ def test_hamiltonian_bounds_use_unconstrained_internal_coordinates():
         inverse_mass=array([[1.0, 0.5], [0.5, 1.0]]),
     )
 
-    assert chain.theta[0] == pytest.approx(array([-log(3.0), log(3.0)]))
+    assert chain._theta[0] == pytest.approx(array([-log(3.0), log(3.0)]))
+    assert chain.theta[0] == pytest.approx(array([0.25, 0.75]))
+    assert chain.get_last() == pytest.approx(array([0.25, 0.75]))
+
+    chain.theta[0][0] = 0.9
+
     assert chain.get_last() == pytest.approx(array([0.25, 0.75]))
 
     chain.replace_last(array([0.4, 0.6]))
 
+    assert chain.theta[-1] == pytest.approx(array([0.4, 0.6]))
     assert chain.get_last() == pytest.approx(array([0.4, 0.6]))
 
 

@@ -113,7 +113,7 @@ class HamiltonianChain(MarkovChain):
             self._validate_posterior(posterior=posterior, start=start)
             if self.bounds is not None:
                 self.bounds.validate_start_point(start, error_source="HamiltonianChain")
-            self.theta = [self.transform.forward(start)]
+            self._theta = [self.transform.forward(start)]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
             self.n_parameters = start.size
@@ -141,7 +141,7 @@ class HamiltonianChain(MarkovChain):
         Takes the next step in the HMC-chain
         """
         r0 = self.mass.sample_momentum(self.rng)
-        t0 = self.theta[-1]
+        t0 = self._theta[-1]
         current_target = self.probs[-1] + self.transform.log_jacobian(t0)
         H0 = self.kinetic_energy(r0) - current_target
 
@@ -161,7 +161,7 @@ class HamiltonianChain(MarkovChain):
             t = t0.copy()
             p = self.probs[-1]
 
-        self.theta.append(t)
+        self._theta.append(t)
         self.probs.append(p)
         self.leapfrog_steps.append(n_steps)
         self.chain_length += 1
@@ -219,9 +219,9 @@ class HamiltonianChain(MarkovChain):
 
     def estimate_mass(self, burn=1, thin=1, diagonal=True):
         if diagonal:
-            inverse_mass = var(array(self.theta[burn::thin]), axis=0)
+            inverse_mass = var(array(self._theta[burn::thin]), axis=0)
         else:
-            inverse_mass = cov(array(self.theta[burn::thin]).T)
+            inverse_mass = cov(array(self._theta[burn::thin]).T)
         self.mass = get_particle_mass(
             inverse_mass=inverse_mass, n_parameters=self.n_parameters
         )
@@ -238,10 +238,15 @@ class HamiltonianChain(MarkovChain):
         return G
 
     def get_last(self) -> ndarray:
-        return self.transform.inverse(self.theta[-1])
+        return self.transform.inverse(self._theta[-1])
 
     def replace_last(self, theta: ndarray):
-        self.theta[-1] = self.transform.forward(array(theta, dtype=float))
+        self._theta[-1] = self.transform.forward(array(theta, dtype=float))
+
+    @property
+    def theta(self) -> list[ndarray]:
+        """Parameter history in user-facing coordinates."""
+        return list(self.transform.inverse(array(self._theta)))
 
     def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
         """
@@ -454,10 +459,10 @@ class HamiltonianChain(MarkovChain):
         :return: \
             The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
         """
-        return self.transform.inverse(array(self.theta[burn::thin]))
+        return self.transform.inverse(array(self._theta[burn::thin]))
 
     def mode(self) -> ndarray:
-        return self.transform.inverse(array(self.theta[argmax(self.probs)])).squeeze()
+        return self.transform.inverse(array(self._theta[argmax(self.probs)])).squeeze()
 
     def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
@@ -474,7 +479,7 @@ class HamiltonianChain(MarkovChain):
         items = {
             "inv_mass": self.mass.inv_mass,
             "inv_temp": self.inv_temp,
-            "theta": self.theta,
+            "theta": self._theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
             "n_parameters": self.n_parameters,
@@ -538,7 +543,7 @@ class HamiltonianChain(MarkovChain):
         t = D["theta"]
         if bounds is not None and "theta_space" not in D:
             t = array([chain.transform.forward(value) for value in t])
-        chain.theta = [t[i, :] for i in range(t.shape[0])]
+        chain._theta = [t[i, :] for i in range(t.shape[0])]
 
         # build the epsilon selector
         chain.ES.load_items(D)
