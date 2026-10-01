@@ -116,7 +116,9 @@ class HamiltonianChain(MarkovChain):
             assert start.ndim == 1
             self._validate_posterior(posterior=posterior, start=start)
             if self.bounds is not None:
-                self.bounds.validate_start_point(start, error_source="HamiltonianChain")
+                self.bounds.validate_start_point(
+                    start, error_source="HamiltonianChain", strict=True
+                )
             self._theta = [self.transform.forward(start)]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
