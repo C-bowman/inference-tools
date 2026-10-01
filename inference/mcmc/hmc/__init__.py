@@ -509,6 +509,11 @@ class HamiltonianChain(MarkovChain):
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
         chain.n_parameters = int(D["n_parameters"])
+        inverse_mass = array(D["inv_mass"])
+        chain.mass = get_particle_mass(
+            inverse_mass=float(inverse_mass) if inverse_mass.ndim == 0 else inverse_mass,
+            n_parameters=chain.n_parameters,
+        )
         chain.chain_length = int(D["chain_length"])
         chain.steps = int(D["steps"])
 

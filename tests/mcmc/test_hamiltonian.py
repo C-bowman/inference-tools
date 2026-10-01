@@ -3,6 +3,7 @@ from numpy import allclose, array, isfinite, nan
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
+from inference.mcmc.hmc.epsilon import EpsilonSelector
 
 
 class RejectingRng:
@@ -206,6 +207,63 @@ def test_hamiltonian_chain_restore(tmp_path):
     assert (new_chain.get_last() == chain.get_last()).all()
     assert (new_chain.bounds.lower == chain.bounds.lower).all()
     assert (new_chain.bounds.upper == chain.bounds.upper).all()
+
+
+def test_epsilon_selector_restores_running_statistics():
+    selector = EpsilonSelector(initial_epsilon=0.1)
+    for probability in [0.1, 0.9, 0.2]:
+        selector.add_probability(probability)
+
+    restored = EpsilonSelector(initial_epsilon=1.0)
+    restored.load_items(selector.get_items())
+    index = selector.current_index
+
+    assert restored.stats[index].S == selector.stats[index].S
+    restored.stats[index].add_sample(0.7)
+    selector.stats[index].add_sample(0.7)
+    assert restored.stats[index].variance == selector.stats[index].variance
+
+
+def test_epsilon_selector_restores_unseen_bin_creation():
+    selector = EpsilonSelector(initial_epsilon=0.1)
+    for _ in range(selector.update_interval):
+        selector.add_probability(0.0)
+    assert selector.current_index not in selector.stats
+
+    restored = EpsilonSelector(initial_epsilon=1.0)
+    restored.load_items(selector.get_items())
+
+    restored.add_probability(0.0)
+
+    assert restored.stats[restored.current_index].count == 1
+
+
+@pytest.mark.parametrize(
+    "inverse_mass",
+    [
+        1.0,
+        array([1.0, 2.0, 3.0]),
+        array([[1.0, 0.1, 0.0], [0.1, 2.0, 0.1], [0.0, 0.1, 3.0]]),
+    ],
+)
+def test_hamiltonian_chain_restore_and_continue(tmp_path, inverse_mass):
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(
+        posterior=posterior,
+        start=array([1.0, 0.1, 0.1]),
+        grad=posterior.gradient,
+        inverse_mass=inverse_mass,
+    )
+    chain.advance(chain.ES.update_interval)
+    filename = tmp_path / "restore_and_continue.npz"
+    chain.save(filename)
+
+    restored = HamiltonianChain.load(
+        filename, posterior=posterior, grad=posterior.gradient
+    )
+    restored.take_step()
+
+    assert restored.chain_length == chain.chain_length + 1
 
 
 def test_hamiltonian_chain_plots():
