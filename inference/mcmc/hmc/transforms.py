@@ -31,7 +31,9 @@ class IntervalTransform:
 
     def forward(self, value: ndarray) -> ndarray:
         if ((value <= self.lower) | (value >= self.upper)).any():
-            raise ValueError("IntervalTransform values must lie strictly inside the bounds")
+            raise ValueError(
+                "IntervalTransform values must lie strictly inside the bounds"
+            )
         logit = log(value - self.lower) - log(self.upper - value)
         return self.midpoint + self.scale * logit
 
@@ -44,18 +46,14 @@ class IntervalTransform:
         sigmoid = expit(normalized)
         constrained = self.lower + self.width * sigmoid
         elementwise = (
-            self.ln_4
-            - logaddexp(0.0, -normalized)
-            - logaddexp(0.0, normalized)
+            self.ln_4 - logaddexp(0.0, -normalized) - logaddexp(0.0, normalized)
         )
         return constrained, float(elementwise.sum())
 
     def log_jacobian(self, value: ndarray) -> float:
         normalized = (value - self.midpoint) * self.inv_scale
         elementwise = (
-            self.ln_4
-            - logaddexp(0.0, -normalized)
-            - logaddexp(0.0, normalized)
+            self.ln_4 - logaddexp(0.0, -normalized) - logaddexp(0.0, normalized)
         )
         return float(elementwise.sum())
 

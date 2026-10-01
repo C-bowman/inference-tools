@@ -130,9 +130,8 @@ class HamiltonianChain(MarkovChain):
         self.run_leapfrog = self.standard_leapfrog
 
         assert epsilon > 0.0
-        assert (
-            1 <= simulation_steps[0] <= simulation_steps[1]
-            and all(isinstance(step, int) for step in simulation_steps)
+        assert 1 <= simulation_steps[0] <= simulation_steps[1] and all(
+            isinstance(step, int) for step in simulation_steps
         )
 
         self.ES = EpsilonSelector(epsilon)
@@ -202,10 +201,7 @@ class HamiltonianChain(MarkovChain):
         if self.grad is None:
             return self._target_finite_diff(t)
         constrained, jacobian, log_jacobian_gradient = self.transform.gradient_inputs(t)
-        return (
-            self.inv_temp * jacobian * self.grad(constrained)
-            + log_jacobian_gradient
-        )
+        return self.inv_temp * jacobian * self.grad(constrained) + log_jacobian_gradient
 
     def _target_finite_diff(self, t: ndarray) -> ndarray:
         gradient = zeros(self.n_parameters)
@@ -543,12 +539,16 @@ class HamiltonianChain(MarkovChain):
         chain.n_parameters = int(D["n_parameters"])
         inverse_mass = array(D["inv_mass"])
         chain.mass = get_particle_mass(
-            inverse_mass=float(inverse_mass) if inverse_mass.ndim == 0 else inverse_mass,
+            inverse_mass=(
+                float(inverse_mass) if inverse_mass.ndim == 0 else inverse_mass
+            ),
             n_parameters=chain.n_parameters,
         )
         chain.chain_length = int(D["chain_length"])
         if "simulation_steps" in D:
-            chain.simulation_steps = tuple(int(value) for value in D["simulation_steps"])
+            chain.simulation_steps = tuple(
+                int(value) for value in D["simulation_steps"]
+            )
         else:
             legacy_steps = int(D["steps"])
             chain.simulation_steps = (
