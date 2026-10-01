@@ -181,12 +181,8 @@ def test_hamiltonian_finite_diff_is_untempered():
     theta = array([1.0, -2.0])
     expected = -theta
 
-    cold_chain = HamiltonianChain(
-        posterior=posterior, start=theta, temperature=0.5
-    )
-    hot_chain = HamiltonianChain(
-        posterior=posterior, start=theta, temperature=2.0
-    )
+    cold_chain = HamiltonianChain(posterior=posterior, start=theta, temperature=0.5)
+    hot_chain = HamiltonianChain(posterior=posterior, start=theta, temperature=2.0)
 
     assert allclose(cold_chain.finite_diff(theta), expected, atol=1e-8)
     assert allclose(hot_chain.finite_diff(theta), expected, atol=1e-8)
@@ -253,9 +249,7 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
 
 
 def test_interval_transform_target_inputs():
-    transform = IntervalTransform(
-        lower=array([0.0, -2.0]), upper=array([1.0, 2.0])
-    )
+    transform = IntervalTransform(lower=array([0.0, -2.0]), upper=array([1.0, 2.0]))
     midpoint = array([0.5, 0.0])
     unconstrained = array([0.5, log(3.0)])
 
@@ -292,8 +286,7 @@ def test_hamiltonian_transformed_gradient():
         upper[index] += step
         lower[index] -= step
         finite_difference.append(
-            (chain._target_log_prob(upper) - chain._target_log_prob(lower))
-            / (2 * step)
+            (chain._target_log_prob(upper) - chain._target_log_prob(lower)) / (2 * step)
         )
 
     assert chain._target_gradient(unconstrained) == pytest.approx(finite_difference)
