@@ -51,9 +51,9 @@ bounds = [
 chain = HamiltonianChain(
     posterior=posterior,
     start=start,
-    bounds=bounds
+    bounds=bounds,
+    simulation_steps=(18, 22),
 )
-chain.steps = 20
 chain.advance(100000)
 chain.burn = 200
 

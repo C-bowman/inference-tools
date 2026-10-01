@@ -8,11 +8,16 @@ from inference.mcmc.hmc.transforms import IntervalTransform
 
 
 class RejectingRng:
-    def uniform(self, low, high):
-        return 1.0
+    def integers(self, low, high):
+        return low
 
     def random(self):
         return 1.0
+
+
+class UpperStepRng(RejectingRng):
+    def integers(self, low, high):
+        return high - 1
 
 
 def test_hamiltonian_chain_take_step():
@@ -28,6 +33,50 @@ def test_hamiltonian_chain_take_step():
     for i in range(3):
         assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_hamiltonian_chain_samples_integer_simulation_steps():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta @ theta),
+        start=array([0.0]),
+        grad=lambda theta: -2.0 * theta,
+        simulation_steps=(27, 33),
+    )
+    observed_steps = []
+    chain.run_leapfrog = lambda theta, momentum, steps: (
+        observed_steps.append(steps) or theta,
+        momentum,
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.rng = UpperStepRng()
+
+    chain.take_step()
+
+    assert chain.simulation_steps == (27, 33)
+    assert observed_steps == [33]
+    assert chain.leapfrog_steps[-1] == 33
+
+
+def test_hamiltonian_chain_default_simulation_steps():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta @ theta),
+        start=array([0.0]),
+    )
+
+    assert chain.simulation_steps == (25, 35)
+
+
+@pytest.mark.parametrize(
+    "simulation_steps",
+    [(0, 1), (2, 1), (1.0, 2)],
+)
+def test_hamiltonian_chain_rejects_invalid_simulation_steps(simulation_steps):
+    with pytest.raises(AssertionError):
+        HamiltonianChain(
+            posterior=lambda theta: -float(theta @ theta),
+            start=array([0.0]),
+            simulation_steps=simulation_steps,
+        )
 
 
 def test_hamiltonian_chain_records_rejected_proposal():
@@ -207,7 +256,8 @@ def test_interval_transform_target_inputs():
     transform = IntervalTransform(
         lower=array([0.0, -2.0]), upper=array([1.0, 2.0])
     )
-    unconstrained = array([0.0, log(3.0)])
+    midpoint = array([0.5, 0.0])
+    unconstrained = array([0.5, log(3.0)])
 
     value, log_jacobian = transform.log_prob_inputs(unconstrained)
     gradient_value, jacobian, log_jacobian_gradient = transform.gradient_inputs(
@@ -216,9 +266,10 @@ def test_interval_transform_target_inputs():
 
     assert value == pytest.approx(array([0.5, 1.0]))
     assert gradient_value == pytest.approx(value)
-    assert jacobian == pytest.approx(array([0.25, 0.75]))
-    assert log_jacobian == pytest.approx(log(0.25 * 0.75))
+    assert jacobian == pytest.approx(array([1.0, 0.75]))
+    assert log_jacobian == pytest.approx(log(0.75))
     assert log_jacobian_gradient == pytest.approx(array([0.0, -0.5]))
+    assert transform.forward(midpoint) == pytest.approx(midpoint)
     assert transform.forward(value) == pytest.approx(unconstrained)
     assert transform.inverse(unconstrained) == pytest.approx(value)
 
@@ -276,7 +327,9 @@ def test_hamiltonian_bounds_preserve_public_coordinates():
         inverse_mass=array([[1.0, 0.5], [0.5, 1.0]]),
     )
 
-    assert chain._theta[0] == pytest.approx(array([-log(3.0), log(3.0)]))
+    assert chain._theta[0] == pytest.approx(
+        array([0.5 - 0.25 * log(3.0), 0.5 + 0.25 * log(3.0)])
+    )
     assert chain.theta[0] == pytest.approx(array([0.25, 0.75]))
     assert chain.get_last() == pytest.approx(array([0.25, 0.75]))
 
@@ -307,6 +360,7 @@ def test_hamiltonian_chain_restore(tmp_path):
         start=array([1.0, 0.1, 0.1]),
         grad=posterior.gradient,
         bounds=bounds,
+        simulation_steps=(12, 18),
     )
     steps = 10
     chain.advance(steps)
@@ -323,6 +377,7 @@ def test_hamiltonian_chain_restore(tmp_path):
     assert (new_chain.get_last() == chain.get_last()).all()
     assert (new_chain.bounds.lower == chain.bounds.lower).all()
     assert (new_chain.bounds.upper == chain.bounds.upper).all()
+    assert new_chain.simulation_steps == chain.simulation_steps
 
     new_chain.take_step()
 

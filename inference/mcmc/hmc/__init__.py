@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from math import ceil, floor
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
@@ -44,8 +45,10 @@ class HamiltonianChain(MarkovChain):
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
 
-    :param int simulation_steps: \
-        The number of steps used in the Hamiltonian dynamics simulation.
+    :param tuple[int, int] simulation_steps: \
+        Inclusive lower and upper limits for the number of steps used in the
+        Hamiltonian dynamics simulation. Each proposal samples an integer
+        uniformly between these limits.
 
     :param float temperature: \
         The temperature of the markov chain. This parameter is used for parallel
@@ -55,8 +58,9 @@ class HamiltonianChain(MarkovChain):
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
         ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
         in the form ``(lower_bounds, upper_bounds)``. Bounded parameters are mapped
-        to unconstrained coordinates with a logistic interval transform during
-        sampling. Starting values must therefore lie strictly inside the bounds.
+        to unconstrained coordinates with a centered logistic interval transform
+        during sampling. The transform preserves each interval midpoint and has unit
+        derivative there. Starting values must therefore lie strictly inside the bounds.
 
     :param inverse_mass: \
         The inverse-mass can be given as either a vector or matrix, and is used to
@@ -79,7 +83,7 @@ class HamiltonianChain(MarkovChain):
         start: ndarray,
         grad: Callable[[ndarray], ndarray] = None,
         epsilon: float = 0.1,
-        simulation_steps: int = 30,
+        simulation_steps: tuple[int, int] = (25, 35),
         temperature: float = 1.0,
         bounds: Bounds = None,
         inverse_mass: ndarray = None,
@@ -126,10 +130,13 @@ class HamiltonianChain(MarkovChain):
         self.run_leapfrog = self.standard_leapfrog
 
         assert epsilon > 0.0
-        assert simulation_steps >= 1
+        assert (
+            1 <= simulation_steps[0] <= simulation_steps[1]
+            and all(isinstance(step, int) for step in simulation_steps)
+        )
 
         self.ES = EpsilonSelector(epsilon)
-        self.steps = simulation_steps
+        self.simulation_steps = simulation_steps
 
         self.display_progress = display_progress
         self.ProgressPrinter = ChainProgressPrinter(
@@ -145,7 +152,9 @@ class HamiltonianChain(MarkovChain):
         current_target = self.probs[-1] + self.transform.log_jacobian(t0)
         H0 = self.kinetic_energy(r0) - current_target
 
-        n_steps = int(self.steps * self.rng.uniform(0.9, 1.1))
+        n_steps = self.rng.integers(
+            self.simulation_steps[0], self.simulation_steps[1] + 1
+        )
         t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
         p, target = self._evaluate_target(t)
@@ -484,7 +493,7 @@ class HamiltonianChain(MarkovChain):
             "leapfrog_steps": self.leapfrog_steps,
             "n_parameters": self.n_parameters,
             "chain_length": self.chain_length,
-            "steps": self.steps,
+            "simulation_steps": self.simulation_steps,
             "display_progress": self.display_progress,
             "theta_space": "unconstrained",
         }
@@ -538,7 +547,14 @@ class HamiltonianChain(MarkovChain):
             n_parameters=chain.n_parameters,
         )
         chain.chain_length = int(D["chain_length"])
-        chain.steps = int(D["steps"])
+        if "simulation_steps" in D:
+            chain.simulation_steps = tuple(int(value) for value in D["simulation_steps"])
+        else:
+            legacy_steps = int(D["steps"])
+            chain.simulation_steps = (
+                max(1, ceil(0.9 * legacy_steps)),
+                max(1, floor(1.1 * legacy_steps)),
+            )
 
         t = D["theta"]
         if bounds is not None and "theta_space" not in D:
