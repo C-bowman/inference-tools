@@ -150,13 +150,11 @@ class HamiltonianChain(MarkovChain):
 
         p, target = self._evaluate_target(t)
         H = self.kinetic_energy(r) - target
-        log_accept_prob = H0 - H
-        if log_accept_prob >= 0:
-            accept_prob = 1.0
-        elif isfinite(log_accept_prob):
-            accept_prob = exp(log_accept_prob)
-        else:
+        if not all(isfinite(value) for value in (p, target, H0, H)):
             accept_prob = 0.0
+        else:
+            log_accept_prob = H0 - H
+            accept_prob = 1.0 if log_accept_prob >= 0 else exp(log_accept_prob)
         self.ES.add_probability(accept_prob)
 
         if self.rng.random() > accept_prob:

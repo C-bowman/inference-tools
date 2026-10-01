@@ -72,6 +72,23 @@ def test_hamiltonian_chain_accepts_highly_favorable_proposal():
     assert chain.get_probabilities(burn=0).tolist() == [0.0, 1000.0]
 
 
+@pytest.mark.parametrize("proposed_probability", [float("inf"), -float("inf"), nan])
+def test_hamiltonian_chain_rejects_non_finite_proposal(proposed_probability):
+    chain = HamiltonianChain(
+        posterior=lambda theta: proposed_probability if theta[0] else 0.0,
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = lambda theta, momentum, steps: (array([1.0]), momentum)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
+
+
 def test_hamiltonian_chain_advance():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
