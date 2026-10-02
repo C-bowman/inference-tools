@@ -7,6 +7,9 @@ def test_bounds_methods():
     bnds = Bounds(lower=array([0.0, 0.0]), upper=array([1.0, 1.0]))
 
     assert bnds.inside(array([0.2, 0.1]))
+    assert bnds.inside(array([0.0, 1.0]))
+    assert not bnds.inside(array([0.0, 1.0]), strict=True)
+    assert bnds.inside(array([0.2, 0.1]), strict=True)
     assert not bnds.inside(array([-0.6, 0.1]))
 
     assert allclose(bnds.reflect(array([-0.6, 1.1])), array([0.6, 0.9]))
@@ -33,3 +36,12 @@ def test_bounds_error_handling():
 
     with pytest.raises(ValueError):
         Bounds(lower=array([0.0, 0.0]), upper=array([1.0, 1.0, 1.0]))
+
+
+def test_bounds_strict_start_validation():
+    bnds = Bounds(lower=array([0.0]), upper=array([1.0]))
+
+    bnds.validate_start_point(array([0.0]))
+
+    with pytest.raises(ValueError, match="strictly inside"):
+        bnds.validate_start_point(array([0.0]), strict=True)

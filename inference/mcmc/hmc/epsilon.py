@@ -148,12 +148,12 @@ class EpsilonSelector:
         self.current_index = int(dictionary["current_index"])
 
         # rebuild the dictionary of RunningStats objects
-        self.stats = {}
+        self.stats = defaultdict(RunningStats)
         for k, index in enumerate(dictionary["stats_index"]):
             rs = RunningStats()
             rs.mean = dictionary["stats_mean"][k]
             rs.variance = dictionary["stats_variance"][k]
-            rs.s = dictionary["stats_s"][k]
+            rs.S = dictionary["stats_s"][k]
             rs.count = int(dictionary["stats_counts"][k])
             if rs.count > 0:
                 rs.update = rs.add_sample

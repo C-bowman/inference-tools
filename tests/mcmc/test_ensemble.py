@@ -5,6 +5,11 @@ from inference.mcmc import EnsembleSampler, Bounds
 import pytest
 
 
+class RejectingRng:
+    def random(self):
+        return 1.0
+
+
 def test_ensemble_sampler_advance(line_posterior):
     n_walkers = 100
     guess = array([2.0, -4.0])
@@ -32,6 +37,29 @@ def test_ensemble_sampler_advance(line_posterior):
 
     probs = chain.get_probabilities()
     assert probs.shape == (n_iterations * n_walkers,)
+
+
+def test_ensemble_sampler_records_rejected_proposals():
+    starts = array([[-1.0], [1.0]])
+    chain = EnsembleSampler(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        starting_positions=starts.copy(),
+    )
+    proposal_calls = [0, 0]
+
+    def one_shot_proposal(walker):
+        proposal_calls[walker] += 1
+        if proposal_calls[walker] > 1:
+            raise RuntimeError("proposal was retried")
+        return array([10.0]), 1.0
+
+    chain._EnsembleSampler__proposal = one_shot_proposal
+    chain.rng = RejectingRng()
+
+    chain.advance(iterations=1)
+
+    assert proposal_calls == [1, 1]
+    assert (chain.get_sample() == starts).all()
 
 
 def test_ensemble_sampler_restore(line_posterior, tmp_path):

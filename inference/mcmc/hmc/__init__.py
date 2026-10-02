@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from math import ceil, floor
 import matplotlib.pyplot as plt
 
 from numpy import ndarray, float64
@@ -10,6 +11,7 @@ from inference.mcmc.utilities import Bounds, ChainProgressPrinter, effective_sam
 from inference.mcmc.base import MarkovChain
 from inference.mcmc.hmc.epsilon import EpsilonSelector
 from inference.mcmc.hmc.mass import get_particle_mass
+from inference.mcmc.hmc.transforms import IdentityTransform, IntervalTransform
 
 
 class HamiltonianChain(MarkovChain):
@@ -43,8 +45,10 @@ class HamiltonianChain(MarkovChain):
     :param float epsilon: \
         Initial guess for the time-step of the Hamiltonian dynamics simulation.
 
-    :param int simulation_steps: \
-        The number of steps used in the Hamiltonian dynamics simulation.
+    :param tuple[int, int] simulation_steps: \
+        Inclusive lower and upper limits for the number of steps used in the
+        Hamiltonian dynamics simulation. Each proposal samples an integer
+        uniformly between these limits.
 
     :param float temperature: \
         The temperature of the markov chain. This parameter is used for parallel
@@ -53,7 +57,10 @@ class HamiltonianChain(MarkovChain):
     :param bounds: \
         An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
         ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
-        in the form ``(lower_bounds, upper_bounds)``.
+        in the form ``(lower_bounds, upper_bounds)``. Bounded parameters are mapped
+        to unconstrained coordinates with a centered logistic interval transform
+        during sampling. The transform preserves each interval midpoint and has unit
+        derivative there. Starting values must therefore lie strictly inside the bounds.
 
     :param inverse_mass: \
         The inverse-mass can be given as either a vector or matrix, and is used to
@@ -62,6 +69,8 @@ class HamiltonianChain(MarkovChain):
         approximate the variance of the marginal distributions of each parameter.
         If given as a matrix, the inverse mass should be a valid covariance matrix
         for a multivariate normal distribution which approximates the posterior.
+        When bounds are specified, these values refer to the unconstrained transformed
+        coordinates rather than the original bounded parameters.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
@@ -74,7 +83,7 @@ class HamiltonianChain(MarkovChain):
         start: ndarray,
         grad: Callable[[ndarray], ndarray] = None,
         epsilon: float = 0.1,
-        simulation_steps: int = 30,
+        simulation_steps: tuple[int, int] = (25, 35),
         temperature: float = 1.0,
         bounds: Bounds = None,
         inverse_mass: ndarray = None,
@@ -82,18 +91,35 @@ class HamiltonianChain(MarkovChain):
     ):
         self.posterior = posterior
         self.rng = default_rng()
-        # if no gradient function is supplied, default to finite difference
-        self.grad = self.finite_diff if grad is None else grad
+        self.grad = grad
 
         self.temperature = temperature
         self.inv_temp = 1.0 / temperature
+
+        if bounds is None:
+            self.bounds = None
+            self.transform = IdentityTransform()
+        else:
+            if isinstance(bounds, Bounds):
+                self.bounds = bounds
+            else:
+                self.bounds = Bounds(
+                    lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
+                )
+            self.transform = IntervalTransform(
+                lower=self.bounds.lower, upper=self.bounds.upper
+            )
 
         if start is not None:
             start = start if isinstance(start, ndarray) else array(start)
             start = start if start.dtype is float64 else start.astype(float64)
             assert start.ndim == 1
             self._validate_posterior(posterior=posterior, start=start)
-            self.theta = [start]
+            if self.bounds is not None:
+                self.bounds.validate_start_point(
+                    start, error_source="HamiltonianChain", strict=True
+                )
+            self._theta = [self.transform.forward(start)]
             self.probs = [self.posterior(start) * self.inv_temp]
             self.leapfrog_steps = [0]
             self.n_parameters = start.size
@@ -103,29 +129,15 @@ class HamiltonianChain(MarkovChain):
             )
 
         self.chain_length = 1
-
-        # set either the bounded or unbounded leapfrog update
-        if bounds is None:
-            self.run_leapfrog = self.standard_leapfrog
-            self.bounds = None
-        else:
-            self.run_leapfrog = self.bounded_leapfrog
-            if isinstance(bounds, Bounds):
-                self.bounds = bounds
-            else:
-                self.bounds = Bounds(
-                    lower=bounds[0], upper=bounds[1], error_source="HamiltonianChain"
-                )
-
-            if start is not None:
-                self.bounds.validate_start_point(start, error_source="HamiltonianChain")
+        self.run_leapfrog = self.standard_leapfrog
 
         assert epsilon > 0.0
-        assert simulation_steps >= 1
+        assert 1 <= simulation_steps[0] <= simulation_steps[1] and all(
+            isinstance(step, int) for step in simulation_steps
+        )
 
-        self.max_attempts = 200
         self.ES = EpsilonSelector(epsilon)
-        self.steps = simulation_steps
+        self.simulation_steps = simulation_steps
 
         self.display_progress = display_progress
         self.ProgressPrinter = ChainProgressPrinter(
@@ -136,98 +148,112 @@ class HamiltonianChain(MarkovChain):
         """
         Takes the next step in the HMC-chain
         """
-        steps_taken = 0
-        for attempt in range(self.max_attempts):
-            r0 = self.mass.sample_momentum(self.rng)
-            t0 = self.theta[-1]
-            H0 = self.kinetic_energy(r0) - self.probs[-1]
+        r0 = self.mass.sample_momentum(self.rng)
+        t0 = self._theta[-1]
+        current_target = self.probs[-1] + self.transform.log_jacobian(t0)
+        H0 = self.kinetic_energy(r0) - current_target
 
-            n_steps = int(self.steps * self.rng.uniform(0.9, 1.1))
-            t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
+        n_steps = self.rng.integers(
+            self.simulation_steps[0], self.simulation_steps[1] + 1
+        )
+        t, r = self.run_leapfrog(t0.copy(), r0.copy(), n_steps)
 
-            steps_taken += n_steps
-            p = self.posterior(t) * self.inv_temp
-            H = self.kinetic_energy(r) - p
-            accept_prob = exp(H0 - H)
-
-            self.ES.add_probability(
-                min(accept_prob, 1) if isfinite(accept_prob) else 0.0
-            )
-
-            if (accept_prob >= 1) or (self.rng.random() <= accept_prob):
-                break
+        p, target = self._evaluate_target(t)
+        H = self.kinetic_energy(r) - target
+        if not all(isfinite(value) for value in (p, target, H0, H)):
+            accept_prob = 0.0
         else:
-            raise ValueError(f"""\n
-                \r[ HamiltonianChain error ]
-                \r>> Failed to take step within maximum allowed attempts of {self.max_attempts}
-                """)
+            log_accept_prob = H0 - H
+            accept_prob = 1.0 if log_accept_prob >= 0 else exp(log_accept_prob)
+        self.ES.add_probability(accept_prob)
 
-        self.theta.append(t)
+        if self.rng.random() > accept_prob:
+            t = t0.copy()
+            p = self.probs[-1]
+
+        self._theta.append(t)
         self.probs.append(p)
-        self.leapfrog_steps.append(steps_taken)
+        self.leapfrog_steps.append(n_steps)
         self.chain_length += 1
 
     def standard_leapfrog(
         self, t: ndarray, r: ndarray, n_steps: int
     ) -> tuple[ndarray, ndarray]:
-        r_step = self.inv_temp * self.ES.epsilon
-        r += (0.5 * r_step) * self.grad(t)
+        r_step = self.ES.epsilon
+        r += (0.5 * r_step) * self._target_gradient(t)
 
         for _ in range(n_steps - 1):
             t += self.ES.epsilon * self.mass.get_velocity(r)
-            r += r_step * self.grad(t)
+            r += r_step * self._target_gradient(t)
 
         t += self.ES.epsilon * self.mass.get_velocity(r)
-        r += (0.5 * r_step) * self.grad(t)
+        r += (0.5 * r_step) * self._target_gradient(t)
         return t, r
 
-    def bounded_leapfrog(
-        self, t: ndarray, r: ndarray, n_steps: int
-    ) -> tuple[ndarray, ndarray]:
-        r_step = self.inv_temp * self.ES.epsilon
-        r += (0.5 * r_step) * self.grad(t)
+    def _target_log_prob(self, t: ndarray) -> float:
+        _, target = self._evaluate_target(t)
+        return target
 
-        for _ in range(n_steps - 1):
-            t += self.ES.epsilon * self.mass.get_velocity(r)
-            t, reflections = self.bounds.reflect_momenta(t)
-            r *= reflections
-            r += r_step * self.grad(t)
+    def _evaluate_target(self, t: ndarray) -> tuple[float, float]:
+        constrained, log_jacobian = self.transform.log_prob_inputs(t)
+        probability = self.posterior(constrained) * self.inv_temp
+        return probability, probability + log_jacobian
 
-        t += self.ES.epsilon * self.mass.get_velocity(r)
-        t, reflections = self.bounds.reflect_momenta(t)
-        r *= reflections
-        r += (0.5 * r_step) * self.grad(t)
-        return t, r
+    def _target_gradient(self, t: ndarray) -> ndarray:
+        if self.grad is None:
+            return self._target_finite_diff(t)
+        constrained, jacobian, log_jacobian_gradient = self.transform.gradient_inputs(t)
+        return self.inv_temp * jacobian * self.grad(constrained) + log_jacobian_gradient
+
+    def _target_finite_diff(self, t: ndarray) -> ndarray:
+        gradient = zeros(self.n_parameters)
+        for i in range(self.n_parameters):
+            step = 1e-5 * max(1.0, abs(t[i]))
+            upper = t.astype(float, copy=True)
+            lower = t.astype(float, copy=True)
+            upper[i] += step
+            lower[i] -= step
+            gradient[i] = (
+                self._target_log_prob(upper) - self._target_log_prob(lower)
+            ) / (2 * step)
+        return gradient
 
     def hamiltonian(self, t: ndarray, r: ndarray) -> float:
-        return 0.5 * (r @ self.mass.get_velocity(r)) - self.posterior(t) * self.inv_temp
+        return self.kinetic_energy(r) - self._target_log_prob(t)
 
     def kinetic_energy(self, r: ndarray) -> float:
         return 0.5 * (r @ self.mass.get_velocity(r))
 
     def estimate_mass(self, burn=1, thin=1, diagonal=True):
         if diagonal:
-            inverse_mass = var(array(self.theta[burn::thin]), axis=0)
+            inverse_mass = var(array(self._theta[burn::thin]), axis=0)
         else:
-            inverse_mass = cov(array(self.theta[burn::thin]).T)
+            inverse_mass = cov(array(self._theta[burn::thin]).T)
         self.mass = get_particle_mass(
             inverse_mass=inverse_mass, n_parameters=self.n_parameters
         )
 
     def finite_diff(self, t: ndarray) -> ndarray:
-        p = self.posterior(t) * self.inv_temp
         G = zeros(self.n_parameters)
         for i in range(self.n_parameters):
-            delta = zeros(self.n_parameters) + 1
-            delta[i] += 1e-5
-            G[i] = (self.posterior(t * delta) * self.inv_temp - p) / (t[i] * 1e-5)
+            step = 1e-5 * max(1.0, abs(t[i]))
+            upper = t.astype(float, copy=True)
+            lower = t.astype(float, copy=True)
+            upper[i] += step
+            lower[i] -= step
+            G[i] = (self.posterior(upper) - self.posterior(lower)) / (2 * step)
         return G
 
     def get_last(self) -> ndarray:
-        return self.theta[-1]
+        return self.transform.inverse(self._theta[-1])
 
     def replace_last(self, theta: ndarray):
-        self.theta[-1] = theta
+        self._theta[-1] = self.transform.forward(array(theta, dtype=float))
+
+    @property
+    def theta(self) -> list[ndarray]:
+        """Parameter history in user-facing coordinates."""
+        return list(self.transform.inverse(array(self._theta)))
 
     def get_parameter(self, index: int, burn: int = 1, thin: int = 1) -> ndarray:
         """
@@ -246,7 +272,7 @@ class HamiltonianChain(MarkovChain):
         :return: \
             Samples for the parameter specified by ``index`` as a ``numpy.ndarray``.
         """
-        return array([v[index] for v in self.theta[burn::thin]]).squeeze()
+        return self.get_sample(burn=burn, thin=thin)[:, index].squeeze()
 
     def plot_diagnostics(self, show=True, filename=None, burn=None):
         """
@@ -440,10 +466,10 @@ class HamiltonianChain(MarkovChain):
         :return: \
             The sample as a ``numpy.ndarray`` of shape ``(n_samples, n_parameters)``.
         """
-        return array(self.theta[burn::thin])
+        return self.transform.inverse(array(self._theta[burn::thin]))
 
     def mode(self) -> ndarray:
-        return array(self.theta[argmax(self.probs)]).squeeze()
+        return self.transform.inverse(array(self._theta[argmax(self.probs)])).squeeze()
 
     def estimate_burn_in(self) -> int:
         # first get an estimate based on when the chain first reaches
@@ -460,13 +486,14 @@ class HamiltonianChain(MarkovChain):
         items = {
             "inv_mass": self.mass.inv_mass,
             "inv_temp": self.inv_temp,
-            "theta": self.theta,
+            "theta": self._theta,
             "probs": self.probs,
             "leapfrog_steps": self.leapfrog_steps,
             "n_parameters": self.n_parameters,
             "chain_length": self.chain_length,
-            "steps": self.steps,
+            "simulation_steps": self.simulation_steps,
             "display_progress": self.display_progress,
+            "theta_space": "unconstrained",
         }
         if self.bounds is not None:
             items.update(
@@ -512,11 +539,29 @@ class HamiltonianChain(MarkovChain):
         chain.probs = list(D["probs"])
         chain.leapfrog_steps = list(D["leapfrog_steps"])
         chain.n_parameters = int(D["n_parameters"])
+        inverse_mass = array(D["inv_mass"])
+        chain.mass = get_particle_mass(
+            inverse_mass=(
+                float(inverse_mass) if inverse_mass.ndim == 0 else inverse_mass
+            ),
+            n_parameters=chain.n_parameters,
+        )
         chain.chain_length = int(D["chain_length"])
-        chain.steps = int(D["steps"])
+        if "simulation_steps" in D:
+            chain.simulation_steps = tuple(
+                int(value) for value in D["simulation_steps"]
+            )
+        else:
+            legacy_steps = int(D["steps"])
+            chain.simulation_steps = (
+                max(1, ceil(0.9 * legacy_steps)),
+                max(1, floor(1.1 * legacy_steps)),
+            )
 
         t = D["theta"]
-        chain.theta = [t[i, :] for i in range(t.shape[0])]
+        if bounds is not None and "theta_space" not in D:
+            t = array([chain.transform.forward(value) for value in t])
+        chain._theta = [t[i, :] for i in range(t.shape[0])]
 
         # build the epsilon selector
         chain.ES.load_items(D)

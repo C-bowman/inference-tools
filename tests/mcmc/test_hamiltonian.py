@@ -1,8 +1,23 @@
 import pytest
-from numpy import array, nan
+from numpy import allclose, array, isfinite, log, nan
 from itertools import product
 from mcmc_utils import ToroidalGaussian, line_posterior, sliced_length
 from inference.mcmc import HamiltonianChain, Bounds
+from inference.mcmc.hmc.epsilon import EpsilonSelector
+from inference.mcmc.hmc.transforms import IntervalTransform
+
+
+class RejectingRng:
+    def integers(self, low, high):
+        return low
+
+    def random(self):
+        return 1.0
+
+
+class UpperStepRng(RejectingRng):
+    def integers(self, low, high):
+        return high - 1
 
 
 def test_hamiltonian_chain_take_step():
@@ -18,6 +33,109 @@ def test_hamiltonian_chain_take_step():
     for i in range(3):
         assert chain.get_parameter(i, burn=0).size == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_hamiltonian_chain_samples_integer_simulation_steps():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta @ theta),
+        start=array([0.0]),
+        grad=lambda theta: -2.0 * theta,
+        simulation_steps=(27, 33),
+    )
+    observed_steps = []
+    chain.run_leapfrog = lambda theta, momentum, steps: (
+        observed_steps.append(steps) or theta,
+        momentum,
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.rng = UpperStepRng()
+
+    chain.take_step()
+
+    assert chain.simulation_steps == (27, 33)
+    assert observed_steps == [33]
+    assert chain.leapfrog_steps[-1] == 33
+
+
+def test_hamiltonian_chain_default_simulation_steps():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta @ theta),
+        start=array([0.0]),
+    )
+
+    assert chain.simulation_steps == (25, 35)
+
+
+@pytest.mark.parametrize(
+    "simulation_steps",
+    [(0, 1), (2, 1), (1.0, 2)],
+)
+def test_hamiltonian_chain_rejects_invalid_simulation_steps(simulation_steps):
+    with pytest.raises(AssertionError):
+        HamiltonianChain(
+            posterior=lambda theta: -float(theta @ theta),
+            start=array([0.0]),
+            simulation_steps=simulation_steps,
+        )
+
+
+def test_hamiltonian_chain_records_rejected_proposal():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta[0] ** 2),
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    leapfrog_calls = 0
+
+    def one_shot_leapfrog(theta, momentum, steps):
+        nonlocal leapfrog_calls
+        leapfrog_calls += 1
+        if leapfrog_calls > 1:
+            raise RuntimeError("proposal was retried")
+        return array([10.0]), momentum
+
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = one_shot_leapfrog
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert leapfrog_calls == 1
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
+
+
+def test_hamiltonian_chain_accepts_highly_favorable_proposal():
+    chain = HamiltonianChain(
+        posterior=lambda theta: 1000.0 if theta[0] else 0.0,
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = lambda theta, momentum, steps: (array([1.0]), momentum)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 1.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 1000.0]
+
+
+@pytest.mark.parametrize("proposed_probability", [float("inf"), -float("inf"), nan])
+def test_hamiltonian_chain_rejects_non_finite_proposal(proposed_probability):
+    chain = HamiltonianChain(
+        posterior=lambda theta: proposed_probability if theta[0] else 0.0,
+        start=array([0.0]),
+        grad=lambda theta: array([0.0]),
+    )
+    chain.mass.sample_momentum = lambda rng: array([0.0])
+    chain.run_leapfrog = lambda theta, momentum, steps: (array([1.0]), momentum)
+    chain.rng = RejectingRng()
+
+    chain.take_step()
+
+    assert chain.get_parameter(0, burn=0).tolist() == [0.0, 0.0]
+    assert chain.get_probabilities(burn=0).tolist() == [0.0, 0.0]
 
 
 def test_hamiltonian_chain_advance():
@@ -58,6 +176,50 @@ def test_hamiltonian_chain_advance_no_gradient():
     assert len(chain.probs) == chain.chain_length
 
 
+def test_hamiltonian_finite_diff_is_untempered():
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    theta = array([1.0, -2.0])
+    expected = -theta
+
+    cold_chain = HamiltonianChain(posterior=posterior, start=theta, temperature=0.5)
+    hot_chain = HamiltonianChain(posterior=posterior, start=theta, temperature=2.0)
+
+    assert allclose(cold_chain.finite_diff(theta), expected, atol=1e-8)
+    assert allclose(hot_chain.finite_diff(theta), expected, atol=1e-8)
+
+
+def test_hamiltonian_finite_diff_at_zero():
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    theta = array([0.0, 1.0])
+    chain = HamiltonianChain(posterior=posterior, start=theta)
+
+    gradient = chain.finite_diff(theta)
+
+    assert isfinite(gradient).all()
+    assert allclose(gradient, -theta, atol=1e-8)
+
+
+@pytest.mark.parametrize("temperature", [0.5, 2.0])
+def test_hamiltonian_finite_diff_conserves_energy(temperature):
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    chain = HamiltonianChain(
+        posterior=posterior,
+        start=array([1.0, -0.5]),
+        temperature=temperature,
+        epsilon=0.01,
+    )
+    theta = array([1.0, -0.5])
+    momentum = array([0.3, -0.2])
+    initial_energy = chain.hamiltonian(theta, momentum)
+
+    next_theta, next_momentum = chain.run_leapfrog(
+        theta.copy(), momentum.copy(), n_steps=100
+    )
+    final_energy = chain.hamiltonian(next_theta, next_momentum)
+
+    assert abs(final_energy - initial_energy) < 1e-3
+
+
 def test_hamiltonian_chain_burn_in():
     posterior = ToroidalGaussian()
     chain = HamiltonianChain(
@@ -86,6 +248,103 @@ def test_hamiltonian_chain_advance_bounds(line_posterior):
     assert all(offset >= 0)
 
 
+def test_interval_transform_target_inputs():
+    transform = IntervalTransform(lower=array([0.0, -2.0]), upper=array([1.0, 2.0]))
+    midpoint = array([0.5, 0.0])
+    unconstrained = array([0.5, log(3.0)])
+
+    value, log_jacobian = transform.log_prob_inputs(unconstrained)
+    gradient_value, jacobian, log_jacobian_gradient = transform.gradient_inputs(
+        unconstrained
+    )
+
+    assert value == pytest.approx(array([0.5, 1.0]))
+    assert gradient_value == pytest.approx(value)
+    assert jacobian == pytest.approx(array([1.0, 0.75]))
+    assert log_jacobian == pytest.approx(log(0.75))
+    assert log_jacobian_gradient == pytest.approx(array([0.0, -0.5]))
+    assert transform.forward(midpoint) == pytest.approx(midpoint)
+    assert transform.forward(value) == pytest.approx(unconstrained)
+    assert transform.inverse(unconstrained) == pytest.approx(value)
+
+
+def test_hamiltonian_transformed_gradient():
+    posterior = lambda theta: -0.5 * float(theta @ theta)
+    chain = HamiltonianChain(
+        posterior=posterior,
+        start=array([0.5, 0.5]),
+        grad=lambda theta: -theta,
+        temperature=2.0,
+        bounds=(array([0.0, 0.0]), array([1.0, 1.0])),
+    )
+    unconstrained = array([-0.7, 0.8])
+    step = 1e-6
+    finite_difference = []
+    for index in range(unconstrained.size):
+        upper = unconstrained.copy()
+        lower = unconstrained.copy()
+        upper[index] += step
+        lower[index] -= step
+        finite_difference.append(
+            (chain._target_log_prob(upper) - chain._target_log_prob(lower)) / (2 * step)
+        )
+
+    assert chain._target_gradient(unconstrained) == pytest.approx(finite_difference)
+
+
+def test_hamiltonian_jacobian_is_not_tempered():
+    kwargs = {
+        "posterior": lambda theta: 0.0,
+        "start": array([0.5]),
+        "grad": lambda theta: array([0.0]),
+        "bounds": (array([0.0]), array([1.0])),
+    }
+    cold_chain = HamiltonianChain(temperature=0.5, **kwargs)
+    hot_chain = HamiltonianChain(temperature=2.0, **kwargs)
+    unconstrained = array([1.0])
+
+    assert cold_chain._target_log_prob(unconstrained) == pytest.approx(
+        hot_chain._target_log_prob(unconstrained)
+    )
+    assert cold_chain._target_gradient(unconstrained) == pytest.approx(
+        hot_chain._target_gradient(unconstrained)
+    )
+
+
+def test_hamiltonian_bounds_preserve_public_coordinates():
+    chain = HamiltonianChain(
+        posterior=lambda theta: -float(theta @ theta),
+        start=array([0.25, 0.75]),
+        grad=lambda theta: -2.0 * theta,
+        bounds=(array([0.0, 0.0]), array([1.0, 1.0])),
+        inverse_mass=array([[1.0, 0.5], [0.5, 1.0]]),
+    )
+
+    assert chain._theta[0] == pytest.approx(
+        array([0.5 - 0.25 * log(3.0), 0.5 + 0.25 * log(3.0)])
+    )
+    assert chain.theta[0] == pytest.approx(array([0.25, 0.75]))
+    assert chain.get_last() == pytest.approx(array([0.25, 0.75]))
+
+    chain.theta[0][0] = 0.9
+
+    assert chain.get_last() == pytest.approx(array([0.25, 0.75]))
+
+    chain.replace_last(array([0.4, 0.6]))
+
+    assert chain.theta[-1] == pytest.approx(array([0.4, 0.6]))
+    assert chain.get_last() == pytest.approx(array([0.4, 0.6]))
+
+
+def test_hamiltonian_bounds_reject_boundary_start():
+    with pytest.raises(ValueError, match="strictly inside"):
+        HamiltonianChain(
+            posterior=lambda theta: -float(theta @ theta),
+            start=array([0.0]),
+            bounds=(array([0.0]), array([1.0])),
+        )
+
+
 def test_hamiltonian_chain_restore(tmp_path):
     posterior = ToroidalGaussian()
     bounds = Bounds(lower=array([-2.0, -2.0, -1.0]), upper=array([2.0, 2.0, 1.0]))
@@ -94,6 +353,7 @@ def test_hamiltonian_chain_restore(tmp_path):
         start=array([1.0, 0.1, 0.1]),
         grad=posterior.gradient,
         bounds=bounds,
+        simulation_steps=(12, 18),
     )
     steps = 10
     chain.advance(steps)
@@ -101,13 +361,78 @@ def test_hamiltonian_chain_restore(tmp_path):
     filename = tmp_path / "restore_file.npz"
     chain.save(filename)
 
-    new_chain = HamiltonianChain.load(filename)
+    new_chain = HamiltonianChain.load(
+        filename, posterior=posterior, grad=posterior.gradient
+    )
 
     assert new_chain.chain_length == chain.chain_length
     assert new_chain.probs == chain.probs
     assert (new_chain.get_last() == chain.get_last()).all()
     assert (new_chain.bounds.lower == chain.bounds.lower).all()
     assert (new_chain.bounds.upper == chain.bounds.upper).all()
+    assert new_chain.simulation_steps == chain.simulation_steps
+
+    new_chain.take_step()
+
+    assert new_chain.chain_length == chain.chain_length + 1
+    assert new_chain.bounds.inside(new_chain.get_last())
+
+
+def test_epsilon_selector_restores_running_statistics():
+    selector = EpsilonSelector(initial_epsilon=0.1)
+    for probability in [0.1, 0.9, 0.2]:
+        selector.add_probability(probability)
+
+    restored = EpsilonSelector(initial_epsilon=1.0)
+    restored.load_items(selector.get_items())
+    index = selector.current_index
+
+    assert restored.stats[index].S == selector.stats[index].S
+    restored.stats[index].add_sample(0.7)
+    selector.stats[index].add_sample(0.7)
+    assert restored.stats[index].variance == selector.stats[index].variance
+
+
+def test_epsilon_selector_restores_unseen_bin_creation():
+    selector = EpsilonSelector(initial_epsilon=0.1)
+    for _ in range(selector.update_interval):
+        selector.add_probability(0.0)
+    assert selector.current_index not in selector.stats
+
+    restored = EpsilonSelector(initial_epsilon=1.0)
+    restored.load_items(selector.get_items())
+
+    restored.add_probability(0.0)
+
+    assert restored.stats[restored.current_index].count == 1
+
+
+@pytest.mark.parametrize(
+    "inverse_mass",
+    [
+        1.0,
+        array([1.0, 2.0, 3.0]),
+        array([[1.0, 0.1, 0.0], [0.1, 2.0, 0.1], [0.0, 0.1, 3.0]]),
+    ],
+)
+def test_hamiltonian_chain_restore_and_continue(tmp_path, inverse_mass):
+    posterior = ToroidalGaussian()
+    chain = HamiltonianChain(
+        posterior=posterior,
+        start=array([1.0, 0.1, 0.1]),
+        grad=posterior.gradient,
+        inverse_mass=inverse_mass,
+    )
+    chain.advance(chain.ES.update_interval)
+    filename = tmp_path / "restore_and_continue.npz"
+    chain.save(filename)
+
+    restored = HamiltonianChain.load(
+        filename, posterior=posterior, grad=posterior.gradient
+    )
+    restored.take_step()
+
+    assert restored.chain_length == chain.chain_length + 1
 
 
 def test_hamiltonian_chain_plots():

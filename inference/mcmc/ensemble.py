@@ -67,8 +67,7 @@ class EnsembleSampler(MarkovChain):
             # storage for diagnostic information
             self.n_iterations = 0
             self.chain_length = 0
-            self.total_proposals = [[] for _ in range(self.n_walkers)]
-            self.failed_updates = []
+            self.accepted = [[] for _ in range(self.n_walkers)]
 
         if bounds is None:
             self.process_proposal = self.pass_through
@@ -100,7 +99,6 @@ class EnsembleSampler(MarkovChain):
         self.x_lwr = sqrt(2.0 / self.alpha)
         self.x_width = sqrt(2.0 * self.alpha) - self.x_lwr
 
-        self.max_attempts = 100
         self.sample = None
         self.sample_probs = None
         self.display_progress = display_progress
@@ -177,21 +175,16 @@ class EnsembleSampler(MarkovChain):
         return prop, z
 
     def __advance_walker(self, i: int):
-        for attempts in range(1, self.max_attempts + 1):
-            Y, z = self.__proposal(i)
-            p = self.posterior(Y)
-            q = exp((self.n_parameters - 1) * log(z) + p - self.walker_probs[i])
-            if self.rng.random() <= q:
-                self.walker_positions[i, :] = Y
-                self.walker_probs[i] = p
-                self.total_proposals[i].append(attempts)
-                break
-        else:
-            self.total_proposals[i].append(self.max_attempts)
-            self.failed_updates[-1] += 1
+        Y, z = self.__proposal(i)
+        p = self.posterior(Y)
+        log_q = (self.n_parameters - 1) * log(z) + p - self.walker_probs[i]
+        accepted = log_q >= 0 or self.rng.random() <= exp(log_q)
+        self.accepted[i].append(accepted)
+        if accepted:
+            self.walker_positions[i, :] = Y
+            self.walker_probs[i] = p
 
     def __advance_all(self):
-        self.failed_updates.append(0)
         [self.__advance_walker(i) for i in range(self.n_walkers)]
         self.n_iterations += 1
 
@@ -233,7 +226,7 @@ class EnsembleSampler(MarkovChain):
         as a function of the number of iterations.
         """
         x = linspace(1, self.n_iterations, self.n_iterations)
-        rates = x / array(self.total_proposals).cumsum(axis=1)
+        rates = array(self.accepted).cumsum(axis=1) / x
         avg_rate = rates.mean(axis=0)
 
         fig = plt.figure(figsize=(10, 4))
@@ -345,9 +338,8 @@ class EnsembleSampler(MarkovChain):
             "n_walkers": self.n_walkers,
             "walker_probs": self.walker_probs,
             "n_iterations": self.n_iterations,
-            "total_proposals": array(self.total_proposals),
+            "accepted": array(self.accepted),
             "alpha": self.alpha,
-            "max_attempts": self.max_attempts,
             "display_progress": self.display_progress,
         }
 
@@ -387,8 +379,10 @@ class EnsembleSampler(MarkovChain):
         sampler.n_walkers = int(D["n_walkers"])
         sampler.walker_probs = D["walker_probs"]
         sampler.n_iterations = int(D["n_iterations"])
-        sampler.total_proposals = [list(v) for v in D["total_proposals"]]
-        sampler.max_attempts = int(D["max_attempts"])
+        if "accepted" in D:
+            sampler.accepted = [list(v) for v in D["accepted"]]
+        else:
+            sampler.accepted = [list(v == 1) for v in D["total_proposals"]]
 
         if "sample" in D:
             sampler.sample = D["sample"]

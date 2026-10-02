@@ -123,7 +123,9 @@ class Bounds:
         self.width = self.upper - self.lower
         self.n_bounds = self.width.size
 
-    def validate_start_point(self, start: ndarray, error_source="Bounds"):
+    def validate_start_point(
+        self, start: ndarray, error_source="Bounds", strict: bool = False
+    ):
         if self.n_bounds != start.size:
             raise ValueError(f"""\n
                 \r[ {error_source} error ]
@@ -131,10 +133,12 @@ class Bounds:
                 \r>> match the given number of bounds ({self.n_bounds}).
                 """)
 
-        if not self.inside(start):
+        if not self.inside(start, strict=strict):
+            requirement = "strictly inside" if strict else "inside"
             raise ValueError(f"""\n
                 \r[ {error_source} error ]
-                \r>> Starting location for the chain is outside specified bounds.
+                \r>> Starting location for the chain must be {requirement} the
+                \r>> specified bounds.
                 """)
 
     def reflect(self, theta: ndarray) -> ndarray:
@@ -148,5 +152,7 @@ class Bounds:
         reflection = 1 - 2 * n
         return self.lower + reflection * rem + n * self.width, reflection
 
-    def inside(self, theta: ndarray) -> bool:
+    def inside(self, theta: ndarray, strict: bool = False) -> bool:
+        if strict:
+            return ((theta > self.lower) & (theta < self.upper)).all()
         return ((theta >= self.lower) & (theta <= self.upper)).all()

@@ -2,7 +2,7 @@ from copy import copy
 from warnings import warn
 import matplotlib.pyplot as plt
 
-from numpy import array, savez, load, zeros
+from numpy import array, savez, load, zeros, isfinite
 from numpy import sqrt, exp, dot, cov
 from scipy.linalg import eigh
 
@@ -155,28 +155,27 @@ class PcaChain(MetropolisChain):
         theta0 = self.get_last()
         # loop over each eigenvector and take a step along each
         for v, p in zip(self.directions, self.params):
-            while True:
-                prop = theta0 + v * p.sigma * self.rng.normal()
-                prop = self.process_proposal(prop)
-                p_new = self.posterior(prop) * self.inv_temp
+            prop = theta0 + v * p.sigma * self.rng.normal()
+            prop = self.process_proposal(prop)
+            p_new = self.posterior(prop) * self.inv_temp
 
-                if p_new > p_old:
-                    p.submit_accept_prob(1.0)
-                    break
-                else:
-                    acceptance_prob = exp(p_new - p_old)
-                    p.submit_accept_prob(acceptance_prob)
-                    if self.rng.random() < acceptance_prob:
-                        break
+            if p_new >= p_old:
+                acceptance_prob = 1.0
+            elif isfinite(p_new):
+                acceptance_prob = exp(p_new - p_old)
+            else:
+                acceptance_prob = 0.0
+            p.submit_accept_prob(acceptance_prob)
 
-            theta0 = copy(prop)
-            p_old = copy(p_new)
+            if self.rng.random() < acceptance_prob:
+                theta0 = copy(prop)
+                p_old = p_new
 
         # add the new value for each parameter
         for v, p in zip(theta0, self.params):
             p.add_sample(v)
 
-        self.probs.append(p_new)
+        self.probs.append(p_old)
         self.chain_length += 1
 
         if self.chain_length == self.next_update:
