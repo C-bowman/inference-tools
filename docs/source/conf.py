@@ -82,11 +82,15 @@ pygments_style = "monokai"
 #
 html_theme = 'renku'
 # html_theme = 'default'
+
+html_logo = '_static/logo_dark_bg.svg'
+
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+# The logo already contains the package name, so hide the theme's text title.
+html_theme_options = {'logo_only': True}
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

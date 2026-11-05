@@ -1,4 +1,7 @@
-# inference-tools
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/_static/logo_dark_bg.svg">
+  <img alt="inference-tools" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/_static/logo_light_bg.svg" width="400">
+</picture>
 
 [![Documentation Status](https://readthedocs.org/projects/inference-tools/badge/?version=stable)](https://inference-tools.readthedocs.io/en/stable/?badge=stable)
 [![GitHub license](https://img.shields.io/github/license/C-bowman/inference-tools?color=blue)](https://github.com/C-bowman/inference-tools/blob/master/LICENSE)
