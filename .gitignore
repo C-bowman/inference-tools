@@ -13,6 +13,9 @@ tramp
 .\#*
 dev/
 .idea
+.hypothesis/
+.idea/
+
 
 # Org-mode
 .org-id-locations
