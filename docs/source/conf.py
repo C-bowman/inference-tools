@@ -84,6 +84,14 @@ pygments_style = "monokai"
 # sidebar navigation only shows the section headings of each page.
 toc_object_entries = False
 
+# Keep the signatures of documented classes/functions compact: show default values
+# as they are written in the source code (e.g. 'SquaredExponential' rather than
+# "<class 'inference.gp.covariance.SquaredExponential'>"), and show the type hints
+# in the parameter descriptions rather than in the signature itself.
+autodoc_preserve_defaults = True
+autodoc_typehints = "description"
+autodoc_typehints_description_target = "documented"
+
 
 # -- Options for HTML output -------------------------------------------------
 
