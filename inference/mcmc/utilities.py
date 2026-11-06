@@ -10,13 +10,13 @@ class ChainProgressPrinter:
         self.lead = "" if leading_msg is None else leading_msg
 
         if not display:
-            self.iterations_initial = self.__no_status
-            self.iterations_progress = self.__no_status
-            self.iterations_final = self.__no_status
-            self.percent_progress = self.__no_status
-            self.percent_final = self.__no_status
-            self.countdown_progress = self.__no_status
-            self.countdown_final = self.__no_status
+            self.iterations_initial = self._no_status
+            self.iterations_progress = self._no_status
+            self.iterations_final = self._no_status
+            self.percent_progress = self._no_status
+            self.percent_final = self._no_status
+            self.countdown_progress = self._no_status
+            self.countdown_final = self._no_status
 
     def iterations_initial(self, total_itr: int):
         sys.stdout.write("\n")
@@ -76,7 +76,7 @@ class ChainProgressPrinter:
         sys.stdout.write("\n")
 
     @staticmethod
-    def __no_status(*args):
+    def _no_status(*args):
         pass
 
 
@@ -96,6 +96,25 @@ def effective_sample_size(x: ndarray) -> int:
 
 
 class Bounds:
+    """
+    A class for specifying lower and upper bounds on the values of the model
+    parameters. An instance of ``Bounds`` can be passed via the ``bounds`` keyword
+    argument to samplers which support bounded parameters (``PcaChain``,
+    ``HamiltonianChain`` and ``EnsembleSampler``), which will then ensure that
+    the sampled parameter values remain within the given bounds.
+
+    :param lower: \
+        The lower bounds for each parameter as a 1D ``numpy.ndarray``.
+
+    :param upper: \
+        The upper bounds for each parameter as a 1D ``numpy.ndarray``. Each upper
+        bound must be larger than the corresponding lower bound.
+
+    :param str error_source: \
+        The name used to identify the source of any errors raised when validating
+        the bounds.
+    """
+
     def __init__(self, lower: ndarray, upper: ndarray, error_source="Bounds"):
         self.lower = lower if isinstance(lower, ndarray) else array(lower).squeeze()
         self.upper = upper if isinstance(upper, ndarray) else array(upper).squeeze()

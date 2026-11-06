@@ -56,6 +56,11 @@ class GpRegressor:
         covariance function classes can be imported from the ``gp`` module and
         then passed to ``GpRegressor`` using this keyword argument.
 
+    :param class mean: \
+        The mean-function class which will be used to model the data. The
+        mean-function classes can be imported from the ``gp`` module and
+        then passed to ``GpRegressor`` using this keyword argument.
+
     :param bool cross_val: \
         If set to ``True``, leave-one-out cross-validation is used to select the
         hyper-parameters in place of the marginal likelihood.

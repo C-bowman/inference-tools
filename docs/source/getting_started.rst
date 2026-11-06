@@ -7,7 +7,7 @@ Installation
 ------------
 
 inference-tools is available from `PyPI <https://pypi.org/project/inference-tools/>`_,
-so can be easily installed using `pip <https://pip.pypa.io/en/stable/>`_: as follows:
+so can be easily installed using `pip <https://pip.pypa.io/en/stable/>`_ as follows:
 
 .. code-block:: bash
 
@@ -22,7 +22,26 @@ Jupyter notebook demos
 In addition to the example code present in the online documentation for each class/function
 in the package, there is also a set of Jupyter notebook demos which can be found in the
 `/demos/ <https://github.com/C-bowman/inference-tools/tree/master/demos>`_ directory
-of the source code.
+of the source code:
+
+- `Gaussian fitting <https://github.com/C-bowman/inference-tools/blob/master/demos/gaussian_fitting_demo.ipynb>`_:
+  using the likelihood, prior and posterior classes to fit a model to data.
+- `Gibbs sampling <https://github.com/C-bowman/inference-tools/blob/master/demos/gibbs_sampling_demo.ipynb>`_:
+  sampling a posterior using ``GibbsChain``.
+- `Hamiltonian MCMC <https://github.com/C-bowman/inference-tools/blob/master/demos/hamiltonian_mcmc_demo.ipynb>`_:
+  sampling a posterior with strong non-linear correlations using ``HamiltonianChain``.
+- `Parallel tempering <https://github.com/C-bowman/inference-tools/blob/master/demos/parallel_tempering_demo.ipynb>`_:
+  sampling a multi-modal posterior using ``ParallelTempering``.
+- `Density estimation <https://github.com/C-bowman/inference-tools/blob/master/demos/density_estimation_demo.ipynb>`_:
+  estimating probability density functions from sample data using the ``inference.pdf`` module.
+- `Gaussian-process regression <https://github.com/C-bowman/inference-tools/blob/master/demos/gp_regression_demo.ipynb>`_:
+  regression using ``GpRegressor``.
+- `Gaussian-process optimisation <https://github.com/C-bowman/inference-tools/blob/master/demos/gp_optimisation_demo.ipynb>`_:
+  Bayesian optimisation using ``GpOptimiser``.
+- `Gaussian-process linear inversion <https://github.com/C-bowman/inference-tools/blob/master/demos/gp_linear_inversion_demo.ipynb>`_:
+  solving linear inverse problems using ``GpLinearInverter``.
+- `Heteroscedastic noise modelling <https://github.com/C-bowman/inference-tools/blob/master/demos/heteroscedastic_noise.ipynb>`_:
+  modelling noise which varies across the data using ``HeteroscedasticNoise``.
 
 Example - Gaussian peak fitting
 -------------------------------
@@ -31,14 +50,22 @@ Suppose we have the following dataset:
 
 .. code-block:: python
 
-   x_data = [0.00, 0.80, 1.60, 2.40, 3.20, 4.00, 4.80, 5.60,
-             6.40, 7.20, 8.00, 8.80, 9.60, 10.4, 11.2, 12.0]
+   from numpy import array
 
-   y_data = [2.473, 1.329, 2.370, 1.135, 5.861, 7.045, 9.942, 7.335,
-             3.329, 5.348, 1.462, 2.476, 3.096, 0.784, 3.342, 1.877]
+   x_data = array([
+       0.00, 0.80, 1.60, 2.40, 3.20, 4.00, 4.80, 5.60,
+       6.40, 7.20, 8.00, 8.80, 9.60, 10.4, 11.2, 12.0
+   ])
 
-   y_error = [1., 1., 1., 1., 1., 1., 1., 1.,
-              1., 1., 1., 1., 1., 1., 1., 1.]
+   y_data = array([
+       2.473, 1.329, 2.370, 1.135, 5.861, 7.045, 9.942, 7.335,
+       3.329, 5.348, 1.462, 2.476, 3.096, 0.784, 3.342, 1.877
+   ])
+
+   y_error = array([
+       1., 1., 1., 1., 1., 1., 1., 1.,
+       1., 1., 1., 1., 1., 1., 1., 1.
+   ])
 
 
 .. image:: ./images/getting_started_images/gaussian_data.png
@@ -63,12 +90,14 @@ In this example we're going to:
 Constructing the likelihood
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The first step is to implement our model. For simple models like this one this can be
-done using just a function, but as models become more complex it is becomes useful to
+done using just a function, but as models become more complex it becomes useful to
 build them as classes. Here we implement the model as the ``PeakModel`` class, where by
 defining the ``__call__`` instance method, an instance of ``PeakModel`` can be called as a
 function to return a prediction of the y-data values.
 
 .. code-block:: python
+
+   from numpy import exp, sqrt, pi
 
    class PeakModel:
        def __init__(self, x_data):
@@ -84,8 +113,8 @@ function to return a prediction of the y-data values.
        @staticmethod
        def forward_model(x, theta):
            """
-           The forward model must make a prediction of the experimental data we would
-           expect to measure given a specific set model parameters 'theta'.
+           The forward model must make a prediction of the experimental data we
+           would expect to measure given a specific set of model parameters 'theta'.
            """
            # unpack the model parameters
            area, width, center, background = theta
@@ -168,11 +197,13 @@ Now we have constructed a posterior distribution, we can sample from it
 using Markov-chain Monte-Carlo (MCMC).
 
 The ``inference.mcmc`` module contains implementations of various MCMC sampling algorithms.
-Here we import the ``PcaChain`` class and use it to create a Markov-chain object:
+Here we import the ``PcaChain`` class and use it to create a Markov-chain object, starting
+from an initial guess for the model parameters:
 
 .. code-block:: python
 
    from inference.mcmc import PcaChain
+   initial_guess = array([10., 2., 5., 2.])
    chain = PcaChain(posterior=posterior, start=initial_guess)
 
 We generate samples by advancing the chain by a chosen number of steps using
@@ -201,7 +232,7 @@ can be passed as an argument to methods which access or plot sampling results:
 Using the sample to infer the model parameters
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-We can get a overview of the posterior using the ``matrix_plot`` method
+We can get an overview of the posterior using the ``matrix_plot`` method
 of chain objects, which plots all possible 1D & 2D marginal distributions
 of the full parameter set (or a chosen sub-set).
 
@@ -227,6 +258,7 @@ through the forward-model and observing the distribution of model expressions th
 
 .. code-block:: python
 
+   from numpy import linspace
    # generate an axis on which to evaluate the model
    x_fits = linspace(-1, 13, 500)
    # get the sample
@@ -239,5 +271,32 @@ often cluttered and difficult to interpret.
 
 A better option is to use the ``hdi_plot`` function from the ``plotting`` module to plot
 highest-density intervals for each point where the model is evaluated:
+
+.. code-block:: python
+
+   import matplotlib.pyplot as plt
+   from inference.plotting import hdi_plot
+
+   fig = plt.figure(figsize=(8, 6))
+   ax = fig.add_subplot(111)
+   hdi_plot(x_fits, curves, intervals=[0.68, 0.95], axis=ax)
+
+   # plot the MAP estimate (the sample with the single highest posterior probability)
+   ax.plot(
+       x_fits, PeakModel.forward_model(x_fits, chain.mode()),
+       ls='dashed', lw=3, c='C0', label='MAP estimate'
+   )
+   # build the rest of the plot
+   ax.errorbar(
+       x_data, y_data, yerr=y_error, linestyle='none', c='red', label='data',
+       marker='o', markerfacecolor='none', markeredgewidth=1.5, markersize=8
+   )
+   ax.set_xlabel('x')
+   ax.set_ylabel('y')
+   ax.set_xlim([-0.5, 12.5])
+   ax.legend()
+   ax.grid()
+   plt.tight_layout()
+   plt.show()
 
 .. image:: ./images/getting_started_images/prediction_uncertainty_example.png

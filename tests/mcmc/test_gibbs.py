@@ -1,4 +1,5 @@
 import datetime
+import pickle
 import warnings
 
 from numpy import array, nan
@@ -96,6 +97,33 @@ def test_gibbs_chain_advance():
     assert chain.chain_length == first_n + steps
     assert len(chain.params[0].samples) == chain.chain_length
     assert len(chain.probs) == chain.chain_length
+
+
+def test_gibbs_chain_default_widths_negative_start():
+    start_location = array([2.0, -4.0])
+    chain = GibbsChain(posterior=rosenbrock, start=start_location)
+
+    assert all(p.sigma > 0 for p in chain.params)
+    assert chain.params[1].sigma == pytest.approx(0.2)
+
+    first_n = chain.chain_length
+    steps = 50
+    chain.advance(steps)
+    assert chain.chain_length == first_n + steps
+
+
+def test_gibbs_chain_pickle_without_progress_display():
+    # chains must be picklable to be advanced in other processes,
+    # e.g. by ParallelTempering or ChainPool
+    chain = GibbsChain(
+        posterior=rosenbrock, start=array([2.0, -4.0]), display_progress=False
+    )
+    chain.advance(10)
+
+    restored = pickle.loads(pickle.dumps(chain))
+    assert restored.chain_length == chain.chain_length
+    restored.advance(10)
+    assert restored.chain_length == chain.chain_length + 10
 
 
 def test_gibbs_chain_results_access():

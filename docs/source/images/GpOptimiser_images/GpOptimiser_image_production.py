@@ -105,16 +105,24 @@ for filename in files:
 
 
 
-from imageio import mimwrite, imread
+from PIL import Image
 from itertools import chain
 from os import remove
 
 
-images = []
-for filename in chain(files, [files[-1]]):
-    images.append(imread(filename))
+# repeat the final frame so the final state of the optimisation is shown for longer
+images = [Image.open(filename).convert("RGB") for filename in chain(files, [files[-1]])]
 
-mimwrite('GpOptimiser_iteration.gif', images, duration = 2.)
+# save as a lossless animated webp, which is much smaller than the equivalent gif
+images[0].save(
+    'GpOptimiser_iteration.webp',
+    save_all=True,
+    append_images=images[1:],
+    duration=2000,
+    loop=0,
+    lossless=True,
+    method=6,
+)
 
 for filename in files:
     remove(filename)

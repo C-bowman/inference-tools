@@ -37,6 +37,10 @@ HeteroscedasticNoise
 
 .. autoclass:: inference.gp.HeteroscedasticNoise
 
+An example of using ``HeteroscedasticNoise`` to model noise which varies across the data
+can be found in the
+`heteroscedastic noise modelling jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/heteroscedastic_noise.ipynb>`_.
+
 
 ChangePoint
 ^^^^^^^^^^^

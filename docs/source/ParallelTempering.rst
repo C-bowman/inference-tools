@@ -8,6 +8,9 @@ ParallelTempering
 ParallelTempering example code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+A more detailed example can also be found in the
+`parallel tempering jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/parallel_tempering_demo.ipynb>`_.
+
 Define a posterior with separated maxima, which is difficult
 for a single chain to explore:
 
@@ -82,7 +85,7 @@ was able to explore all of them due to the swaps.
 
 Because each process waits for instructions from the ``ParallelTempering`` object,
 they will not self-terminate. To terminate all the processes we have to trigger
-a shutdown even using the ``shutdown`` method:
+a shutdown event using the ``shutdown`` method:
 
 .. code-block:: python
 

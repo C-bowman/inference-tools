@@ -1,0 +1,37 @@
+name: docs
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - 'inference/**.py'
+      - 'pyproject.toml'
+      - '.readthedocs.yaml'
+      - '.github/workflows/docs.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'inference/**.py'
+      - 'pyproject.toml'
+      - '.readthedocs.yaml'
+      - '.github/workflows/docs.yml'
+
+jobs:
+  build-docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        # full history is needed so the package version can be determined from git tags
+        fetch-depth: 0
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install . -r docs/docs_requirements.txt
+    - name: Build docs
+      run: |
+        sphinx-build -W --keep-going -b html docs/source docs/build/html

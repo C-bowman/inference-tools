@@ -332,6 +332,12 @@ class EnsembleSampler(MarkovChain):
         return self.sample[burn::thin, :]
 
     def save(self, filename):
+        """
+        Save the entire state of the sampler object as an .npz file.
+
+        :param str filename: \
+            File path to which the sampler will be saved.
+        """
         D = {
             "walker_positions": self.walker_positions,
             "n_parameters": self.n_parameters,
@@ -355,6 +361,16 @@ class EnsembleSampler(MarkovChain):
 
     @classmethod
     def load(cls, filename: str, posterior=None):
+        """
+        Load a sampler object which has been previously saved using the ``save`` method.
+
+        :param str filename: \
+            File path of the .npz file containing the sampler object data.
+
+        :param posterior: \
+            The posterior which was sampled. This argument need only be
+            specified if new samples are to be added to the sampler.
+        """
         D = load(filename)
 
         if all(k in D for k in ["lower_bounds", "upper_bounds"]):

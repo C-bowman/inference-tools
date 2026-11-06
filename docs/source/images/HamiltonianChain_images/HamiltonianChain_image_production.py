@@ -80,7 +80,8 @@ fig = go.Figure(data=[go.Scatter3d(
 )])
 
 fig.update_layout(margin=dict(l=0, r=0, b=0, t=0)) # tight layout
-offline.plot(fig, filename='hmc_scatterplot.html')
+# load plotly.js from a CDN rather than embedding it, which keeps the file small
+offline.plot(fig, filename='hmc_scatterplot.html', include_plotlyjs='cdn')
 
 
 

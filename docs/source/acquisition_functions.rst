@@ -31,3 +31,9 @@ UpperConfidenceBound
 ^^^^^^^^^^^^^^^^^^^^
 
 .. autoclass:: inference.gp.UpperConfidenceBound
+
+
+MaxVariance
+^^^^^^^^^^^
+
+.. autoclass:: inference.gp.MaxVariance

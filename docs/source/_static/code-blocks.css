@@ -1,0 +1,30 @@
+.rst-content div.highlight {
+    background: #071b2e;
+    border: 1px solid #173b5c;
+    border-radius: 4px;
+}
+
+.rst-content div.highlight pre {
+    background: transparent;
+    color: #f8f8f2;
+    font-size: 0.95rem;
+    line-height: 1.55;
+    padding: 1rem 1.25rem;
+}
+
+table.highlighttable {
+    background: #071b2e;
+}
+
+table.highlighttable td.linenos,
+table.highlighttable td.code {
+    background: transparent;
+}
+
+.rst-content code.literal {
+    color: #1769aa;
+    font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+        "Courier New", Courier, monospace;
+    font-size: 1em;
+    font-weight: 600;
+}
