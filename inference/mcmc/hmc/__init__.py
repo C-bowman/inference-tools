@@ -469,9 +469,28 @@ class HamiltonianChain(MarkovChain):
         return self.transform.inverse(array(self._theta[burn::thin]))
 
     def mode(self) -> ndarray:
+        """
+        Return the sample with the current highest posterior probability.
+
+        :return: \
+            The model parameters corresponding to the highest observed
+            posterior probability as a ``numpy.ndarray``.
+        """
         return self.transform.inverse(array(self._theta[argmax(self.probs)])).squeeze()
 
     def estimate_burn_in(self) -> int:
+        """
+        Estimate the number of samples which should be discarded from the start
+        of the chain as 'burn-in'.
+
+        The estimate is based on the point at which the chain first reaches the top 1%
+        of observed log-probability values, and the point after which the leapfrog
+        step-size stops changing significantly. The estimate is limited to at most
+        90% of the chain length.
+
+        :return: \
+            The estimated burn-in as a number of samples.
+        """
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
         prob_estimate = argmax(self.probs > percentile(self.probs, 99))
@@ -483,6 +502,15 @@ class HamiltonianChain(MarkovChain):
         return int(min(max(prob_estimate, epsl_estimate), 0.9 * self.chain_length))
 
     def save(self, filename, compressed=False):
+        """
+        Save the entire state of the chain object as an .npz file.
+
+        :param str filename: \
+            File path to which the chain will be saved.
+
+        :param bool compressed: \
+            If set to ``True``, the .npz file will be saved in compressed form.
+        """
         items = {
             "inv_mass": self.mass.inv_mass,
             "inv_temp": self.inv_temp,
@@ -514,6 +542,22 @@ class HamiltonianChain(MarkovChain):
         posterior: Callable[[ndarray], float] = None,
         grad: Callable[[ndarray], ndarray] = None,
     ):
+        """
+        Load a chain object which has been previously saved using the ``save`` method.
+
+        :param str filename: \
+            File path of the .npz file containing the chain object data.
+
+        :param posterior: \
+            The posterior which was sampled by the chain. This argument need only be
+            specified if new samples are to be added to the chain.
+
+        :param grad: \
+            A function which returns the gradient of the log-posterior probability.
+            This argument need only be specified if new samples are to be added to
+            the chain, and the gradient was originally provided via the ``grad``
+            argument rather than through finite-difference estimation.
+        """
         D = load(filename)
 
         if all(k in D for k in ["lower_bounds", "upper_bounds"]):

@@ -1,0 +1,112 @@
+/* Widen the main content column from the theme's 800px, so that tables and
+   API signatures wrap less on wide screens */
+.wy-nav-content {
+    max-width: 1000px;
+}
+
+/* Use the logo's blue as the link colour, in place of the theme's green */
+a,
+a:visited {
+    color: #1769aa;
+}
+
+a:hover {
+    color: #0f4f85;
+}
+
+/* Sidebar navigation: keep expanded sections in shades of the sidebar's navy,
+   with a blue accent bar marking the current page */
+.wy-menu-vertical li.toctree-l1.current li.toctree-l2 > a {
+    background-color: #0a2640;
+    color: #b8c6d4;
+    border: none;
+}
+
+.wy-menu-vertical li.toctree-l1.current li.toctree-l2 > a:hover {
+    background-color: #12385c;
+    color: #ffffff;
+}
+
+.wy-menu-vertical li.toctree-l1.current li.toctree-l2 > a .toctree-expand {
+    color: inherit;
+}
+
+.wy-menu-vertical li.toctree-l1.current li.toctree-l2:hover {
+    background-color: transparent;
+}
+
+.wy-menu-vertical li.toctree-l1.current li.toctree-l2.current > a {
+    background-color: #12385c;
+    color: #ffffff;
+    box-shadow: inset 3px 0 0 #4aa3e0;
+}
+
+.wy-menu-vertical li.toctree-l2.current li.toctree-l3 > a {
+    background-color: #0d2f4e;
+    color: #a9b8c8;
+    border: none;
+}
+
+.wy-menu-vertical li.toctree-l2.current li.toctree-l3 > a:hover {
+    background-color: #12385c;
+    color: #ffffff;
+}
+
+.wy-menu-vertical li.toctree-l2.current li.toctree-l3.current > a {
+    color: #ffffff;
+}
+
+/* Allow text in table cells to wrap, rather than forcing a horizontal scrollbar */
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+    white-space: normal;
+}
+
+/* Keep the sampler names on a single line in the sampler comparison table */
+.wy-table-responsive table.sampler-table td:first-child {
+    white-space: nowrap;
+}
+
+/* Image gallery on the landing page */
+.rst-content .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin: 1.5rem 0 2rem;
+}
+
+@media (max-width: 900px) {
+    .rst-content .gallery {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.rst-content .gallery-item {
+    border: 1px solid #e1e4e8;
+    border-radius: 6px;
+    background: #ffffff;
+    overflow: hidden;
+    text-align: center;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.rst-content .gallery-item:hover {
+    box-shadow: 0 4px 14px rgba(1, 25, 45, 0.15);
+    transform: translateY(-2px);
+}
+
+.rst-content .gallery-item img {
+    display: block;
+    width: 100%;
+    aspect-ratio: 6 / 5;
+    object-fit: contain;
+    margin: 0;
+}
+
+.rst-content .gallery-item p {
+    margin: 0;
+    padding: 0.5rem 0.5rem 0.65rem;
+    border-top: 1px solid #e1e4e8;
+    font-size: 0.9rem;
+    line-height: 1.4;
+}

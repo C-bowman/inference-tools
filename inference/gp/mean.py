@@ -29,6 +29,25 @@ class MeanFunction(ABC):
 
 
 class ConstantMean(MeanFunction):
+    r"""
+    ``ConstantMean`` is a mean-function class which can be passed to ``GpRegressor``
+    or ``GpOptimiser`` via the ``mean`` keyword argument. It models the mean of the
+    Gaussian process as a constant:
+
+    .. math::
+
+       m(\underline{x}) = c
+
+    The hyperparameter vector :math:`\underline{\theta}` used by ``ConstantMean``
+    is therefore simply :math:`\underline{\theta} = [c]`.
+
+    :param hyperpar_bounds:
+        By default, ``ConstantMean`` will automatically set sensible lower and
+        upper bounds on the value of the hyperparameters based on the available data.
+        However, this keyword allows the bounds to be specified manually as a list of
+        length-2 tuples giving the lower/upper bounds for each parameter.
+    """
+
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
         self.n_params = 1
@@ -52,6 +71,30 @@ class ConstantMean(MeanFunction):
 
 
 class LinearMean(MeanFunction):
+    r"""
+    ``LinearMean`` is a mean-function class which can be passed to ``GpRegressor``
+    or ``GpOptimiser`` via the ``mean`` keyword argument. It models the mean of the
+    Gaussian process as a linear function of the spatial coordinates:
+
+    .. math::
+
+       m(\underline{x}) = b + \sum_{i=1}^{n} g_i (x_i - \bar{x}_i)
+
+    where :math:`\bar{x}_i` is the mean of the :math:`i`'th spatial coordinate
+    of the training data. The hyperparameter vector :math:`\underline{\theta}`
+    used by ``LinearMean`` to define the above function is structured as follows:
+
+    .. math::
+
+       \underline{\theta} = [ b, g_1, \ldots, g_n]
+
+    :param hyperpar_bounds:
+        By default, ``LinearMean`` will automatically set sensible lower and
+        upper bounds on the value of the hyperparameters based on the available data.
+        However, this keyword allows the bounds to be specified manually as a list of
+        length-2 tuples giving the lower/upper bounds for each parameter.
+    """
+
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 
@@ -84,6 +127,31 @@ class LinearMean(MeanFunction):
 
 
 class QuadraticMean(MeanFunction):
+    r"""
+    ``QuadraticMean`` is a mean-function class which can be passed to ``GpRegressor``
+    or ``GpOptimiser`` via the ``mean`` keyword argument. It models the mean of the
+    Gaussian process as a quadratic function of the spatial coordinates:
+
+    .. math::
+
+       m(\underline{x}) = b + \sum_{i=1}^{n} a_i (x_i - \bar{x}_i)
+       + \sum_{i=1}^{n} q_i (x_i - \bar{x}_i)^2
+
+    where :math:`\bar{x}_i` is the mean of the :math:`i`'th spatial coordinate
+    of the training data. The hyperparameter vector :math:`\underline{\theta}`
+    used by ``QuadraticMean`` to define the above function is structured as follows:
+
+    .. math::
+
+       \underline{\theta} = [ b, a_1, \ldots, a_n, q_1, \ldots, q_n]
+
+    :param hyperpar_bounds:
+        By default, ``QuadraticMean`` will automatically set sensible lower and
+        upper bounds on the value of the hyperparameters based on the available data.
+        However, this keyword allows the bounds to be specified manually as a list of
+        length-2 tuples giving the lower/upper bounds for each parameter.
+    """
+
     def __init__(self, hyperpar_bounds=None):
         self.bounds = hyperpar_bounds
 

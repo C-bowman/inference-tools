@@ -10,7 +10,7 @@
 [![DOI](https://zenodo.org/badge/149741362.svg)](https://zenodo.org/badge/latestdoi/149741362)
 
 This package provides a set of Python-based tools for Bayesian data analysis
-which are simple to use, allowing them to applied quickly and easily.
+which are simple to use, allowing them to be applied quickly and easily.
 
 Inference-tools is not a framework for Bayesian modelling (e.g. like [PyMC](https://docs.pymc.io/)),
 but instead provides tools to sample from user-defined models using MCMC, and to analyse and visualise
@@ -42,3 +42,9 @@ pip install inference-tools
 ## Documentation
 
 Full documentation is available at [inference-tools.readthedocs.io](https://inference-tools.readthedocs.io/en/stable/).
+
+## Citing
+
+If you use inference-tools in your work, please cite it using the Zenodo DOI
+[10.5281/zenodo.1423551](https://doi.org/10.5281/zenodo.1423551). Citation metadata is
+also available via the "Cite this repository" button on GitHub.

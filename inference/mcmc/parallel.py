@@ -13,12 +13,36 @@ from inference.mcmc.base import MarkovChain
 
 
 class ChainPool:
+    """
+    A class for advancing multiple Markov-chains in parallel, where each chain is
+    advanced in a separate process using a ``multiprocessing.Pool``.
+
+    Unlike ``ParallelTempering``, the chains are advanced independently, with no
+    exchange of positions between them. This is useful for running several independent
+    chains (e.g. from different starting positions) to help assess convergence.
+
+    :param chains: \
+        A list of Markov-chain objects (such as ``GibbsChain``, ``PcaChain`` or
+        ``HamiltonianChain``) which will be advanced in parallel.
+    """
+
     def __init__(self, chains: list[MarkovChain]):
         self.chains = chains
         self.pool_size = len(self.chains)
         self.pool = Pool(self.pool_size)
 
     def advance(self, n: int):
+        """
+        Advance every chain in the pool by a given number of steps.
+
+        The chains are advanced in separate processes and then returned as new
+        objects, so the advanced chains must be accessed through the ``chains``
+        attribute of the ``ChainPool``, rather than through any references to the
+        original chain objects.
+
+        :param int n: \
+            The number of steps by which each chain is advanced.
+        """
         self.chains = self.pool.map(
             self.adv_func, [(n, chain) for chain in self.chains]
         )

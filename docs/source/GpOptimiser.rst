@@ -8,6 +8,9 @@ GpOptimiser
 Example code
 ^^^^^^^^^^^^
 
+A more detailed example can also be found in the
+`Gaussian-process optimisation jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/gp_optimisation_demo.ipynb>`_.
+
 Gaussian-process optimisation efficiently searches for the global maximum of a function
 by iteratively 'learning' the structure of that function as new evaluations are made.
 
@@ -15,7 +18,7 @@ As an example, define a simple 1D function:
 
 .. code-block:: python
 
-   from numpy import sin
+   from numpy import sin, array
 
    def search_function(x): # Lorentzian plus a sine wave
       return sin(0.5 * x) + 3 / (1 + (x - 1)**2)
@@ -60,4 +63,4 @@ the estimate by using the ``add_evaluation`` method, which leads to the followin
 
 Here we plot the state of the estimate at each iteration:
 
-.. image:: ./images/GpOptimiser_images/GpOptimiser_iteration.gif
+.. image:: ./images/GpOptimiser_images/GpOptimiser_iteration.webp

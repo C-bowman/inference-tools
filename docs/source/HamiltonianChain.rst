@@ -3,17 +3,20 @@ HamiltonianChain
 ~~~~~~~~~~~~~~~~
 
 .. autoclass:: inference.mcmc.HamiltonianChain
-   :members: advance, run_for, mode, get_marginal, get_parameter, plot_diagnostics, matrix_plot, trace_plot
+   :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_probabilities, get_interval, estimate_burn_in, plot_diagnostics, matrix_plot, trace_plot, save, load
 
 
 HamiltonianChain example code
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+A more detailed example can also be found in the
+`Hamiltonian MCMC jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/hamiltonian_mcmc_demo.ipynb>`_.
+
 Here we define a toroidal (donut-shaped!) posterior distribution which has strong non-linear correlation:
 
 .. code-block:: python
 
-   from numpy import array, sqrt
+   from numpy import array, sqrt, exp
 
    class ToroidalGaussian:
       def __init__(self):
@@ -38,6 +41,8 @@ Build the posterior and chain objects then generate the sample:
 
 .. code-block:: python
 
+   from inference.mcmc import HamiltonianChain
+
    # create an instance of our posterior class
    posterior = ToroidalGaussian()
 
@@ -61,12 +66,12 @@ We can use the `Plotly <https://plot.ly/>`_ library to generate an interactive 3
    # extract sample and probability data from the chain
    probs = chain.get_probabilities(burn=burn)
    point_colors = exp(probs - probs.max())
-   x, y, z = [chain.get_parameter(i) for i in [0, 1, 2]]
+   x, y, z = [chain.get_parameter(i, burn=burn) for i in [0, 1, 2]]
 
    # build the scatterplot using plotly
    import plotly.graph_objects as go
 
-   fig = go.Figure(data=1[go.Scatter3d(
+   fig = go.Figure(data=[go.Scatter3d(
       x=x, y=y, z=z, mode='markers',
       marker=dict(size=5, color=point_colors, colorscale='Viridis', opacity=0.6)
    )])

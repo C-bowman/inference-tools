@@ -200,7 +200,7 @@ class MaxVariance(AcquisitionFunction):
     :math:`\underline{x}` with the largest variance :math:`\sigma^2(\underline{x})`
     as predicted by the Gaussian-process regression model.
 
-    This is a `pure learning' acquisition function which does not seek to find the
+    This is a 'pure learning' acquisition function which does not seek to find the
     maxima of the objective function, but only to minimize uncertainty in the
     prediction of the function.
     """

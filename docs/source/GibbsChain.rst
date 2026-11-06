@@ -3,11 +3,14 @@ GibbsChain
 ~~~~~~~~~~
 
 .. autoclass:: inference.mcmc.GibbsChain
-   :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_interval, plot_diagnostics, matrix_plot, trace_plot, set_non_negative, set_boundaries
+   :members: advance, run_for, mode, get_marginal, get_sample, get_parameter, get_probabilities, get_interval, estimate_burn_in, plot_diagnostics, matrix_plot, trace_plot, set_non_negative, set_boundaries, save, load
 
 
 GibbsChain example code
 ^^^^^^^^^^^^^^^^^^^^^^^
+
+A more detailed example can also be found in the
+`Gibbs-sampling jupyter notebook demo <https://github.com/C-bowman/inference-tools/blob/master/demos/gibbs_sampling_demo.ipynb>`_.
 
 Define the Rosenbrock density to use as a test case:
 

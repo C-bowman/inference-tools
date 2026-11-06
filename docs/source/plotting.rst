@@ -4,10 +4,18 @@ Plotting and visualisation of inference results
 This module provides functions to generate common types of plots used to visualise
 inference results.
 
+.. _plotting-matrix-plot:
+
 matrix_plot
 -----------
 
 .. autofunction:: inference.plotting.matrix_plot
+
+matrix_plot example code
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+Here we use ``matrix_plot`` to visualise samples drawn from a correlated multivariate
+normal distribution.
 
 Create a spatial axis and use it to define a Gaussian process
 
@@ -41,6 +49,8 @@ trace_plot
 ----------
 
 .. autofunction:: inference.plotting.trace_plot
+
+.. _plotting-hdi-plot:
 
 hdi_plot
 ----------

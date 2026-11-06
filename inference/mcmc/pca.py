@@ -1,8 +1,9 @@
+from collections.abc import Sequence
 from copy import copy
 from warnings import warn
 import matplotlib.pyplot as plt
 
-from numpy import array, savez, load, zeros, isfinite
+from numpy import array, savez, load, zeros, isfinite, ndarray
 from numpy import sqrt, exp, dot, cov
 from scipy.linalg import eigh
 
@@ -40,18 +41,36 @@ class PcaChain(MetropolisChain):
         the widths of the proposal distribution for each model parameter. If not
         specified, the starting widths will be approximated as 5% of the values in 'start'.
 
-    :param bounds: \
-        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
-        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
-        in the form ``(lower_bounds, upper_bounds)``.
+    :param float temperature: \
+        The temperature of the markov chain. This parameter is used for parallel
+        tempering and should be otherwise left unspecified.
 
     :param bool display_progress: \
         If set as ``True``, a message is displayed during sampling
         showing the current progress and an estimated time until completion.
+
+    :param bounds: \
+        An instance of the ``inference.mcmc.Bounds`` class, or a sequence of two
+        ``numpy.ndarray`` specifying the lower and upper bounds for the parameters
+        in the form ``(lower_bounds, upper_bounds)``.
     """
 
-    def __init__(self, *args, bounds=None, **kwargs):
-        super(PcaChain, self).__init__(*args, **kwargs)
+    def __init__(
+        self,
+        posterior: callable,
+        start: ndarray,
+        widths: ndarray = None,
+        temperature: float = 1.0,
+        display_progress: bool = True,
+        bounds: Bounds | Sequence[ndarray] = None,
+    ):
+        super(PcaChain, self).__init__(
+            posterior=posterior,
+            start=start,
+            widths=widths,
+            temperature=temperature,
+            display_progress=display_progress,
+        )
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
         if hasattr(self, "params"):

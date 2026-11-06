@@ -232,7 +232,7 @@ class MetropolisChain(MarkovChain):
             self._validate_posterior(posterior=posterior, start=start)
             # if widths are not specified, take 5% of the starting values (unless they're zero)
             if widths is None:
-                widths = [v * 0.05 if v != 0 else 1.0 for v in start]
+                widths = [abs(v) * 0.05 if v != 0 else 1.0 for v in start]
 
             # create a list of parameter objects
             self.params = [Parameter(value=v, sigma=s) for v, s in zip(start, widths)]
@@ -554,6 +554,17 @@ class MetropolisChain(MarkovChain):
         return chain
 
     def estimate_burn_in(self) -> int:
+        """
+        Estimate the number of samples which should be discarded from the start
+        of the chain as 'burn-in'.
+
+        The estimate is based on the point at which the chain first reaches the top 1%
+        of observed log-probability values, and the point after which the proposal widths
+        stop changing significantly.
+
+        :return: \
+            The estimated burn-in as a number of samples.
+        """
         # first get an estimate based on when the chain first reaches
         # the top 1% of log-probabilities
         prob_estimate = argmax(self.probs > percentile(self.probs, 99))
@@ -593,10 +604,31 @@ class GibbsChain(MetropolisChain):
         Vector of standard deviations which serve as initial guesses for the widths of the proposal
         distribution for each model parameter. If not specified, the starting widths will be
         approximated as 5% of the values in 'start'.
+
+    :param float temperature: \
+        The temperature of the markov chain. This parameter is used for parallel
+        tempering and should be otherwise left unspecified.
+
+    :param bool display_progress: \
+        If set as ``True``, a message is displayed during sampling
+        showing the current progress and an estimated time until completion.
     """
 
-    def __init__(self, *args, **kwargs):
-        super(GibbsChain, self).__init__(*args, **kwargs)
+    def __init__(
+        self,
+        posterior: callable,
+        start: ndarray,
+        widths: ndarray = None,
+        temperature: float = 1.0,
+        display_progress: bool = True,
+    ):
+        super(GibbsChain, self).__init__(
+            posterior=posterior,
+            start=start,
+            widths=widths,
+            temperature=temperature,
+            display_progress=display_progress,
+        )
         # we need to adjust the target acceptance rate to 50%
         # which is optimal for gibbs sampling:
         if hasattr(self, "params"):
