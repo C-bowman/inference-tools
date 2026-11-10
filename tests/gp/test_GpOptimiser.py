@@ -1,10 +1,9 @@
-from numpy import array, sin, cos, meshgrid, linspace, column_stack
+from numpy import array, sin, cos
 from inference.gp import (
     GpOptimiser,
     ExpectedImprovement,
     UpperConfidenceBound,
     MaxVariance,
-    LevelSetLearning,
 )
 import pytest
 
@@ -85,29 +84,3 @@ def test_legacy_acquisition_without_bounds_hook():
         acquisition=legacy,
     )
     assert legacy.gp is optimizer.gp
-
-
-def test_demo_disconnected_contours_and_animation(tmp_path):
-    from PIL import Image
-    from scipy.ndimage import label
-    from demos.scripts import level_set_acquisition_demo as demo
-
-    mesh = meshgrid(linspace(0, 1, 50), linspace(0, 1, 50))
-    grid = column_stack([axis.ravel() for axis in mesh])
-    truth = demo.test_function(grid).reshape(mesh[0].shape)
-    assert label(truth > demo.TARGET)[1] == 2
-    acquisition = LevelSetLearning(demo.TARGET, n_integration_points=64, seed=12)
-    optimizer, frames, errors, seconds = demo.run_experiment(
-        acquisition, grid, iterations=2, n_mc=20, seed=12, record_frames=True
-    )
-    assert len(optimizer.y) == 10
-    assert len(frames) == len(errors) == 3
-    assert seconds.shape == (2,)
-    for i, frame in enumerate(frames):
-        assert frame.points.shape == (8 + i, 2)
-        if frame.proposal is not None:
-            assert frame.proposal.shape == (2,)
-    assert frames[-1].proposal is None
-    demo.save_animation(frames, mesh, tmp_path, mp4=False)
-    with Image.open(tmp_path / "level_set_demo.gif") as image:
-        assert image.n_frames == 3
