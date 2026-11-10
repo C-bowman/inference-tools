@@ -1,18 +1,18 @@
 [build-system]
 requires = [
     "setuptools >= 80",
-    "setuptools_scm[toml] >= 6.2",
-    "setuptools_scm_git_archive",
-    "wheel >= 0.45.0",
+    "setuptools-scm >= 9.2",
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools]
-packages = ["inference"]
+[tool.setuptools.packages.find]
+include = ["inference*"]
 
 [tool.setuptools_scm]
-write_to = "inference/_version.py"
-git_describe_command = "git describe --dirty --tags --long --first-parent"
+version_file = "inference/_version.py"
+
+[tool.setuptools_scm.scm.git]
+describe_command = "git describe --dirty --tags --long --first-parent"
 
 
 [project]
@@ -23,10 +23,15 @@ authors = [
 ]
 description = "A collection of python tools for Bayesian data analysis"
 readme = "README.md"
-license = {file = "LICENSE"}
+license = "MIT"
+license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Operating System :: OS Independent",
 ]
 
@@ -41,7 +46,7 @@ dependencies = [
 Homepage = "https://github.com/C-bowman/inference-tools"
 Documentation = "https://inference-tools.readthedocs.io/en/stable/"
 
-[project.optional-dependencies]
+[dependency-groups]
 tests = [
     "pytest >= 3.3.0",
     "pytest-cov >= 3.0.0",
