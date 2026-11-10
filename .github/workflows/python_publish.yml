@@ -4,13 +4,16 @@ on:
   release:
     types: [published]
 
+permissions:
+  contents: read
+
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.x'
       - name: Install dependencies
@@ -21,8 +24,26 @@ jobs:
         run: python -m build --sdist --wheel
       - name: Check build
         run: twine check dist/*
+      - name: Store distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    # Must match the environment name configured for the trusted publisher on PyPI.
+    environment:
+      name: pypi
+      url: https://pypi.org/project/inference-tools/
+    permissions:
+      id-token: write
+    steps:
+      - name: Retrieve distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_DEPLOYMENT_TOKEN }}

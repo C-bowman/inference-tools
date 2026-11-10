@@ -68,3 +68,19 @@ def test_optimizer_2d(acq_func, opt_method):
     assert ((GpOpt.x >= -8) & (GpOpt.x <= 8)).all()
 
     GpOpt.plot_results(show_plot=False)
+
+
+def test_legacy_acquisition_without_bounds_hook():
+    class LegacyAcquisition:
+        def update_gp(self, gp):
+            self.gp = gp
+
+    legacy = LegacyAcquisition()
+    optimizer = GpOptimiser(
+        array([0, 1]),
+        array([0, 1]),
+        [(0, 1)],
+        hyperpars=array([0.0, 0.0, -1.0]),
+        acquisition=legacy,
+    )
+    assert legacy.gp is optimizer.gp
