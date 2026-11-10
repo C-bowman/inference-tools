@@ -123,6 +123,8 @@ class GpOptimiser:
 
         # if the class has been passed instead of an instance, create an instance
         self.acquisition = acquisition() if isclass(acquisition) else acquisition
+        if hasattr(self.acquisition, "set_bounds"):
+            self.acquisition.set_bounds(self.bounds)
         self.acquisition.update_gp(self.gp)
 
         # create storage for tracking

@@ -5,6 +5,7 @@ from inference.gp.acquisition import (
     ExpectedImprovement,
     UpperConfidenceBound,
     MaxVariance,
+    LevelSetLearning,
 )
 from inference.gp.mean import ConstantMean, LinearMean, QuadraticMean
 from inference.gp.covariance import (
@@ -22,6 +23,7 @@ __all__ = [
     "ExpectedImprovement",
     "UpperConfidenceBound",
     "MaxVariance",
+    "LevelSetLearning",
     "ConstantMean",
     "LinearMean",
     "QuadraticMean",

@@ -37,3 +37,13 @@ MaxVariance
 ^^^^^^^^^^^
 
 .. autoclass:: inference.gp.MaxVariance
+
+
+LevelSetLearning
+^^^^^^^^^^^^^^^^
+
+Use this acquisition to learn a contour or surface ``f(x) = target``, rather than
+maximize the function, balancing measurements near the surface with global exploration.
+
+
+.. autoclass:: inference.gp.LevelSetLearning
