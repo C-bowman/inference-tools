@@ -16,6 +16,20 @@ a:hover {
 
 /* Sidebar navigation: keep expanded sections in shades of the sidebar's navy,
    with a blue accent bar marking the current page */
+.wy-menu-vertical li.toctree-l1 {
+    opacity: 1;
+}
+
+/* Override both the theme's dimming and the general visited-link colour. */
+.wy-menu-vertical li.toctree-l1:not(.current) > a,
+.wy-menu-vertical li.toctree-l1:not(.current) > a:visited {
+    color: #a9b8c8;
+}
+
+.wy-menu-vertical li.toctree-l1:not(.current) > a:hover {
+    color: #ffffff;
+}
+
 .wy-menu-vertical li.toctree-l1.current li.toctree-l2 > a {
     background-color: #0a2640;
     color: #b8c6d4;
