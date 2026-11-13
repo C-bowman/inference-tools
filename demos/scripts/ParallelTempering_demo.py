@@ -21,18 +21,10 @@ if __name__ == "__main__":
     # create a set of chains - one with each temperature
     chains = [GibbsChain(posterior=multimodal_posterior, start=[0.5, 0.5], temperature=T) for T in temps]
 
-    # When an instance of ParallelTempering is created, a dedicated process for each chain is spawned.
-    # These separate processes will automatically make use of the available cpu cores, such that the
-    # computations to advance the separate chains are performed in parallel.
-    PT = ParallelTempering(chains=chains)
-
-    # These processes wait for instructions which can be sent using the methods of the
-    # ParallelTempering object:
-    PT.run_for(minutes=0.5)
-
-    # To recover a copy of the chains held by the processes
-    # we can use the return_chains method:
-    chains = PT.return_chains()
+    # Retrieve the chains before the context shuts down the worker processes.
+    with ParallelTempering(chains=chains) as PT:
+        PT.run_for(minutes=0.5)
+        chains = PT.return_chains()
 
     # by looking at the trace plot for the T = 1 chain, we see that it makes
     # large jumps across the parameter space due to the swaps.
@@ -45,8 +37,3 @@ if __name__ == "__main__":
     # We can also visualise the acceptance rates of proposed position swaps between
     # each chain using the swap_diagnostics method:
     PT.swap_diagnostics()
-
-    # Because each process waits for instructions from the ParallelTempering object,
-    # they will not self-terminate. To terminate all the processes we have to trigger
-    # a shutdown even using the shutdown method:
-    PT.shutdown()

@@ -1,8 +1,11 @@
 import sys
+from math import isfinite
+from types import TracebackType
 from warnings import warn
 from multiprocessing import Process, Pipe, Event, Pool
 from multiprocessing.connection import Connection
-from time import time
+from multiprocessing.synchronize import Event as EventType
+from time import time, monotonic
 from random import choice
 
 import matplotlib.pyplot as plt
@@ -54,40 +57,44 @@ class ChainPool:
         return chain
 
 
-def tempering_process(chain: MarkovChain, connection: Connection, end: Event):
-    # main loop
-    while not end.is_set():
-        # poll the pipe until there is something to read
+def tempering_process(
+    chain: MarkovChain,
+    connection: Connection,
+    end: EventType,
+    parent_connections: list[Connection],
+):
+    for parent_connection in parent_connections:
+        parent_connection.close()
+
+    try:
         while not end.is_set():
-            if connection.poll(timeout=0.05):
-                D = connection.recv()
+            if not connection.poll(timeout=0.05):
+                continue
+            D = connection.recv()
+
+            if end.is_set():
                 break
 
-        # if read loop was broken because of shutdown event
-        # then break the main loop as well
-        if end.is_set():
-            break
+            task = D["task"]
 
-        task = D["task"]
+            if task == "advance":
+                for _ in range(D["advance_count"]):
+                    if end.is_set():
+                        return
+                    chain.take_step()
+                connection.send("advance_complete")
 
-        # advance the chain
-        if task == "advance":
-            for _ in range(D["advance_count"]):
-                chain.take_step()
-            connection.send("advance_complete")  # send signal to confirm completion
+            elif task == "send_position":
+                connection.send((chain.get_last(), chain.probs[-1]))
 
-        # return the current position of the chain
-        elif task == "send_position":
-            connection.send((chain.get_last(), chain.probs[-1]))
+            elif task == "update_position":
+                chain.replace_last(D["position"])
+                chain.probs[-1] = D["probability"] * chain.inv_temp
 
-        # update the position of the chain
-        elif task == "update_position":
-            chain.replace_last(D["position"])
-            chain.probs[-1] = D["probability"] * chain.inv_temp
-
-        # return the local chain object
-        elif task == "send_chain":
-            connection.send(chain)
+            elif task == "send_chain":
+                connection.send(chain)
+    finally:
+        connection.close()
 
 
 class ParallelTempering:
@@ -121,6 +128,12 @@ class ParallelTempering:
     This is particularly useful when sampling from highly-complex distributions
     which may have many separate maxima and/or strong correlations.
 
+    Workers start during construction. Using the object as a context manager calls
+    ``shutdown`` on exit, including when the body raises an exception. Retrieve any
+    chains with ``return_chains`` before leaving the context; results are not
+    retrieved automatically. Manual use with an explicit ``shutdown`` is also supported.
+    A shut-down instance cannot be restarted or re-entered, and contexts cannot be nested.
+
     :param chains: \
         A list of Markov-Chain objects (such as GibbsChain, PcaChain, HamiltonianChain)
         covering a range of different temperature levels. The list of chains should be
@@ -132,6 +145,8 @@ class ParallelTempering:
         self.shutdown_evt = Event()
         self.connections = []
         self.processes = []
+        self._closed = False
+        self._in_context = False
         self.temperatures = [1.0 / chain.inv_temp for chain in chains]
         self.inv_temps = [chain.inv_temp for chain in chains]
         self.N_chains = len(chains)
@@ -145,17 +160,57 @@ class ParallelTempering:
                 should be sorted in order of increasing chain temperature.
                 """)
 
-        # Spawn a separate process for each chain object
-        for chn in chains:
-            parent_ctn, child_ctn = Pipe()
-            self.connections.append(parent_ctn)
-            p = Process(
-                target=tempering_process,
-                args=(chn, child_ctn, self.shutdown_evt),
-            )
-            self.processes.append(p)
+        try:
+            for chn in chains:
+                parent_ctn, child_ctn = Pipe()
+                self.connections.append(parent_ctn)
+                try:
+                    p = Process(
+                        target=tempering_process,
+                        args=(
+                            chn,
+                            child_ctn,
+                            self.shutdown_evt,
+                            self.connections.copy(),
+                        ),
+                    )
+                    self.processes.append(p)
+                    p.start()
+                finally:
+                    child_ctn.close()
+        except BaseException as error:
+            try:
+                self.shutdown()
+            except Exception as cleanup_error:
+                raise error from cleanup_error
+            raise
 
-        [p.start() for p in self.processes]
+    def __enter__(self) -> "ParallelTempering":
+        self._check_open()
+        if self._in_context:
+            raise RuntimeError("ParallelTempering contexts cannot be nested.")
+        self._in_context = True
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
+        try:
+            self.shutdown()
+        except Exception as cleanup_error:
+            if exc_value is not None:
+                raise exc_value.with_traceback(traceback) from cleanup_error
+            raise
+        finally:
+            self._in_context = False
+        return False
+
+    def _check_open(self):
+        if self._closed or self.shutdown_evt.is_set():
+            raise RuntimeError("ParallelTempering has been shut down.")
 
     def take_steps(self, n: int):
         """
@@ -163,6 +218,7 @@ class ParallelTempering:
 
         :param int n: The number of steps by which every chain is advanced.
         """
+        self._check_open()
         # order the chains to advance n steps
         D = {"task": "advance", "advance_count": n}
         for pipe in self.connections:
@@ -213,6 +269,7 @@ class ParallelTempering:
         """
         Randomly group all chains into pairs and propose a position swap between each pair.
         """
+        self._check_open()
         # ask each process to report the current position of its chain
         D = {"task": "send_position"}
         [pipe.send(D) for pipe in self.connections]
@@ -261,6 +318,7 @@ class ParallelTempering:
         :param int swap_interval: \
             The number of steps that are taken in each chain between swap attempts.
         """
+        self._check_open()
         k = 50  # divide chain steps into k groups to track progress
         total_cycles = n // swap_interval
         if k < total_cycles:
@@ -311,6 +369,7 @@ class ParallelTempering:
         :param int swap_interval: \
             The number of steps that are taken in each chain between swap attempts.
         """
+        self._check_open()
         # first find the runtime in seconds:
         run_time = (hours * 60.0 + minutes) * 60.0
         start_time = time()
@@ -389,6 +448,7 @@ class ParallelTempering:
 
         :return: A list containing the chain objects.
         """
+        self._check_open()
         # order each process to return its locally stored chain object
         request = {"task": "send_chain"}
         for pipe in self.connections:
@@ -397,10 +457,65 @@ class ParallelTempering:
         # receive the chains and return them
         return [pipe.recv() for pipe in self.connections]
 
-    def shutdown(self):
+    @staticmethod
+    def _join_workers(processes: list[Process], timeout: float) -> list[Process]:
+        deadline = monotonic() + timeout
+        for process in processes:
+            process.join(timeout=max(0.0, deadline - monotonic()))
+        return [process for process in processes if process.is_alive()]
+
+    def shutdown(self, timeout: float = 5.0):
         """
-        Trigger a shutdown event which tells the processes holding each of
-        the chains to terminate.
+        Stop all workers and close their pipe and process handles.
+
+        Workers are first asked to exit cooperatively. Those still running after
+        the grace period are terminated, then killed if necessary, with up to one
+        second allowed for each of these two stages. Forced termination emits a
+        warning and may discard unfinished work. A worker which still cannot be
+        stopped causes a ``RuntimeError``.
+
+        Repeated calls after successful shutdown have no effect. Chains must be
+        retrieved before shutdown, and operations requiring workers are rejected
+        once shutdown has begun.
+
+        :param float timeout: \
+            Finite, non-negative grace period in seconds, shared across all workers.
         """
+        if not isfinite(timeout) or timeout < 0:
+            raise ValueError("The shutdown timeout must be finite and non-negative.")
+        if self._closed:
+            return
+
         self.shutdown_evt.set()
-        [p.join() for p in self.processes]
+        forced = []
+        try:
+            started = [process for process in self.processes if process.pid is not None]
+            remaining = self._join_workers(started, timeout)
+            forced = remaining.copy()
+            for process in remaining:
+                process.terminate()
+            remaining = self._join_workers(remaining, 1.0)
+            for process in remaining:
+                process.kill()
+            self._join_workers(remaining, 1.0)
+        finally:
+            for connection in self.connections:
+                connection.close()
+            survivors = []
+            for process in self.processes:
+                if process.pid is not None and process.is_alive():
+                    survivors.append(process)
+                else:
+                    process.close()
+            self.processes = survivors
+            self._closed = not survivors
+
+        if self.processes:
+            pids = [process.pid for process in self.processes]
+            raise RuntimeError(f"Unable to stop ParallelTempering workers: {pids}")
+        if forced:
+            warn(
+                "ParallelTempering forcibly stopped workers; unfinished work may be lost.",
+                RuntimeWarning,
+                stacklevel=2,
+            )

@@ -346,9 +346,7 @@ class GpRegressor:
             spatial points. Before removing axes of length one, their shapes are
             ``(M, N)`` and ``(M, N, N)``, where ``M`` is the number of points and
             ``N`` is the number of spatial dimensions. All axes of length one are
-            removed from both outputs. For example, one point in two dimensions
-            returns shapes ``(2,)`` and ``(2, 2)``; one point in one dimension
-            returns two 0D arrays.
+            removed from both outputs.
         """
         mu_q = []
         vars = []
