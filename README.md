@@ -26,10 +26,44 @@ the sampling results.
  - Gaussian-process regression and optimisation.
 
 
-| | | |
-|:-------------------------:|:-------------------------:|:-------------------------:|
-| [Gibbs Sampling](https://github.com/C-bowman/inference-tools/blob/master/demos/gibbs_sampling_demo.ipynb) <img width="1604" alt="1" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_gibbs_sampling.png"> | [Hamiltonian Monte-Carlo](https://github.com/C-bowman/inference-tools/blob/master/demos/hamiltonian_mcmc_demo.ipynb) <img width="1604" alt="2" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_hmc.png"> | [Density estimation](https://github.com/C-bowman/inference-tools/blob/master/demos/density_estimation_demo.ipynb) <img width="1604" alt="3" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_density_estimation.png"> |
-| Matrix plotting <img width="1604" alt="4" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/getting_started_images/matrix_plot_example.png"> | Highest-density intervals <img width="1604" alt="5" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_hdi.png"> | [GP regression](https://github.com/C-bowman/inference-tools/blob/master/demos/gp_regression_demo.ipynb) <img width="1604" alt="6" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_gpr.png"> |
+<table>
+  <tr>
+    <td align="center" width="33%">
+      <a href="https://github.com/C-bowman/inference-tools/blob/master/demos/gibbs_sampling_demo.ipynb">
+        <img width="280" alt="Gibbs sampling" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_gibbs_sampling.png">
+        <br>Gibbs Sampling
+      </a>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/C-bowman/inference-tools/blob/master/demos/hamiltonian_mcmc_demo.ipynb">
+        <img width="280" alt="Hamiltonian Monte-Carlo" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_hmc.png">
+        <br>Hamiltonian Monte-Carlo
+      </a>
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/C-bowman/inference-tools/blob/master/demos/density_estimation_demo.ipynb">
+        <img width="280" alt="Density estimation" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_density_estimation.png">
+        <br>Density estimation
+      </a>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="33%">
+      <img width="280" alt="Matrix plotting" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/getting_started_images/matrix_plot_example.png">
+      <br>Matrix plotting
+    </td>
+    <td align="center" width="33%">
+      <img width="280" alt="Highest-density intervals" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_hdi.png">
+      <br>Highest-density intervals
+    </td>
+    <td align="center" width="33%">
+      <a href="https://github.com/C-bowman/inference-tools/blob/master/demos/gp_regression_demo.ipynb">
+        <img width="280" alt="GP regression" src="https://raw.githubusercontent.com/C-bowman/inference-tools/master/docs/source/images/gallery_images/gallery_gpr.png">
+        <br>GP regression
+      </a>
+    </td>
+  </tr>
+</table>
 
 ## Installation
 
