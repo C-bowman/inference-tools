@@ -1,5 +1,6 @@
 import sys
-from math import isfinite
+from math import isfinite, log, log1p
+from numbers import Integral, Real
 from types import TracebackType
 from warnings import warn
 from multiprocessing import Process, Pipe, Event, Pool
@@ -9,8 +10,9 @@ from time import time, monotonic
 from random import choice
 
 import matplotlib.pyplot as plt
-from numpy import arange, exp, identity, zeros
+from numpy import arange, exp, finfo, identity, ndarray, zeros
 from numpy.random import default_rng
+from scipy.special import betaincinv
 from inference.plotting import transition_matrix_plot
 from inference.mcmc.base import MarkovChain
 
@@ -184,6 +186,91 @@ class ParallelTempering:
             except Exception as cleanup_error:
                 raise error from cleanup_error
             raise
+
+    @classmethod
+    def generate_temperatures(
+        cls,
+        n_chains: int,
+        n_dimensions: int,
+        *,
+        temperature_scale: float = 1.0,
+        target_acceptance: float = 0.25,
+    ) -> ndarray:
+        """
+        Generate geometrically spaced temperatures starting at one.
+
+        Spacing is calibrated for a Gaussian target, then scaled in
+        log-temperature. This is a starting estimate, not a guarantee of swap
+        acceptance for other distributions.
+
+        :param int n_chains: \
+            Number of temperatures, an integer of at least two.
+
+        :param int n_dimensions: \
+            Positive integer dimension used for Gaussian calibration.
+
+        :param float temperature_scale: \
+            Positive, finite scaling factor applied as ``T ** temperature_scale``.
+            Defaults to one; larger values widen the spacing.
+
+        :param float target_acceptance: \
+            Expected adjacent-swap acceptance before scaling, strictly between
+            zero and one. Defaults to 0.25.
+
+        :return: \
+            A 1D ``numpy.ndarray`` of increasing temperatures starting at one.
+        """
+        # Booleans are integers in Python, but are not valid counts.
+        for name, value, minimum in (
+            ("n_chains", n_chains, 2),
+            ("n_dimensions", n_dimensions, 1),
+        ):
+            if isinstance(value, bool) or not isinstance(value, Integral):
+                raise ValueError(f"{name} must be an integer.")
+            if value < minimum:
+                raise ValueError(f"{name} must be an integer of at least {minimum}.")
+
+        # Check numeric types before testing finiteness or comparing values.
+        for name, value in (
+            ("temperature_scale", temperature_scale),
+            ("target_acceptance", target_acceptance),
+        ):
+            if isinstance(value, bool) or not isinstance(value, Real):
+                raise ValueError(f"{name} must be a real number.")
+            if not isfinite(value):
+                raise ValueError(f"{name} must be finite.")
+
+        if temperature_scale <= 0.0:
+            raise ValueError("temperature_scale must be finite and greater than zero.")
+        if not 0.0 < target_acceptance < 1.0:
+            raise ValueError("target_acceptance must be strictly between zero and one.")
+
+        # Invert the Gaussian swap-acceptance relation to obtain the spacing.
+        shape = 0.5 * n_dimensions
+        quantile = float(betaincinv(shape, shape, 0.5 * target_acceptance))
+        if not 0.0 < quantile < 0.5:
+            raise ValueError(
+                "The Gaussian spacing cannot be represented at this dimension "
+                "and acceptance target."
+            )
+        log_ratio = (log1p(-quantile) - log(quantile)) * float(temperature_scale)
+        # Reject overflow before exponentiating the ladder.
+        if log_ratio > log(finfo(float).max) / (n_chains - 1):
+            raise ValueError(
+                "The maximum temperature exceeds floating-point range; "
+                "use fewer chains or a smaller temperature_scale."
+            )
+        temperatures = exp(arange(n_chains) * log_ratio)
+        # Very small spacings can round consecutive temperatures to the same value.
+        if (
+            not isfinite(temperatures[-1])
+            or not (temperatures[1:] > temperatures[:-1]).all()
+        ):
+            raise ValueError(
+                "The requested ladder cannot be represented with finite, distinct "
+                "floating-point temperatures."
+            )
+        return temperatures
 
     def __enter__(self) -> "ParallelTempering":
         self._check_open()

@@ -15,8 +15,9 @@ if __name__ == "__main__":
     from inference.mcmc import GibbsChain, ParallelTempering
 
     # define a set of temperature levels
-    N_levels = 6
-    temps = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
+    temps = ParallelTempering.generate_temperatures(
+        n_chains=6, n_dimensions=2
+    )
 
     # create a set of chains - one with each temperature
     chains = [GibbsChain(posterior=multimodal_posterior, start=[0.5, 0.5], temperature=T) for T in temps]

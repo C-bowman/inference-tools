@@ -11,8 +11,9 @@ def multimodal_posterior(theta):
 
 
 if __name__ == "__main__":
-    N_levels = 6
-    temps = [10 ** (2.5 * k / (N_levels - 1.0)) for k in range(N_levels)]
+    temps = ParallelTempering.generate_temperatures(
+        n_chains=6, n_dimensions=2
+    )
     chains = [
         GibbsChain(posterior=multimodal_posterior, start=[0.5, 0.5], temperature=T)
         for T in temps

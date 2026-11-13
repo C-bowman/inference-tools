@@ -2,7 +2,33 @@ ParallelTempering
 ~~~~~~~~~~~~~~~~~
 
 .. autoclass:: inference.mcmc.ParallelTempering
-   :members: advance, run_for, shutdown, return_chains
+   :members: generate_temperatures, advance, run_for, shutdown, return_chains
+
+
+Generating temperature ladders
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``generate_temperatures`` can be called before creating any chains or worker processes.
+For six chains sampling a ten-dimensional target:
+
+.. code-block:: python
+
+   from inference.mcmc import ParallelTempering
+
+   temperatures = ParallelTempering.generate_temperatures(
+       n_chains=6, n_dimensions=10
+   )
+
+Spacing is calibrated for a Gaussian target with an expected adjacent-swap acceptance
+of 0.25. The optional ``temperature_scale`` adjusts the log-temperature spacing.
+
+Every ladder begins at one. A scale of one leaves the Gaussian ladder unchanged;
+larger values widen the spacing and smaller positive values narrow it. Scaling is
+equivalent to raising each unscaled temperature to ``temperature_scale``, preserving
+geometric spacing. The optional ``target_acceptance`` sets the Gaussian acceptance
+before scaling. This is a heuristic for adjacent pairs, not a guarantee for a general
+posterior or swaps across multiple ladder levels. Check the swap diagnostics and
+whether the hottest chain explores the relevant modes before relying on a ladder.
 
 
 ParallelTempering example code
@@ -45,8 +71,9 @@ retrieving the chains raises an exception:
    from inference.mcmc import GibbsChain, ParallelTempering
 
    if __name__ == "__main__":
-       N_levels = 6
-       temperatures = [10**(2.5*k/(N_levels-1.)) for k in range(N_levels)]
+       temperatures = ParallelTempering.generate_temperatures(
+           n_chains=6, n_dimensions=2
+       )
        chains = [
            GibbsChain(posterior=multimodal_posterior, start=[0.5, 0.5], temperature=T)
            for T in temperatures

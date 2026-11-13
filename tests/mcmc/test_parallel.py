@@ -3,10 +3,109 @@ from time import monotonic, sleep
 from unittest.mock import Mock
 
 import pytest
-from numpy import asarray, isfinite
+from numpy import asarray, finfo, int64, isfinite, nextafter
+from scipy.special import betainc
 
 from inference.mcmc import GibbsChain, ParallelTempering
 from inference.mcmc import parallel
+
+
+def test_temperature_ladder_without_workers(monkeypatch):
+    process = Mock(side_effect=AssertionError("Ladder generation started a worker"))
+    monkeypatch.setattr(parallel, "Process", process)
+    temperatures = ParallelTempering.generate_temperatures(int64(6), int64(10))
+    assert temperatures.shape == (6,)
+    assert temperatures[0] == 1.0
+    assert isfinite(temperatures).all()
+    ratios = temperatures[1:] / temperatures[:-1]
+    assert ratios == pytest.approx([ratios[0]] * 5)
+    process.assert_not_called()
+
+
+@pytest.mark.parametrize("target_acceptance", [0.1, 0.25, 0.75])
+def test_temperature_ladder_two_dimensional_gaussian(target_acceptance):
+    temperatures = ParallelTempering.generate_temperatures(
+        4, 2, target_acceptance=target_acceptance
+    )
+    # In two dimensions the exact Gaussian acceptance is 2 / (1 + ratio).
+    ratio = 2.0 / target_acceptance - 1.0
+    assert temperatures == pytest.approx([1.0, ratio, ratio**2, ratio**3])
+
+
+@pytest.mark.parametrize("n_dimensions", [1, 10, 100, 1000])
+def test_temperature_ladder_calibrated_acceptance(n_dimensions):
+    target = 0.25
+    temperatures = ParallelTempering.generate_temperatures(
+        6, n_dimensions, target_acceptance=target
+    )
+    ratios = temperatures[1:] / temperatures[:-1]
+    acceptance = 2 * betainc(n_dimensions / 2, n_dimensions / 2, 1 / (1 + ratios))
+    assert acceptance == pytest.approx([target] * 5, abs=1e-12)
+    assert (temperatures[1:] > temperatures[:-1]).all()
+
+
+@pytest.mark.parametrize("n_dimensions", [2, 100])
+@pytest.mark.parametrize("temperature_scale", [0.5, 1.0, 2.0])
+def test_temperature_ladder_log_scaling(n_dimensions, temperature_scale):
+    baseline = ParallelTempering.generate_temperatures(6, n_dimensions)
+    scaled = ParallelTempering.generate_temperatures(
+        6, n_dimensions, temperature_scale=temperature_scale
+    )
+    assert scaled == pytest.approx(baseline**temperature_scale)
+    assert scaled[0] == 1.0
+    assert (scaled[1:] > scaled[:-1]).all()
+    shorter = ParallelTempering.generate_temperatures(
+        3, n_dimensions, temperature_scale=temperature_scale
+    )
+    assert shorter == pytest.approx(scaled[:3])
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        {"n_chains": 1},
+        {"n_chains": True},
+        {"n_chains": 4.0},
+        {"n_chains": None},
+        {"n_dimensions": 0},
+        {"n_dimensions": False},
+        {"n_dimensions": 2.5},
+        {"n_dimensions": None},
+        {"temperature_scale": 0.0},
+        {"temperature_scale": -1.0},
+        {"temperature_scale": float("inf")},
+        {"temperature_scale": float("nan")},
+        {"temperature_scale": True},
+        {"temperature_scale": "2"},
+        {"target_acceptance": 0.0},
+        {"target_acceptance": 1.0},
+        {"target_acceptance": float("nan")},
+        {"target_acceptance": float("inf")},
+        {"target_acceptance": True},
+    ],
+)
+def test_temperature_ladder_invalid_arguments(arguments):
+    with pytest.raises(ValueError):
+        ParallelTempering.generate_temperatures(
+            **({"n_chains": 4, "n_dimensions": 2} | arguments)
+        )
+
+
+def test_temperature_ladder_floating_point_limits():
+    with pytest.raises(ValueError, match="floating-point range"):
+        ParallelTempering.generate_temperatures(1000, 1)
+    with pytest.raises(ValueError, match="floating-point range"):
+        ParallelTempering.generate_temperatures(
+            3, 2, temperature_scale=finfo(float).max
+        )
+    with pytest.raises(ValueError, match="cannot be represented"):
+        ParallelTempering.generate_temperatures(
+            2, 1, target_acceptance=nextafter(0.0, 1.0)
+        )
+    with pytest.raises(ValueError, match="finite, distinct"):
+        ParallelTempering.generate_temperatures(
+            3, 2, temperature_scale=nextafter(0.0, 1.0)
+        )
 
 
 def normal_posterior(theta):
