@@ -153,7 +153,7 @@ class GpLinearInverter:
             The hyper-parameter values as a 1D ``numpy.ndarray``.
 
         :return: \
-            The posterior mean and covariance.
+            The posterior mean as a 1D ``numpy.ndarray``.
         """
         K = self.cov.build_covariance(theta[self.cov_slice])
         prior_mean = self.mean.build_mean(theta[self.mean_slice])

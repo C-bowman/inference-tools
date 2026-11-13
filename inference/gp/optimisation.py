@@ -44,12 +44,14 @@ class GpOptimiser:
         argument is not specified the errors are taken to be small but non-zero.
 
     :param hyperpars: \
-        An array specifying the hyper-parameter values to be used by the
-        covariance function class, which by default is ``SquaredExponential``.
-        See the documentation for the relevant covariance function class for
-        a description of the required hyper-parameters. Generally this argument
-        should be left unspecified, in which case the hyper-parameters will be
-        selected automatically.
+        A 1D array containing the mean-function hyper-parameters followed by the
+        covariance-function hyper-parameters. See the documentation for the chosen
+        mean and covariance functions for the ordering within each group. For
+        1D data with the defaults ``ConstantMean`` and ``SquaredExponential``, the
+        vector is ``[constant_mean, log_amplitude, log_length_scale]``, where the
+        logarithms are natural. These values initialise the regression model;
+        subsequent calls to ``add_evaluation`` re-fit its hyper-parameters.
+        If unspecified, the initial hyper-parameters are selected automatically.
 
     :param class kernel: \
         The covariance-function class which will be used to model the data. The

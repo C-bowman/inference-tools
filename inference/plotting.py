@@ -75,7 +75,7 @@ def matrix_plot(
     :param hdi_fractions: \
         The highest-density intervals used for contouring, specified in terms of
         the fraction of the total probability contained in each interval. Should
-        be given as an iterable of floats, each in the range [0, 1].
+        be given as an iterable of floats, each strictly greater than 0 and less than 1.
 
     :param int label_size: \
         The font-size used for axis labels.
@@ -114,7 +114,7 @@ def matrix_plot(
         raise ValueError("""\n
             \r[ matrix_plot error ]
             \r>> The 'hdi_fractions' argument must be given as an
-            \r>> iterable of floats, each in the range [0, 1].
+            \r>> iterable of floats, each strictly greater than 0 and less than 1.
             """)
 
     # by default, we suppress axis ticks if there are 6 parameters or more to keep things tidy
@@ -385,7 +385,8 @@ def hdi_plot(
 
     :param intervals: \
         The fractions of the total probability contained in each interval which is to be
-        plotted as a Sequence of floats. All given values must be in the range [0, 1].
+        plotted as a Sequence of floats. All values must be strictly greater than 0
+        and less than 1.
 
     :param str color: \
         The color to be used for plotting the intervals. Must be the name of

@@ -44,11 +44,13 @@ class GpRegressor:
         y-data covariance matrix to be specified directly.
 
     :param hyperpars: \
-        An array specifying the hyper-parameter values to be used by the
-        covariance function class, which by default is ``SquaredExponential``.
-        See the documentation for the relevant covariance function class for
-        a description of the required hyper-parameters. Generally this argument
-        should be left unspecified, in which case the hyper-parameters will be
+        A 1D array containing the mean-function hyper-parameters followed by the
+        covariance-function hyper-parameters. See the documentation for the chosen
+        mean and covariance functions for the ordering within each group. For
+        1D data with the defaults ``ConstantMean`` and ``SquaredExponential``, the
+        vector is ``[constant_mean, log_amplitude, log_length_scale]``, where the
+        logarithms are natural. The ``hyperpar_labels`` attribute lists the
+        parameters in this order. If unspecified, the hyper-parameters are
         selected automatically.
 
     :param class kernel: \
@@ -340,10 +342,13 @@ class GpRegressor:
             converted to a ``ndarray`` internally.
 
         :return means, covariances: \
-            Two arrays containing the means and covariances of each given spatial point.
-            If the number of spatial dimensions ``N`` is greater than 1, then the
-            covariances array is a set of 2D covariance matrices, having shape
-            ``(M,N,N)`` where ``M`` is the given number of spatial points.
+            Two arrays containing the gradient means and covariances at the given
+            spatial points. Before removing axes of length one, their shapes are
+            ``(M, N)`` and ``(M, N, N)``, where ``M`` is the number of points and
+            ``N`` is the number of spatial dimensions. All axes of length one are
+            removed from both outputs. For example, one point in two dimensions
+            returns shapes ``(2,)`` and ``(2, 2)``; one point in one dimension
+            returns two 0D arrays.
         """
         mu_q = []
         vars = []
