@@ -35,7 +35,8 @@ be easily applied to inference problems.
    * - :doc:`ParallelTempering`
      - Multi-modal posteriors with well-separated peaks.
      - Advances a set of the other chains at different 'temperatures' in parallel
-       processes, allowing the chains to exchange positions.
+       processes, allowing the chains to exchange positions. Use as a context
+       manager to shut down the worker processes automatically.
 
 .. toctree::
    :maxdepth: 2
