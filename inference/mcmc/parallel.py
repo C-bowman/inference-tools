@@ -187,9 +187,8 @@ class ParallelTempering:
                 raise error from cleanup_error
             raise
 
-    @classmethod
+    @staticmethod
     def generate_temperatures(
-        cls,
         n_chains: int,
         n_dimensions: int,
         *,
